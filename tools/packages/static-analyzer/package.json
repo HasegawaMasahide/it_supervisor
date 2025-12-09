@@ -1,0 +1,26 @@
+{
+  "name": "@it-supervisor/static-analyzer",
+  "version": "0.1.0",
+  "description": "静的解析オーケストレーター - 複数の静的解析ツールを統合的に実行",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "static-analysis",
+    "linter",
+    "security",
+    "it-audit"
+  ],
+  "author": "IT Supervisor Team",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@it-supervisor/metrics-model": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0"
+  }
+}
