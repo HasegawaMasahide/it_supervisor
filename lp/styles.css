@@ -1118,3 +1118,314 @@ section {
         padding: 1.5rem;
     }
 }
+
+/* ========================================
+   ツール・技術セクション
+   ======================================== */
+.tools {
+    padding: 6rem 0;
+    background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+}
+
+.tools-overview {
+    margin-bottom: 4rem;
+}
+
+.tools-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.tool-stat-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.tool-stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.tool-stat-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.tool-stat-number {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.tool-stat-label {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.tool-stat-card p {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* ツールカテゴリグリッド */
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+    margin-bottom: 4rem;
+}
+
+.tool-category {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.tool-category-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.tool-category-icon {
+    font-size: 1.5rem;
+}
+
+.tool-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.tool-item {
+    padding: 1rem;
+    background: var(--bg-gray);
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+    transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.tool-item:hover {
+    background: #f3f4f6;
+    border-color: var(--accent-color);
+}
+
+.tool-item strong {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.tool-item p {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* 品質ゲート */
+.tools-quality-gates {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 3rem;
+    border-radius: 16px;
+    margin-bottom: 3rem;
+}
+
+.quality-gates-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.quality-gates-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.quality-gate {
+    background: white;
+    color: var(--text-primary);
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+    min-width: 180px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.gate-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 50%;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+.gate-content h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.gate-content p {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.gate-arrow {
+    font-size: 1.5rem;
+    color: white;
+    font-weight: 700;
+}
+
+.quality-gates-note {
+    text-align: center;
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 技術タグ */
+.tools-technologies {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.technologies-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 2rem;
+    color: var(--text-primary);
+}
+
+.tech-categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+}
+
+.tech-category h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.tech-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.tech-tag {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background: var(--bg-gray);
+    color: var(--text-primary);
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.tech-tag:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .tools {
+        padding: 3rem 0;
+    }
+
+    .tools-stats {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .tool-stat-card {
+        padding: 1.5rem;
+    }
+
+    .tool-stat-number {
+        font-size: 2rem;
+    }
+
+    .tools-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .tool-category {
+        padding: 1.5rem;
+    }
+
+    .tools-quality-gates {
+        padding: 2rem 1.5rem;
+    }
+
+    .quality-gates-flow {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .quality-gate {
+        width: 100%;
+        min-width: unset;
+    }
+
+    .gate-arrow {
+        transform: rotate(90deg);
+        margin: 0.5rem 0;
+    }
+
+    .tools-technologies {
+        padding: 1.5rem;
+    }
+
+    .tech-categories {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+}
