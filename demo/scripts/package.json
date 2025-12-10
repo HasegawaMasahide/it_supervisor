@@ -1,0 +1,14 @@
+{
+  "name": "demo-scripts",
+  "version": "1.0.0",
+  "description": "IT資産監査デモ解析スクリプト",
+  "scripts": {
+    "analyze": "ts-node analyze-todo-app.ts",
+    "analyze:js": "node analyze-todo-app.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
