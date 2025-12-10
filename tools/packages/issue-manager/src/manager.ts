@@ -392,6 +392,212 @@ export class IssueManager {
   }
 
   /**
+   * 優先度を自動計算
+   */
+  calculatePriority(issue: Issue): number {
+    let priority = 0;
+
+    // 重要度による基本スコア
+    const severityScores = {
+      [IssueSeverity.Critical]: 100,
+      [IssueSeverity.High]: 75,
+      [IssueSeverity.Medium]: 50,
+      [IssueSeverity.Low]: 25
+    };
+    priority += severityScores[issue.severity];
+
+    // カテゴリによる追加スコア
+    if (issue.category === IssueCategory.Security) {
+      priority += 50; // セキュリティは高優先度
+    }
+
+    // 期限による加算
+    if (issue.dueDate) {
+      const daysUntilDue = Math.floor(
+        (issue.dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (daysUntilDue < 0) {
+        priority += 100; // 期限切れ
+      } else if (daysUntilDue < 3) {
+        priority += 50; // 3日以内
+      } else if (daysUntilDue < 7) {
+        priority += 25; // 1週間以内
+      }
+    }
+
+    return priority;
+  }
+
+  /**
+   * 優先度付きIssueリストを取得
+   */
+  getIssuesWithPriority(projectId: string, limit?: number): Array<Issue & { priority: number }> {
+    const issues = this.searchIssues({
+      projectId,
+      status: [IssueStatus.Identified, IssueStatus.Diagnosed, IssueStatus.Approved]
+    });
+
+    const issuesWithPriority = issues.map(issue => ({
+      ...issue,
+      priority: this.calculatePriority(issue)
+    }));
+
+    // 優先度順にソート
+    issuesWithPriority.sort((a, b) => b.priority - a.priority);
+
+    return limit ? issuesWithPriority.slice(0, limit) : issuesWithPriority;
+  }
+
+  /**
+   * 関連Issueを検出
+   */
+  findRelatedIssues(issueId: string, threshold: number = 0.5): Issue[] {
+    const issue = this.getIssue(issueId);
+    if (!issue) return [];
+
+    const allIssues = this.searchIssues({ projectId: issue.projectId });
+    const related: Array<{ issue: Issue; similarity: number }> = [];
+
+    for (const otherIssue of allIssues) {
+      if (otherIssue.id === issueId) continue;
+
+      const similarity = this.calculateSimilarity(issue, otherIssue);
+      if (similarity >= threshold) {
+        related.push({ issue: otherIssue, similarity });
+      }
+    }
+
+    // 類似度順にソート
+    related.sort((a, b) => b.similarity - a.similarity);
+
+    return related.map(r => r.issue);
+  }
+
+  /**
+   * Issue間の類似度を計算
+   */
+  private calculateSimilarity(issue1: Issue, issue2: Issue): number {
+    let score = 0;
+    let maxScore = 0;
+
+    // カテゴリが同じ
+    maxScore += 30;
+    if (issue1.category === issue2.category) {
+      score += 30;
+    }
+
+    // 重要度が同じ
+    maxScore += 20;
+    if (issue1.severity === issue2.severity) {
+      score += 20;
+    }
+
+    // 同じファイル
+    maxScore += 25;
+    if (issue1.location?.file === issue2.location?.file) {
+      score += 25;
+    }
+
+    // タグの重複
+    maxScore += 25;
+    const tags1 = new Set(issue1.tags || []);
+    const tags2 = new Set(issue2.tags || []);
+    const commonTags = [...tags1].filter(tag => tags2.has(tag));
+    score += (commonTags.length / Math.max(tags1.size, tags2.size, 1)) * 25;
+
+    return score / maxScore;
+  }
+
+  /**
+   * Issueをラベルで分類
+   */
+  addLabel(issueId: string, label: string): Issue | null {
+    const issue = this.getIssue(issueId);
+    if (!issue) return null;
+
+    const tags = issue.tags || [];
+    if (!tags.includes(label)) {
+      tags.push(label);
+      return this.updateIssue(issueId, { tags });
+    }
+
+    return issue;
+  }
+
+  /**
+   * ラベルを削除
+   */
+  removeLabel(issueId: string, label: string): Issue | null {
+    const issue = this.getIssue(issueId);
+    if (!issue) return null;
+
+    const tags = (issue.tags || []).filter(tag => tag !== label);
+    return this.updateIssue(issueId, { tags });
+  }
+
+  /**
+   * ラベル一覧を取得
+   */
+  getAllLabels(projectId: string): Array<{ label: string; count: number }> {
+    const issues = this.searchIssues({ projectId });
+    const labelCounts = new Map<string, number>();
+
+    for (const issue of issues) {
+      for (const tag of issue.tags || []) {
+        labelCounts.set(tag, (labelCounts.get(tag) || 0) + 1);
+      }
+    }
+
+    return Array.from(labelCounts.entries())
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  /**
+   * Issueをエクスポート（CSV形式）
+   */
+  exportToCSV(projectId?: string): string {
+    const issues = this.searchIssues({ projectId });
+
+    let csv = 'ID,Project ID,Title,Category,Severity,Status,Assignee,Created At,Updated At\n';
+
+    for (const issue of issues) {
+      const row = [
+        issue.id,
+        issue.projectId,
+        `"${issue.title.replace(/"/g, '""')}"`,
+        issue.category,
+        issue.severity,
+        issue.status,
+        issue.assignee || '',
+        issue.createdAt.toISOString(),
+        issue.updatedAt.toISOString()
+      ];
+      csv += row.join(',') + '\n';
+    }
+
+    return csv;
+  }
+
+  /**
+   * バルクステータス更新
+   */
+  bulkUpdateStatus(issueIds: string[], status: IssueStatus): number {
+    let updated = 0;
+
+    const transaction = this.db.transaction(() => {
+      for (const issueId of issueIds) {
+        const result = this.updateIssueStatus(issueId, status);
+        if (result) updated++;
+      }
+    });
+
+    transaction();
+    return updated;
+  }
+
+  /**
    * データベースを閉じる
    */
   close(): void {

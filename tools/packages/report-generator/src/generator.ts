@@ -64,14 +64,50 @@ export class ReportGenerator {
   }
 
   /**
-   * PDFに出力（プロトタイプ実装）
+   * PDFに出力（puppeteer使用）
    */
   async exportToPDF(report: Report, outputPath: string): Promise<void> {
-    // 実際には puppeteer や pdfkit を使用してPDF生成
-    // プロトタイプではHTMLを生成してファイル名に.pdfを付ける
-    const html = this.generateHTML(report);
-    await fs.writeFile(outputPath.replace('.pdf', '.html'), html, 'utf-8');
-    console.log(`Note: PDF generation not implemented in prototype. HTML saved to ${outputPath.replace('.pdf', '.html')}`);
+    try {
+      // puppeteerを使用してPDF生成
+      const puppeteer = require('puppeteer');
+      const html = this.generateHTML(report);
+
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+
+      await page.pdf({
+        path: outputPath,
+        format: 'A4',
+        margin: {
+          top: '20mm',
+          right: '15mm',
+          bottom: '20mm',
+          left: '15mm'
+        },
+        printBackground: true,
+        displayHeaderFooter: true,
+        headerTemplate: '<div></div>',
+        footerTemplate: `
+          <div style="font-size: 10px; text-align: center; width: 100%; padding: 5px;">
+            <span class="pageNumber"></span> / <span class="totalPages"></span>
+          </div>
+        `
+      });
+
+      await browser.close();
+      console.log(`PDF generated: ${outputPath}`);
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      // フォールバック: HTMLを生成
+      const html = this.generateHTML(report);
+      await fs.writeFile(outputPath.replace('.pdf', '.html'), html, 'utf-8');
+      console.log(`Note: PDF generation failed. HTML saved to ${outputPath.replace('.pdf', '.html')}`);
+    }
   }
 
   /**
@@ -416,5 +452,159 @@ export class ReportGenerator {
     markdown += `*生成日時: ${report.generatedAt.toLocaleString('ja-JP')}*\n`;
 
     return markdown;
+  }
+
+  /**
+   * チャートデータを生成（Chart.js用）
+   */
+  generateChartData(
+    type: 'bar' | 'pie' | 'line',
+    labels: string[],
+    data: number[],
+    label: string = 'データ'
+  ): string {
+    const colors = [
+      '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+      '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+    ];
+
+    const chartConfig = {
+      type,
+      data: {
+        labels,
+        datasets: [{
+          label,
+          data,
+          backgroundColor: colors.slice(0, data.length),
+          borderColor: colors.slice(0, data.length),
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'top' as const
+          },
+          title: {
+            display: true,
+            text: label
+          }
+        }
+      }
+    };
+
+    return JSON.stringify(chartConfig);
+  }
+
+  /**
+   * チャートを含むHTMLを生成
+   */
+  async generateHTMLWithCharts(
+    report: Report,
+    charts: Array<{ id: string; type: 'bar' | 'pie' | 'line'; labels: string[]; data: number[]; title: string }>
+  ): Promise<string> {
+    const baseHTML = this.generateHTML(report);
+
+    // Chart.jsスクリプトを追加
+    const chartScripts = charts.map(chart => {
+      const chartData = this.generateChartData(chart.type, chart.labels, chart.data, chart.title);
+      return `
+        <div style="max-width: 600px; margin: 30px auto;">
+          <canvas id="${chart.id}"></canvas>
+        </div>
+        <script>
+          new Chart(document.getElementById('${chart.id}'), ${chartData});
+        </script>
+      `;
+    }).join('\n');
+
+    // Chart.jsライブラリと生成したチャートを追加
+    const htmlWithCharts = baseHTML.replace(
+      '</body>',
+      `
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        ${chartScripts}
+      </body>
+      `
+    );
+
+    return htmlWithCharts;
+  }
+
+  /**
+   * カスタムテンプレートを登録
+   */
+  async registerTemplate(name: string, templateContent: string): Promise<void> {
+    const templatePath = path.join(this.templatesDir, `${name}.md`);
+    await fs.mkdir(this.templatesDir, { recursive: true });
+    await fs.writeFile(templatePath, templateContent, 'utf-8');
+  }
+
+  /**
+   * テンプレート一覧を取得
+   */
+  async listTemplates(): Promise<string[]> {
+    try {
+      const files = await fs.readdir(this.templatesDir);
+      return files
+        .filter(file => file.endsWith('.md'))
+        .map(file => file.replace('.md', ''));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 多言語対応レポート生成
+   */
+  async generateMultiLanguage(
+    type: ReportType,
+    config: ReportConfig,
+    languages: string[] = ['ja', 'en']
+  ): Promise<Record<string, Report>> {
+    const reports: Record<string, Report> = {};
+
+    for (const lang of languages) {
+      const localizedConfig = { ...config };
+
+      // 言語別のテンプレートを読み込み
+      const templateName = `${type}_${lang}`;
+      const template = await this.loadTemplate(templateName as ReportType)
+        .catch(() => this.getDefaultTemplate(type));
+
+      const variables = this.prepareVariables(localizedConfig);
+      const content = this.expandTemplate(template, variables);
+      const sections = this.parseMarkdown(content);
+      const toc = this.generateTOC(sections);
+
+      reports[lang] = {
+        type,
+        config: localizedConfig,
+        sections,
+        toc,
+        generatedAt: new Date()
+      };
+    }
+
+    return reports;
+  }
+
+  /**
+   * レポートをプレビュー（サーバー起動）
+   */
+  async preview(report: Report, port: number = 3000): Promise<void> {
+    const html = this.generateHTML(report);
+    const http = require('http');
+
+    const server = http.createServer((req: any, res: any) => {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+    });
+
+    server.listen(port, () => {
+      console.log(`レポートプレビューサーバー起動: http://localhost:${port}`);
+      console.log('Ctrl+Cで停止します');
+    });
   }
 }

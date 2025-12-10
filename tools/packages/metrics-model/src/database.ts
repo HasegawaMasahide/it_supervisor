@@ -16,9 +16,11 @@ import {
  */
 export class MetricsDatabase {
   private db: Database.Database;
+  private validateData: boolean;
 
-  constructor(filepath: string) {
+  constructor(filepath: string, options: { validate?: boolean } = {}) {
     this.db = new Database(filepath);
+    this.validateData = options.validate !== false;
     this.initialize();
   }
 
@@ -70,6 +72,11 @@ export class MetricsDatabase {
    * プロジェクトを作成
    */
   createProject(project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): Project {
+    // バリデーション
+    if (this.validateData) {
+      this.validateProject(project);
+    }
+
     const id = randomUUID();
     const now = Date.now();
 
@@ -141,6 +148,11 @@ export class MetricsDatabase {
    * メトリクスを記録
    */
   recordMetric(metric: Omit<MetricRecord, 'id'>): MetricRecord {
+    // バリデーション
+    if (this.validateData) {
+      this.validateMetric(metric);
+    }
+
     const id = randomUUID();
     const valueType = typeof metric.value;
 
@@ -420,6 +432,180 @@ export class MetricsDatabase {
    */
   close(): void {
     this.db.close();
+  }
+
+  /**
+   * トランザクションを実行
+   */
+  transaction<T>(fn: () => T): T {
+    const transactionFn = this.db.transaction(fn);
+    return transactionFn();
+  }
+
+  /**
+   * CSV形式でエクスポート
+   */
+  exportToCSV(projectIds?: string[]): string {
+    const data = this.exportMetrics(projectIds);
+
+    // CSVヘッダー
+    let csv = 'Project ID,Project Name,Timestamp,Category,Name,Value,Unit,Source,Notes\n';
+
+    // データ行
+    data.metrics.forEach(metric => {
+      const project = data.projects.find(p => p.id === metric.projectId);
+      const row = [
+        metric.projectId,
+        project?.name || '',
+        metric.timestamp.toISOString(),
+        metric.category,
+        metric.name,
+        String(metric.value),
+        metric.unit || '',
+        metric.source,
+        (metric.notes || '').replace(/,/g, ';').replace(/\n/g, ' ')
+      ];
+      csv += row.map(field => `"${field}"`).join(',') + '\n';
+    });
+
+    return csv;
+  }
+
+  /**
+   * JSONファイルとしてエクスポート（拡張版）
+   */
+  exportToJSONFile(filepath: string, projectIds?: string[]): void {
+    const data = this.exportMetrics(projectIds);
+    const fs = require('fs');
+    fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+  }
+
+  /**
+   * バックアップを作成
+   */
+  backup(backupPath: string): void {
+    this.db.backup(backupPath).then(() => {
+      console.log(`Backup created at ${backupPath}`);
+    }).catch(error => {
+      throw new Error(`Backup failed: ${error.message}`);
+    });
+  }
+
+  /**
+   * プロジェクトを更新
+   */
+  updateProject(projectId: string, updates: Partial<Omit<Project, 'id' | 'createdAt'>>): Project | null {
+    const current = this.getProject(projectId);
+    if (!current) return null;
+
+    const updateFields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.name !== undefined) {
+      updateFields.push('name = ?');
+      values.push(updates.name);
+    }
+
+    if (updates.description !== undefined) {
+      updateFields.push('description = ?');
+      values.push(updates.description);
+    }
+
+    if (updates.metadata !== undefined) {
+      updateFields.push('metadata = ?');
+      values.push(JSON.stringify(updates.metadata));
+    }
+
+    updateFields.push('updated_at = ?');
+    values.push(Date.now());
+    values.push(projectId);
+
+    const stmt = this.db.prepare(`
+      UPDATE projects SET ${updateFields.join(', ')} WHERE id = ?
+    `);
+
+    stmt.run(...values);
+    return this.getProject(projectId);
+  }
+
+  /**
+   * プロジェクトを削除
+   */
+  deleteProject(projectId: string): boolean {
+    const transaction = this.db.transaction(() => {
+      // 関連メトリクスも削除
+      this.db.prepare('DELETE FROM metrics WHERE project_id = ?').run(projectId);
+      const result = this.db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
+      return result.changes > 0;
+    });
+
+    return transaction();
+  }
+
+  /**
+   * メトリクスを削除
+   */
+  deleteMetric(metricId: string): boolean {
+    const stmt = this.db.prepare('DELETE FROM metrics WHERE id = ?');
+    const result = stmt.run(metricId);
+    return result.changes > 0;
+  }
+
+  /**
+   * メトリクスを一括記録（トランザクション使用）
+   */
+  recordMetricsBatch(metrics: Array<Omit<MetricRecord, 'id'>>): MetricRecord[] {
+    const insertedMetrics: MetricRecord[] = [];
+
+    const transaction = this.db.transaction(() => {
+      for (const metric of metrics) {
+        const inserted = this.recordMetric(metric);
+        insertedMetrics.push(inserted);
+      }
+    });
+
+    transaction();
+    return insertedMetrics;
+  }
+
+  /**
+   * プロジェクトをバリデーション
+   */
+  private validateProject(project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): void {
+    if (!project.name || project.name.trim() === '') {
+      throw new Error('Project name is required');
+    }
+
+    if (project.name.length > 255) {
+      throw new Error('Project name must be less than 255 characters');
+    }
+  }
+
+  /**
+   * メトリクスをバリデーション
+   */
+  private validateMetric(metric: Omit<MetricRecord, 'id'>): void {
+    if (!metric.projectId) {
+      throw new Error('Project ID is required');
+    }
+
+    if (!metric.name || metric.name.trim() === '') {
+      throw new Error('Metric name is required');
+    }
+
+    if (metric.value === null || metric.value === undefined) {
+      throw new Error('Metric value is required');
+    }
+
+    if (!metric.source || metric.source.trim() === '') {
+      throw new Error('Metric source is required');
+    }
+
+    // プロジェクトの存在確認
+    const project = this.getProject(metric.projectId);
+    if (!project) {
+      throw new Error(`Project with ID ${metric.projectId} does not exist`);
+    }
   }
 
   /**

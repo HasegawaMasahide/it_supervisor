@@ -184,7 +184,7 @@ export class StaticAnalyzer {
   }
 
   /**
-   * ESLint実行（プロトタイプ）
+   * ESLint実行（実装版）
    */
   private async runESLint(
     repoPath: string,
@@ -195,30 +195,99 @@ export class StaticAnalyzer {
       const packageJsonPath = path.join(repoPath, 'package.json');
       await fs.access(packageJsonPath);
 
-      // ESLintがインストールされているか確認（簡易版）
-      // 実際には eslint --format json を実行して結果をパース
+      // ESLintコマンド実行
+      const command = `npx eslint "${repoPath}" --format json --ext .js,.ts,.jsx,.tsx`;
+      const { stdout, stderr } = await execAsync(command, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024 // 10MB
+      }).catch(error => {
+        // ESLintは問題があるとexit code 1を返すので、エラーを無視
+        return { stdout: error.stdout || '[]', stderr: error.stderr || '' };
+      });
 
-      // プロトタイプのためダミーデータ
-      return [
-        {
-          id: randomUUID(),
-          tool: AnalyzerTool.ESLint,
-          severity: Severity.Medium,
-          category: IssueCategory.CodeQuality,
-          rule: 'no-unused-vars',
-          message: 'Variable is declared but never used',
-          file: path.join(repoPath, 'src/example.ts'),
-          line: 42,
-          column: 10
-        }
-      ];
-    } catch {
+      // 結果をパース
+      const results = JSON.parse(stdout || '[]');
+      return this.parseESLintResults(results, repoPath);
+    } catch (error) {
+      console.error('ESLint execution failed:', error);
       return [];
     }
   }
 
   /**
-   * Snyk実行（プロトタイプ）
+   * ESLint結果をパース
+   */
+  private parseESLintResults(results: any[], repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    for (const result of results) {
+      if (!result.messages) continue;
+
+      for (const message of result.messages) {
+        const severity = this.mapESLintSeverity(message.severity);
+        const category = this.categorizeESLintRule(message.ruleId);
+
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.ESLint,
+          severity,
+          category,
+          rule: message.ruleId || 'unknown',
+          message: message.message,
+          file: result.filePath,
+          line: message.line,
+          column: message.column,
+          endLine: message.endLine,
+          endColumn: message.endColumn,
+          fix: message.fix ? {
+            available: true,
+            description: 'Auto-fixable',
+            code: message.fix.text
+          } : undefined
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  /**
+   * ESLintの重要度をマッピング
+   */
+  private mapESLintSeverity(eslintSeverity: number): Severity {
+    switch (eslintSeverity) {
+      case 2:
+        return Severity.High;
+      case 1:
+        return Severity.Medium;
+      default:
+        return Severity.Low;
+    }
+  }
+
+  /**
+   * ESLintルールをカテゴリ分類
+   */
+  private categorizeESLintRule(ruleId: string | null): IssueCategory {
+    if (!ruleId) return IssueCategory.CodeQuality;
+
+    if (ruleId.includes('security') || ruleId.includes('no-eval') || ruleId.includes('no-unsafe')) {
+      return IssueCategory.Security;
+    }
+
+    if (ruleId.includes('complexity') || ruleId.includes('max-')) {
+      return IssueCategory.Complexity;
+    }
+
+    if (ruleId.includes('performance')) {
+      return IssueCategory.Performance;
+    }
+
+    return IssueCategory.CodeQuality;
+  }
+
+  /**
+   * Snyk実行（実装版）
    */
   private async runSnyk(
     repoPath: string,
@@ -238,27 +307,76 @@ export class StaticAnalyzer {
         return [];
       }
 
-      // プロトタイプのためダミーデータ
-      return [
-        {
-          id: randomUUID(),
-          tool: AnalyzerTool.Snyk,
-          severity: Severity.High,
-          category: IssueCategory.Security,
-          rule: 'SNYK-JS-AXIOS-1234567',
-          message: 'Cross-Site Request Forgery vulnerability in axios',
-          file: 'package.json',
-          cve: ['CVE-2023-12345'],
-          references: ['https://snyk.io/vuln/SNYK-JS-AXIOS-1234567']
-        }
-      ];
-    } catch {
+      // Snykコマンド実行
+      const command = `snyk test --json`;
+      const { stdout } = await execAsync(command, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024
+      }).catch(error => {
+        // Snykは脆弱性があるとexit code 1を返す
+        return { stdout: error.stdout || '{}', stderr: error.stderr || '' };
+      });
+
+      // 結果をパース
+      const result = JSON.parse(stdout || '{}');
+      return this.parseSnykResults(result, repoPath);
+    } catch (error) {
+      console.error('Snyk execution failed:', error);
       return [];
     }
   }
 
   /**
-   * Gitleaks実行（プロトタイプ）
+   * Snyk結果をパース
+   */
+  private parseSnykResults(result: any, repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    if (!result.vulnerabilities) return issues;
+
+    for (const vuln of result.vulnerabilities) {
+      const severity = this.mapSnykSeverity(vuln.severity);
+
+      issues.push({
+        id: randomUUID(),
+        tool: AnalyzerTool.Snyk,
+        severity,
+        category: IssueCategory.Security,
+        rule: vuln.id,
+        message: `${vuln.title} in ${vuln.packageName}@${vuln.version}`,
+        file: 'package.json',
+        cve: vuln.identifiers?.CVE || [],
+        references: [vuln.url].filter(Boolean),
+        fix: vuln.fixedIn && vuln.fixedIn.length > 0 ? {
+          available: true,
+          description: `Upgrade to ${vuln.packageName}@${vuln.fixedIn[0]}`
+        } : undefined
+      });
+    }
+
+    return issues;
+  }
+
+  /**
+   * Snykの重要度をマッピング
+   */
+  private mapSnykSeverity(snykSeverity: string): Severity {
+    switch (snykSeverity.toLowerCase()) {
+      case 'critical':
+        return Severity.Critical;
+      case 'high':
+        return Severity.High;
+      case 'medium':
+        return Severity.Medium;
+      case 'low':
+        return Severity.Low;
+      default:
+        return Severity.Info;
+    }
+  }
+
+  /**
+   * Gitleaks実行（実装版）
    */
   private async runGitleaks(
     repoPath: string,
@@ -268,23 +386,120 @@ export class StaticAnalyzer {
       // .gitディレクトリの存在確認
       await fs.access(path.join(repoPath, '.git'));
 
-      // プロトタイプのためダミーデータ
-      return [
-        {
-          id: randomUUID(),
-          tool: AnalyzerTool.Gitleaks,
-          severity: Severity.Critical,
-          category: IssueCategory.Security,
-          rule: 'generic-api-key',
-          message: 'Potential API key detected',
-          file: path.join(repoPath, '.env.example'),
-          line: 5,
-          snippet: 'API_KEY=sk_live_1234567890abcdef'
-        }
-      ];
-    } catch {
+      // Gitleaksコマンド実行
+      const command = `gitleaks detect --report-format json --report-path gitleaks-report.json`;
+      await execAsync(command, {
+        cwd: repoPath
+      }).catch(() => {
+        // Gitleaksは検出があるとexit code 1を返す
+      });
+
+      // 結果ファイルを読み込み
+      const reportPath = path.join(repoPath, 'gitleaks-report.json');
+      const reportContent = await fs.readFile(reportPath, 'utf-8').catch(() => '[]');
+      const results = JSON.parse(reportContent);
+
+      // レポートファイルを削除
+      await fs.unlink(reportPath).catch(() => {});
+
+      return this.parseGitleaksResults(results, repoPath);
+    } catch (error) {
+      console.error('Gitleaks execution failed:', error);
       return [];
     }
+  }
+
+  /**
+   * Gitleaks結果をパース
+   */
+  private parseGitleaksResults(results: any[], repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    for (const finding of results) {
+      issues.push({
+        id: randomUUID(),
+        tool: AnalyzerTool.Gitleaks,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        rule: finding.RuleID || 'secret-detected',
+        message: `${finding.Description || 'Secret detected'}: ${finding.Match}`,
+        file: finding.File,
+        line: finding.StartLine,
+        snippet: finding.Secret,
+        references: finding.Tags ? finding.Tags.map((tag: string) => `Tag: ${tag}`) : undefined
+      });
+    }
+
+    return issues;
+  }
+
+  /**
+   * 修正サジェスチョンを生成
+   */
+  generateFixSuggestion(issue: AnalysisIssue): string | null {
+    if (issue.fix?.available) {
+      return issue.fix.description || null;
+    }
+
+    // ルールベースのサジェスチョン
+    switch (issue.rule) {
+      case 'no-unused-vars':
+        return 'Remove the unused variable or use it in your code';
+      case 'no-console':
+        return 'Replace console.log with a proper logging library';
+      case 'eqeqeq':
+        return 'Use === instead of ==';
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * 進捗コールバック付き解析
+   */
+  async analyzeWithProgress(
+    repoPath: string,
+    options: AnalysisOptions,
+    onProgress?: (progress: { current: number; total: number; tool: string }) => void
+  ): Promise<AnalysisResult> {
+    const absolutePath = path.resolve(repoPath);
+    const toolsToRun = options.tools || await this.selectTools(absolutePath);
+    const total = toolsToRun.length;
+
+    const toolResults: ToolResult[] = [];
+
+    for (let i = 0; i < toolsToRun.length; i++) {
+      const tool = toolsToRun[i];
+
+      if (onProgress) {
+        onProgress({ current: i + 1, total, tool });
+      }
+
+      const result = await this.runTool(absolutePath, tool, options);
+      toolResults.push(result);
+    }
+
+    // 結果を集約（既存のロジックを使用）
+    let allIssues: AnalysisIssue[] = [];
+    toolResults.forEach(result => {
+      allIssues.push(...result.issues);
+    });
+
+    if (options.removeDuplicates !== false) {
+      const { unique } = this.removeDuplicateIssues(allIssues);
+      allIssues = unique;
+    }
+
+    const summary = this.createSummary(toolResults, allIssues, 0);
+
+    return {
+      analyzedAt: new Date(),
+      repoPath: absolutePath,
+      toolResults,
+      allIssues,
+      summary,
+      duplicatesRemoved: 0
+    };
   }
 
   /**

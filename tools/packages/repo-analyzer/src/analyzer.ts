@@ -20,6 +20,7 @@ import {
  */
 export class RepositoryAnalyzer {
   private git: SimpleGit | null = null;
+  private fileCache: Map<string, string> = new Map();
 
   /**
    * ローカルリポジトリを解析
@@ -525,22 +526,48 @@ export class RepositoryAnalyzer {
   }
 
   /**
-   * ファイルを解析
+   * ファイルを解析（改善版：ブロックコメント対応）
    */
   private async analyzeFile(filePath: string): Promise<LanguageStats> {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
       const lines = content.split('\n');
+      const ext = path.extname(filePath).toLowerCase();
 
       let blankLines = 0;
       let commentLines = 0;
+      let inBlockComment = false;
 
       for (const line of lines) {
         const trimmed = line.trim();
+
         if (trimmed === '') {
           blankLines++;
-        } else if (trimmed.startsWith('//') || trimmed.startsWith('#') || trimmed.startsWith('/*')) {
+          continue;
+        }
+
+        // ブロックコメントの処理
+        if (this.isBlockCommentStart(trimmed, ext)) {
+          inBlockComment = true;
           commentLines++;
+          if (this.isBlockCommentEnd(trimmed, ext) && trimmed.indexOf('/*') < trimmed.lastIndexOf('*/')) {
+            inBlockComment = false;
+          }
+          continue;
+        }
+
+        if (inBlockComment) {
+          commentLines++;
+          if (this.isBlockCommentEnd(trimmed, ext)) {
+            inBlockComment = false;
+          }
+          continue;
+        }
+
+        // 行コメント
+        if (this.isLineComment(trimmed, ext)) {
+          commentLines++;
+          continue;
         }
       }
 
@@ -560,6 +587,211 @@ export class RepositoryAnalyzer {
         commentLines: 0,
         codeLines: 0
       };
+    }
+  }
+
+  /**
+   * 行コメントかチェック
+   */
+  private isLineComment(line: string, ext: string): boolean {
+    const commentPatterns: Record<string, string[]> = {
+      '.js': ['//'],
+      '.ts': ['//'],
+      '.jsx': ['//'],
+      '.tsx': ['//'],
+      '.php': ['//', '#'],
+      '.py': ['#'],
+      '.rb': ['#'],
+      '.sh': ['#'],
+      '.java': ['//'],
+      '.cs': ['//'],
+      '.cpp': ['//'],
+      '.c': ['//']
+    };
+
+    const patterns = commentPatterns[ext] || ['//'];
+    return patterns.some(pattern => line.startsWith(pattern));
+  }
+
+  /**
+   * ブロックコメント開始かチェック
+   */
+  private isBlockCommentStart(line: string, ext: string): boolean {
+    const blockStart: Record<string, string[]> = {
+      '.js': ['/*'],
+      '.ts': ['/*'],
+      '.jsx': ['/*'],
+      '.tsx': ['/*'],
+      '.php': ['/*'],
+      '.java': ['/*'],
+      '.cs': ['/*'],
+      '.cpp': ['/*'],
+      '.c': ['/*'],
+      '.css': ['/*'],
+      '.scss': ['/*']
+    };
+
+    const patterns = blockStart[ext] || [];
+    return patterns.some(pattern => line.includes(pattern));
+  }
+
+  /**
+   * ブロックコメント終了かチェック
+   */
+  private isBlockCommentEnd(line: string, ext: string): boolean {
+    const blockEnd: Record<string, string[]> = {
+      '.js': ['*/'],
+      '.ts': ['*/'],
+      '.jsx': ['*/'],
+      '.tsx': ['*/'],
+      '.php': ['*/'],
+      '.java': ['*/'],
+      '.cs': ['*/'],
+      '.cpp': ['*/'],
+      '.c': ['*/'],
+      '.css': ['*/'],
+      '.scss': ['*/']
+    };
+
+    const patterns = blockEnd[ext] || [];
+    return patterns.some(pattern => line.includes(pattern));
+  }
+
+  /**
+   * コードの複雑度を計算（循環的複雑度）
+   */
+  async calculateComplexity(filePath: string): Promise<number> {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      const ext = path.extname(filePath).toLowerCase();
+
+      // 簡易的な循環的複雑度計算
+      let complexity = 1; // 基本パス
+
+      const controlFlowKeywords = [
+        'if', 'else if', 'for', 'while', 'do', 'case',
+        'catch', '&&', '||', '?', 'switch'
+      ];
+
+      for (const keyword of controlFlowKeywords) {
+        const regex = new RegExp(`\\b${keyword}\\b`, 'g');
+        const matches = content.match(regex);
+        if (matches) {
+          complexity += matches.length;
+        }
+      }
+
+      return complexity;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * エントリーポイントを検出
+   */
+  async detectEntryPoints(repoPath: string): Promise<string[]> {
+    const entryPoints: string[] = [];
+
+    try {
+      // package.json の main/bin フィールドをチェック
+      const packageJsonPath = path.join(repoPath, 'package.json');
+      if (await this.fileExists(packageJsonPath)) {
+        const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
+
+        if (packageJson.main) {
+          entryPoints.push(path.join(repoPath, packageJson.main));
+        }
+
+        if (packageJson.bin) {
+          if (typeof packageJson.bin === 'string') {
+            entryPoints.push(path.join(repoPath, packageJson.bin));
+          } else {
+            Object.values(packageJson.bin).forEach((binPath: any) => {
+              entryPoints.push(path.join(repoPath, binPath));
+            });
+          }
+        }
+      }
+
+      // 一般的なエントリーポイントファイル名
+      const commonEntryPoints = [
+        'index.js', 'index.ts', 'main.js', 'main.ts',
+        'app.js', 'app.ts', 'server.js', 'server.ts',
+        'index.php', 'index.html'
+      ];
+
+      for (const fileName of commonEntryPoints) {
+        const filePath = path.join(repoPath, fileName);
+        if (await this.fileExists(filePath) && !entryPoints.includes(filePath)) {
+          entryPoints.push(filePath);
+        }
+
+        // srcディレクトリもチェック
+        const srcFilePath = path.join(repoPath, 'src', fileName);
+        if (await this.fileExists(srcFilePath) && !entryPoints.includes(srcFilePath)) {
+          entryPoints.push(srcFilePath);
+        }
+      }
+
+      // Composerのautoload（PHP）
+      const composerJsonPath = path.join(repoPath, 'composer.json');
+      if (await this.fileExists(composerJsonPath)) {
+        const composerJson = JSON.parse(await fs.readFile(composerJsonPath, 'utf-8'));
+        if (composerJson.autoload?.files) {
+          composerJson.autoload.files.forEach((file: string) => {
+            entryPoints.push(path.join(repoPath, file));
+          });
+        }
+      }
+
+      return entryPoints;
+    } catch {
+      return entryPoints;
+    }
+  }
+
+  /**
+   * ファイル依存関係を解析
+   */
+  async analyzeDependencyGraph(filePath: string): Promise<string[]> {
+    const dependencies: string[] = [];
+
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      const ext = path.extname(filePath).toLowerCase();
+
+      // import/require文を検出
+      if (['.js', '.ts', '.jsx', '.tsx'].includes(ext)) {
+        // ESM import
+        const importMatches = content.matchAll(/import\s+.*?\s+from\s+['"](.+?)['"]/g);
+        for (const match of importMatches) {
+          dependencies.push(match[1]);
+        }
+
+        // CommonJS require
+        const requireMatches = content.matchAll(/require\s*\(\s*['"](.+?)['"]\s*\)/g);
+        for (const match of requireMatches) {
+          dependencies.push(match[1]);
+        }
+      }
+
+      // PHP use/require
+      if (ext === '.php') {
+        const useMatches = content.matchAll(/use\s+([^;]+);/g);
+        for (const match of useMatches) {
+          dependencies.push(match[1]);
+        }
+
+        const requireMatches = content.matchAll(/require(?:_once)?\s*\(?['"](.+?)['"]\)?/g);
+        for (const match of requireMatches) {
+          dependencies.push(match[1]);
+        }
+      }
+
+      return dependencies;
+    } catch {
+      return dependencies;
     }
   }
 
