@@ -1,0 +1,152 @@
+# IT Supervisor - .gitignore
+
+# ===========================================
+# Docker
+# ===========================================
+.env
+docker-compose.override.yml
+*.log
+
+# Docker volumes data (ローカルマウント用)
+/data/
+/reports/
+/backups/
+
+# ===========================================
+# Node.js
+# ===========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Dependency directories
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ===========================================
+# TypeScript
+# ===========================================
+*.tsbuildinfo
+dist/
+build/
+out/
+
+# ===========================================
+# Database
+# ===========================================
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# PostgreSQL dumps
+*.sql
+!docker/db/init.sql
+
+# ===========================================
+# IDE
+# ===========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ===========================================
+# OS
+# ===========================================
+Thumbs.db
+Desktop.ini
+
+# ===========================================
+# Test coverage
+# ===========================================
+coverage/
+*.lcov
+.nyc_output/
+
+# ===========================================
+# 環境変数
+# ===========================================
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+
+# ===========================================
+# 顧客データ（重要！）
+# ===========================================
+# 顧客のソースコードは絶対にGitにコミットしない
+/customer-repos/
+/repos/
+*.customer.*
+
+# 顧客情報を含むファイル
+/customers/
+/clients/
+
+# ===========================================
+# レポート・出力ファイル
+# ===========================================
+/reports/*.pdf
+/reports/*.html
+/reports/*.json
+/output/
+
+# ===========================================
+# 一時ファイル
+# ===========================================
+tmp/
+temp/
+*.tmp
+*.temp
+
+# ===========================================
+# ログファイル
+# ===========================================
+logs/
+*.log
+
+# ===========================================
+# AWS・クラウド関連
+# ===========================================
+.aws/
+*.pem
+*.key
+credentials
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# ===========================================
+# その他
+# ===========================================
+# バックアップファイル
+*.bak
+*.backup
+
+# アーカイブ
+*.zip
+*.tar.gz
+*.rar
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/

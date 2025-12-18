@@ -1,0 +1,45 @@
+# IT Supervisor - Terraform Variables Example
+# 使用方法: このファイルを terraform.tfvars にコピーして値を設定
+
+# ===========================================
+# 基本設定
+# ===========================================
+environment = "production"
+aws_region  = "ap-northeast-1"
+
+# ===========================================
+# SSL証明書（ACMで発行後に設定）
+# ===========================================
+# certificate_arn = "arn:aws:acm:ap-northeast-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# ===========================================
+# データベース設定
+# ===========================================
+database_name     = "it_supervisor"
+database_username = "postgres"
+database_password = "CHANGE_THIS_PASSWORD_IN_PRODUCTION" # 本番環境では強固なパスワードに変更
+
+# RDS Aurora Serverless v2 スケーリング
+rds_min_capacity = 0.5  # 最小0.5 ACU（約$0.06/時間）
+rds_max_capacity = 2.0  # 最大2.0 ACU（約$0.24/時間）
+
+# ===========================================
+# Docker Image（ECR）
+# ===========================================
+docker_image = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/it-supervisor:latest"
+
+# ===========================================
+# ECS設定
+# ===========================================
+ecs_task_cpu    = 512   # 0.5 vCPU
+ecs_task_memory = 1024  # 1GB
+ecs_desired_count = 2   # 通常時は2タスク
+
+# Auto Scaling
+ecs_min_capacity = 1    # 最小1タスク
+ecs_max_capacity = 4    # 最大4タスク
+
+# ===========================================
+# Redis設定
+# ===========================================
+redis_node_type = "cache.t4g.micro"  # 約$15/月
