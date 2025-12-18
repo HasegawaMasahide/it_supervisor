@@ -525,6 +525,13 @@ section {
     padding: 1.5rem;
     border-radius: 1rem;
     box-shadow: var(--shadow-md);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.process-step-content:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateX(5px);
 }
 
 .process-step-content h3 {
@@ -532,6 +539,19 @@ section {
     font-weight: 700;
     margin-bottom: 0.5rem;
     color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.expand-icon {
+    font-size: 0.875rem;
+    color: var(--primary-color);
+    transition: transform 0.3s ease;
+}
+
+.process-step.active .expand-icon {
+    transform: rotate(180deg);
 }
 
 .process-duration {
@@ -541,8 +561,61 @@ section {
     margin-bottom: 0.5rem;
 }
 
-.process-step-content p {
+.process-step-content > p {
     color: var(--text-secondary);
+    margin-bottom: 0;
+}
+
+.process-details {
+    display: grid;
+    grid-template-rows: 0fr;
+    overflow: hidden;
+    transition: grid-template-rows 0.4s ease, margin-top 0.4s ease;
+}
+
+.process-details-inner {
+    min-height: 0;
+}
+
+.process-step.active .process-details {
+    grid-template-rows: 1fr;
+    margin-top: 1.5rem;
+}
+
+.process-details h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    margin-top: 1rem;
+    padding-left: 0.75rem;
+    border-left: 3px solid var(--secondary-color);
+}
+
+.process-details h4:first-child {
+    margin-top: 0;
+}
+
+.process-details ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+}
+
+.process-details li {
+    padding: 0.5rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.process-details li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--secondary-color);
+    font-weight: bold;
 }
 
 /* ========================================
@@ -775,6 +848,26 @@ section {
     border-radius: 1rem;
     box-shadow: var(--shadow-md);
     position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.testimonial-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-xl);
+}
+
+.testimonial-more {
+    text-align: right;
+    color: var(--primary-color);
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-top: 1rem;
+    transition: color 0.3s ease;
+}
+
+.testimonial-card:hover .testimonial-more {
+    color: var(--primary-dark);
 }
 
 .testimonial-quote {
@@ -854,13 +947,18 @@ section {
 }
 
 .faq-answer {
-    max-height: 0;
+    display: grid;
+    grid-template-rows: 0fr;
     overflow: hidden;
-    transition: max-height 0.3s ease, padding 0.3s ease;
+    transition: grid-template-rows 0.4s ease, padding 0.4s ease;
+}
+
+.faq-answer-inner {
+    min-height: 0;
 }
 
 .faq-item.active .faq-answer {
-    max-height: 500px;
+    grid-template-rows: 1fr;
     padding: 0 2rem 1.5rem;
 }
 
@@ -1019,6 +1117,228 @@ section {
 }
 
 /* ========================================
+   モーダル
+   ======================================== */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    border-radius: 1rem;
+    max-width: 900px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+    z-index: 1;
+}
+
+.modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: var(--bg-gray);
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    color: var(--text-primary);
+    z-index: 2;
+}
+
+.modal-close:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: rotate(90deg);
+}
+
+.modal-body {
+    padding: 3rem;
+}
+
+.case-study-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.case-study-company {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.case-study-title {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+}
+
+.case-study-stats {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+}
+
+.case-stat {
+    text-align: center;
+}
+
+.case-stat-value {
+    font-size: 1.75rem;
+    font-weight: 900;
+    color: var(--primary-color);
+}
+
+.case-stat-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.case-study-section {
+    margin-bottom: 2.5rem;
+}
+
+.case-study-section h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+    border-left: 4px solid var(--primary-color);
+}
+
+.case-study-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+}
+
+.case-study-section ul {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+}
+
+.case-study-section li {
+    padding: 0.5rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+}
+
+.case-study-section li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--secondary-color);
+    font-weight: bold;
+}
+
+.case-results {
+    background: var(--bg-gray);
+    padding: 2rem;
+    border-radius: 1rem;
+    margin-top: 2rem;
+}
+
+.case-results h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.result-item {
+    text-align: center;
+    padding: 1rem;
+    background: white;
+    border-radius: 0.5rem;
+}
+
+.result-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.result-value {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: var(--primary-color);
+}
+
+.result-change {
+    font-size: 0.875rem;
+    color: var(--secondary-color);
+    font-weight: 600;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========================================
    レスポンシブデザイン
    ======================================== */
 @media (max-width: 1024px) {
@@ -1108,6 +1428,22 @@ section {
 
     .process-step-content {
         padding: 1rem;
+    }
+
+    .process-step-content:hover {
+        transform: translateX(0);
+    }
+
+    .modal-body {
+        padding: 2rem 1.5rem;
+    }
+
+    .case-study-title {
+        font-size: 1.5rem;
+    }
+
+    .results-grid {
+        grid-template-columns: 1fr;
     }
 
     .pricing-card {
@@ -1317,7 +1653,7 @@ section {
     border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-/* 技術タグ */
+/* 技術カード */
 .tools-technologies {
     background: white;
     padding: 2.5rem;
@@ -1329,48 +1665,90 @@ section {
     font-size: 1.5rem;
     font-weight: 700;
     text-align: center;
-    margin-bottom: 2rem;
-    color: var(--text-primary);
-}
-
-.tech-categories {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
-}
-
-.tech-category h4 {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary);
     margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid var(--border-color);
-}
-
-.tech-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.tech-tag {
-    display: inline-block;
-    padding: 0.5rem 1rem;
-    background: var(--bg-gray);
     color: var(--text-primary);
-    border-radius: 20px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    border: 1px solid var(--border-color);
+}
+
+.technologies-description {
+    text-align: center;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 2.5rem;
+    line-height: 1.7;
+}
+
+.tech-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.tech-card {
+    background: var(--bg-gray);
+    padding: 1.75rem;
+    border-radius: 12px;
+    border-left: 4px solid var(--primary-color);
     transition: all 0.3s ease;
 }
 
-.tech-tag:hover {
-    background: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-    transform: translateY(-2px);
+.tech-card:hover {
+    background: #f3f4f6;
+    border-color: var(--accent-color);
+    transform: translateY(-5px);
+    box-shadow: 0 8px 12px -2px rgba(0, 0, 0, 0.1);
+}
+
+.tech-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.tech-card-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.tech-card-header h4 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.tech-card-description {
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 1rem;
+}
+
+.tech-card-description strong {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.tech-card-benefits {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.tech-card-benefits li {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    padding: 0.375rem 0;
+    padding-left: 1.25rem;
+    position: relative;
+}
+
+.tech-card-benefits li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--secondary-color);
+    font-weight: bold;
 }
 
 /* レスポンシブ対応 */
@@ -1424,8 +1802,12 @@ section {
         padding: 1.5rem;
     }
 
-    .tech-categories {
+    .tech-cards {
         grid-template-columns: 1fr;
-        gap: 1.5rem;
+        gap: 1rem;
+    }
+
+    .tech-card {
+        padding: 1.25rem;
     }
 }

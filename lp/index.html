@@ -299,33 +299,99 @@
 
             <div class="tools-technologies">
                 <h3 class="technologies-title">活用している主要技術</h3>
-                <div class="tech-categories">
-                    <div class="tech-category">
-                        <h4>AI・自動化</h4>
-                        <div class="tech-tags">
-                            <span class="tech-tag">Claude Code</span>
-                            <span class="tech-tag">Claude API</span>
-                            <span class="tech-tag">Docker</span>
+                <p class="technologies-description">
+                    最新のAI技術と業界標準ツールを組み合わせることで、<br>
+                    高速・高品質・低コストを実現しています
+                </p>
+                <div class="tech-cards">
+                    <div class="tech-card">
+                        <div class="tech-card-header">
+                            <div class="tech-card-icon">🤖</div>
+                            <h4>Claude Code / Claude API</h4>
                         </div>
+                        <p class="tech-card-description">
+                            Anthropic社の最新AIモデルを活用し、コード解析・改善提案・実装を高速化。従来の手動分析と比較して<strong>約3倍の速度</strong>で処理します。
+                        </p>
+                        <ul class="tech-card-benefits">
+                            <li>高精度なコード理解と生成</li>
+                            <li>複雑なリファクタリング提案</li>
+                            <li>セキュリティ脆弱性の検出</li>
+                        </ul>
                     </div>
-                    <div class="tech-category">
-                        <h4>静的解析</h4>
-                        <div class="tech-tags">
-                            <span class="tech-tag">ESLint</span>
-                            <span class="tech-tag">SonarQube</span>
-                            <span class="tech-tag">Snyk</span>
-                            <span class="tech-tag">OWASP</span>
+
+                    <div class="tech-card">
+                        <div class="tech-card-header">
+                            <div class="tech-card-icon">🔍</div>
+                            <h4>SonarQube × Snyk × OWASP</h4>
                         </div>
+                        <p class="tech-card-description">
+                            複数の静的解析ツールを組み合わせることで、<strong>コード品質・セキュリティ・ライセンス</strong>を多角的に評価。見落としリスクを最小化します。
+                        </p>
+                        <ul class="tech-card-benefits">
+                            <li>SonarQube: コード品質・技術的負債</li>
+                            <li>Snyk: 脆弱性・依存関係リスク</li>
+                            <li>OWASP: Webアプリセキュリティ</li>
+                        </ul>
                     </div>
-                    <div class="tech-category">
-                        <h4>対応言語</h4>
-                        <div class="tech-tags">
-                            <span class="tech-tag">TypeScript/JavaScript</span>
-                            <span class="tech-tag">PHP</span>
-                            <span class="tech-tag">C#</span>
-                            <span class="tech-tag">Python</span>
-                            <span class="tech-tag">Java</span>
+
+                    <div class="tech-card">
+                        <div class="tech-card-header">
+                            <div class="tech-card-icon">🐳</div>
+                            <h4>Docker サンドボックス環境</h4>
                         </div>
+                        <p class="tech-card-description">
+                            本番環境に影響を与えずに安全にテストできる<strong>隔離環境</strong>を自動構築。変更前後の比較検証を確実に実施します。
+                        </p>
+                        <ul class="tech-card-benefits">
+                            <li>ワンクリックで環境構築</li>
+                            <li>本番環境と同一構成を再現</li>
+                            <li>安全なロールバック機能</li>
+                        </ul>
+                    </div>
+
+                    <div class="tech-card">
+                        <div class="tech-card-header">
+                            <div class="tech-card-icon">💻</div>
+                            <h4>幅広い言語対応</h4>
+                        </div>
+                        <p class="tech-card-description">
+                            TypeScript/JavaScript、PHP、C#、Python、Javaなど<strong>主要言語を網羅</strong>。レガシーシステムから最新技術まで柔軟に対応します。
+                        </p>
+                        <ul class="tech-card-benefits">
+                            <li>フロントエンド (React, Vue, Angular)</li>
+                            <li>バックエンド (Laravel, .NET, Spring)</li>
+                            <li>レガシーコード (VB.NET, jQuery等)</li>
+                        </ul>
+                    </div>
+
+                    <div class="tech-card">
+                        <div class="tech-card-header">
+                            <div class="tech-card-icon">📊</div>
+                            <h4>ESLint × Prettier</h4>
+                        </div>
+                        <p class="tech-card-description">
+                            コーディング規約の自動チェックとフォーマット統一により、<strong>可読性・保守性</strong>を大幅に向上。属人化を防ぎます。
+                        </p>
+                        <ul class="tech-card-benefits">
+                            <li>未使用変数・関数の検出</li>
+                            <li>コードスタイルの統一</li>
+                            <li>潜在的バグの早期発見</li>
+                        </ul>
+                    </div>
+
+                    <div class="tech-card">
+                        <div class="tech-card-header">
+                            <div class="tech-card-icon">🔐</div>
+                            <h4>Gitleaks × TruffleHog</h4>
+                        </div>
+                        <p class="tech-card-description">
+                            リポジトリ内の<strong>機密情報漏洩リスク</strong>（APIキー、パスワード等）を自動検出。コンプライアンス違反を未然に防ぎます。
+                        </p>
+                        <ul class="tech-card-benefits">
+                            <li>過去のコミット履歴もスキャン</li>
+                            <li>誤検知を最小化するパターンマッチ</li>
+                            <li>CI/CDパイプラインへの組み込み</li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -336,54 +402,161 @@
     <section id="process" class="process">
         <div class="container">
             <h2 class="section-title">サービスの<span class="highlight">流れ</span></h2>
-            <p class="section-description">お客様の状況に合わせて、最適なプロセスでサポートします</p>
+            <p class="section-description">
+                お客様の状況に合わせて、最適なプロセスでサポートします<br>
+                <small>（各ステップをクリックすると詳細が表示されます）</small>
+            </p>
             <div class="process-timeline">
-                <div class="process-step">
+                <div class="process-step" data-step="1">
                     <div class="process-step-number">1</div>
                     <div class="process-step-content">
-                        <h3>調査（Discovery）</h3>
+                        <h3>調査（Discovery）<span class="expand-icon">▼</span></h3>
                         <p class="process-duration">1-2週間</p>
                         <p>システム構成、技術スタック、課題のヒアリング</p>
+                        <div class="process-details">
+                            <div class="process-details-inner">
+                                <h4>実施内容</h4>
+                                <ul>
+                                    <li>システム構成・アーキテクチャの把握（使用技術、フレームワーク、インフラ構成）</li>
+                                    <li>リポジトリ構造の分析（ディレクトリ構成、ファイル数、コード規模）</li>
+                                    <li>ステークホルダーへのヒアリング（現状の課題、改善したいポイント、予算感）</li>
+                                    <li>開発体制・運用フローの確認（担当者、デプロイ手順、テスト体制）</li>
+                                </ul>
+                                <h4>成果物</h4>
+                                <ul>
+                                    <li>システム構成図</li>
+                                    <li>技術スタック一覧</li>
+                                    <li>課題ヒアリングシート</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="process-step">
+                <div class="process-step" data-step="2">
                     <div class="process-step-number">2</div>
                     <div class="process-step-content">
-                        <h3>分析（Analysis）</h3>
+                        <h3>分析（Analysis）<span class="expand-icon">▼</span></h3>
                         <p class="process-duration">1週間</p>
                         <p>AIによる静的解析、コード品質測定、依存関係調査</p>
+                        <div class="process-details">
+                            <div class="process-details-inner">
+                                <h4>実施内容</h4>
+                                <ul>
+                                    <li>静的解析ツール（SonarQube、ESLint等）の実行とメトリクス収集</li>
+                                    <li>セキュリティ診断（Snyk、OWASP、Gitleaksによる脆弱性スキャン）</li>
+                                    <li>依存関係の調査（ライブラリのバージョン、非推奨パッケージの検出）</li>
+                                    <li>パフォーマンス測定（処理速度、メモリ使用量、ボトルネックの特定）</li>
+                                </ul>
+                                <h4>成果物</h4>
+                                <ul>
+                                    <li>静的解析レポート（コード品質スコア、複雑度）</li>
+                                    <li>セキュリティ診断レポート（脆弱性一覧、リスク評価）</li>
+                                    <li>依存関係分析レポート（ライブラリ更新推奨リスト）</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="process-step">
+                <div class="process-step" data-step="3">
                     <div class="process-step-number">3</div>
                     <div class="process-step-content">
-                        <h3>診断（Diagnosis）</h3>
+                        <h3>診断（Diagnosis）<span class="expand-icon">▼</span></h3>
                         <p class="process-duration">1週間</p>
                         <p>課題の優先順位付け、リスク評価、影響範囲の特定</p>
+                        <div class="process-details">
+                            <div class="process-details-inner">
+                                <h4>実施内容</h4>
+                                <ul>
+                                    <li>シニアエンジニアによる課題の優先度付け（Critical / High / Medium / Low）</li>
+                                    <li>リスク評価（セキュリティリスク、運用リスク、技術的負債の影響度）</li>
+                                    <li>影響範囲の特定（改善による波及効果、修正箇所の見積もり）</li>
+                                    <li>ROI試算（改善によるコスト削減効果、工数削減効果の算出）</li>
+                                </ul>
+                                <h4>成果物</h4>
+                                <ul>
+                                    <li>診断レポート（20ページ程度、経営層への説明資料としても活用可能）</li>
+                                    <li>課題優先度マトリクス（緊急度 × 重要度のマッピング）</li>
+                                    <li>リスク評価シート</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="process-step">
+                <div class="process-step" data-step="4">
                     <div class="process-step-number">4</div>
                     <div class="process-step-content">
-                        <h3>提案（Proposal）</h3>
+                        <h3>提案（Proposal）<span class="expand-icon">▼</span></h3>
                         <p class="process-duration">1週間</p>
                         <p>改善案の作成、ROI試算、実装計画の策定</p>
+                        <div class="process-details">
+                            <div class="process-details-inner">
+                                <h4>実施内容</h4>
+                                <ul>
+                                    <li>AI支援による改善案の生成と人間による検証</li>
+                                    <li>実装計画の策定（スケジュール、マイルストーン、リスク対策）</li>
+                                    <li>工数見積もり（過去実績に基づく精度の高い見積もり）</li>
+                                    <li>ROI試算書の作成（投資額、削減効果、回収期間の明示）</li>
+                                </ul>
+                                <h4>成果物</h4>
+                                <ul>
+                                    <li>改善提案書（詳細設計、実装方針、テスト計画）</li>
+                                    <li>実装計画書（スケジュール、体制図、マイルストーン）</li>
+                                    <li>ROI試算書（年間削減効果、投資回収期間）</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="process-step">
+                <div class="process-step" data-step="5">
                     <div class="process-step-number">5</div>
                     <div class="process-step-content">
-                        <h3>実装（Implementation）</h3>
+                        <h3>実装（Implementation）<span class="expand-icon">▼</span></h3>
                         <p class="process-duration">4-8週間</p>
                         <p>コード改善、テスト、デプロイ、動作確認</p>
+                        <div class="process-details">
+                            <div class="process-details-inner">
+                                <h4>実施内容</h4>
+                                <ul>
+                                    <li>AIと人間のハイブリッド型でコード改善を実施（AI: 60%、人間レビュー: 40%）</li>
+                                    <li>4層の品質ゲート（AI自動検証 → エンジニアレビュー → シニアエンジニア承認 → 顧客検証）</li>
+                                    <li>サンドボックス環境での動作確認（本番影響なし）</li>
+                                    <li>段階的デプロイとロールバック体制の構築</li>
+                                </ul>
+                                <h4>成果物</h4>
+                                <ul>
+                                    <li>改善されたソースコード（Git管理、変更履歴付き）</li>
+                                    <li>テストレポート（単体テスト、結合テスト、セキュリティテスト）</li>
+                                    <li>デプロイ手順書</li>
+                                    <li>運用マニュアル</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="process-step">
+                <div class="process-step" data-step="6">
                     <div class="process-step-number">6</div>
                     <div class="process-step-content">
-                        <h3>効果測定・報告</h3>
+                        <h3>効果測定・報告<span class="expand-icon">▼</span></h3>
                         <p class="process-duration">1-2週間</p>
                         <p>改善効果の測定、レポート作成、今後の提案</p>
+                        <div class="process-details">
+                            <div class="process-details-inner">
+                                <h4>実施内容</h4>
+                                <ul>
+                                    <li>Before/After比較（パフォーマンス、コード品質、セキュリティスコア）</li>
+                                    <li>定量的効果測定（処理速度、エラー率、メモリ使用量）</li>
+                                    <li>定性的効果測定（開発効率、保守性、可読性の向上）</li>
+                                    <li>今後の改善提案（さらなる最適化の余地、次フェーズの提案）</li>
+                                </ul>
+                                <h4>成果物</h4>
+                                <ul>
+                                    <li>最終レポート（改善効果の定量評価、経営層報告資料）</li>
+                                    <li>Before/After比較チャート</li>
+                                    <li>今後の改善ロードマップ</li>
+                                    <li>3ヶ月間の瑕疵担保書</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -519,8 +692,12 @@
     <section class="testimonials">
         <div class="container">
             <h2 class="section-title">お客様の<span class="highlight">声</span></h2>
+            <p class="section-description">
+                実際にサービスをご利用いただいた企業様のインタビューと成果をご紹介します<br>
+                <small>（カードをクリックすると詳細が表示されます）</small>
+            </p>
             <div class="testimonials-grid">
-                <div class="testimonial-card">
+                <div class="testimonial-card" data-case-id="case1">
                     <div class="testimonial-quote">"</div>
                     <p class="testimonial-text">
                         長年放置していた業務システムの課題が明確になり、優先順位をつけて改善できました。AIと人間のバランスが絶妙で、スピードと品質を両立できていると感じました。
@@ -531,8 +708,9 @@
                             <div class="author-company">従業員300名</div>
                         </div>
                     </div>
+                    <div class="testimonial-more">詳しく見る →</div>
                 </div>
-                <div class="testimonial-card">
+                <div class="testimonial-card" data-case-id="case2">
                     <div class="testimonial-quote">"</div>
                     <p class="testimonial-text">
                         瑕疵担保があるので安心してお願いできました。診断レポートは経営層への説明資料としても使え、予算承認がスムーズに進みました。
@@ -543,8 +721,9 @@
                             <div class="author-company">従業員150名</div>
                         </div>
                     </div>
+                    <div class="testimonial-more">詳しく見る →</div>
                 </div>
-                <div class="testimonial-card">
+                <div class="testimonial-card" data-case-id="case3">
                     <div class="testimonial-quote">"</div>
                     <p class="testimonial-text">
                         大手SIerの見積もりは高すぎて諦めていましたが、こちらは中小企業にちょうど良い価格帯でした。実装までお任せできて助かりました。
@@ -555,10 +734,22 @@
                             <div class="author-company">従業員200名</div>
                         </div>
                     </div>
+                    <div class="testimonial-more">詳しく見る →</div>
                 </div>
             </div>
         </div>
     </section>
+
+    <!-- モーダル -->
+    <div class="modal" id="caseModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <button class="modal-close" aria-label="閉じる">&times;</button>
+            <div class="modal-body" id="modalBody">
+                <!-- JavaScriptで動的に内容を挿入 -->
+            </div>
+        </div>
+    </div>
 
     <!-- よくある質問 -->
     <section class="faq">
@@ -571,7 +762,9 @@
                         <span class="faq-toggle">+</span>
                     </div>
                     <div class="faq-answer">
-                        <p>業務アプリケーション、コーポレートサイト、CMS、ECサイトなど、Web技術で構築されたシステムが対象です。言語は問いませんが、TypeScript/JavaScript、PHP、C#などの主要言語に特に強みがあります。</p>
+                        <div class="faq-answer-inner">
+                            <p>業務アプリケーション、コーポレートサイト、CMS、ECサイトなど、Web技術で構築されたシステムが対象です。言語は問いませんが、TypeScript/JavaScript、PHP、C#などの主要言語に特に強みがあります。</p>
+                        </div>
                     </div>
                 </div>
                 <div class="faq-item">
@@ -580,7 +773,9 @@
                         <span class="faq-toggle">+</span>
                     </div>
                     <div class="faq-answer">
-                        <p>いいえ、AIは効率化のためのツールとして活用し、必ず人間のシニアエンジニアがレビューと最終判断を行います。特にCritical問題は複数名でレビューする体制を取っています。</p>
+                        <div class="faq-answer-inner">
+                            <p>いいえ、AIは効率化のためのツールとして活用し、必ず人間のシニアエンジニアがレビューと最終判断を行います。特にCritical問題は複数名でレビューする体制を取っています。</p>
+                        </div>
                     </div>
                 </div>
                 <div class="faq-item">
@@ -589,7 +784,9 @@
                         <span class="faq-toggle">+</span>
                     </div>
                     <div class="faq-answer">
-                        <p>提案したコード変更による機能破壊、実装による既存機能の退行（regression）、セキュリティ診断の重大な見落としなどをカバーします。実装完了後3ヶ月間が対象期間です。ただし、パフォーマンス効果の未達、お客様環境起因の問題などは対象外となります。</p>
+                        <div class="faq-answer-inner">
+                            <p>提案したコード変更による機能破壊、実装による既存機能の退行（regression）、セキュリティ診断の重大な見落としなどをカバーします。実装完了後3ヶ月間が対象期間です。ただし、パフォーマンス効果の未達、お客様環境起因の問題などは対象外となります。</p>
+                        </div>
                     </div>
                 </div>
                 <div class="faq-item">
@@ -598,7 +795,9 @@
                         <span class="faq-toggle">+</span>
                     </div>
                     <div class="faq-answer">
-                        <p>NDA（秘密保持契約）を締結し、厳格な情報管理体制のもとで作業を行います。AIツールを使用する際も、機密情報を適切にマスキングするなどの対策を講じています。</p>
+                        <div class="faq-answer-inner">
+                            <p>NDA（秘密保持契約）を締結し、厳格な情報管理体制のもとで作業を行います。AIツールを使用する際も、機密情報を適切にマスキングするなどの対策を講じています。</p>
+                        </div>
                     </div>
                 </div>
                 <div class="faq-item">
@@ -607,7 +806,9 @@
                         <span class="faq-toggle">+</span>
                     </div>
                     <div class="faq-answer">
-                        <p>プランによって異なりますが、ライトプランで3-4週間、スタンダードで4-6週間、プレミアムで3-5ヶ月です。実装完了後、効果測定を行い、具体的な改善結果をレポートします。</p>
+                        <div class="faq-answer-inner">
+                            <p>プランによって異なりますが、ライトプランで3-4週間、スタンダードで4-6週間、プレミアムで3-5ヶ月です。実装完了後、効果測定を行い、具体的な改善結果をレポートします。</p>
+                        </div>
                     </div>
                 </div>
                 <div class="faq-item">
@@ -616,7 +817,9 @@
                         <span class="faq-toggle">+</span>
                     </div>
                     <div class="faq-answer">
-                        <p>はい、初回の相談は無料です。お客様の課題をヒアリングし、最適なプランをご提案いたします。まずはお気軽にお問い合わせください。</p>
+                        <div class="faq-answer-inner">
+                            <p>はい、初回の相談は無料です。お客様の課題をヒアリングし、最適なプランをご提案いたします。まずはお気軽にお問い合わせください。</p>
+                        </div>
                     </div>
                 </div>
             </div>
