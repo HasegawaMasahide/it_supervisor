@@ -1,0 +1,29 @@
+/* 問題1: グローバルスタイルの多用 (Low Code Quality) */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+}
+
+/* 問題2: !importantの多用 (Low Code Quality) */
+.article-editor {
+  padding: 20px !important;
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+}
+
+/* 問題3: 非効率的なセレクタ (Low Performance) */
+div div div input {
+  padding: 10px;
+  border: 1px solid #ddd;
+}
+
+.error {
+  color: red;
+}

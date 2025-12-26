@@ -1,0 +1,20 @@
+# 問題: 古いDjango（EOL済み）
+Django==2.2.28
+
+# 問題: 脆弱性のあるrequests
+requests==2.25.1
+
+# 問題: 脆弱性のあるPillow
+Pillow==8.1.0
+
+# 問題: 脆弱性のあるurlllib3
+urllib3==1.26.4
+
+# 問題: SQLite3のみでPostgreSQLアダプタなし（本番非推奨）
+# psycopg2-binary==2.9.3  # コメントアウトされている
+
+# 開発用ツール（本番に含めるべきでない）
+django-debug-toolbar==3.2
+
+# 問題: 未使用のパッケージ
+django-cors-headers==3.7.0
