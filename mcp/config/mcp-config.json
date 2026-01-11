@@ -1,0 +1,116 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema/config.json",
+  "mcpServers": {
+    "github": {
+      "description": "GitHub API統合 - リポジトリ分析、Issue/PR管理",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      },
+      "disabled": false
+    },
+    "git": {
+      "description": "Git操作 - コミット履歴、ブランチ管理、diff取得",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-git"],
+      "env": {
+        "GIT_ALLOWED_PATHS": "${GIT_REPO_PATH}"
+      },
+      "disabled": false
+    },
+    "filesystem": {
+      "description": "ファイルシステム操作 - 安全なファイル読み書き",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${WORKSPACE_PATH}"
+      ],
+      "disabled": false
+    },
+    "metrics-db": {
+      "description": "メトリクスデータベース - SQLite/PostgreSQL操作",
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub"],
+      "env": {
+        "DB_TYPE": "sqlite",
+        "DB_PATH": "${METRICS_DB_PATH}",
+        "READ_ONLY": "false",
+        "ROW_LIMIT": "1000",
+        "QUERY_TIMEOUT": "30000"
+      },
+      "disabled": false
+    },
+    "quality-hub": {
+      "description": "品質ツール統合 - ESLint、Prettier、Biome等",
+      "command": "npx",
+      "args": ["-y", "@HalbonLabs/mcp-aggregator"],
+      "env": {
+        "WORKSPACE_PATH": "${WORKSPACE_PATH}"
+      },
+      "disabled": false
+    },
+    "eslint": {
+      "description": "JavaScript/TypeScript静的解析",
+      "command": "npx",
+      "args": ["eslint", "--mcp"],
+      "env": {
+        "ESLINT_USE_FLAT_CONFIG": "true"
+      },
+      "disabled": true,
+      "note": "プロジェクトにESLintがインストールされている場合のみ有効化"
+    }
+  },
+  "customServers": {
+    "security-scanner": {
+      "description": "セキュリティスキャン - Gitleaks、Snyk、OWASP Dependency-Check",
+      "command": "node",
+      "args": ["${MCP_SERVERS_PATH}/security-scanner/dist/index.js"],
+      "env": {
+        "WORKSPACE_PATH": "${WORKSPACE_PATH}",
+        "SNYK_TOKEN": "${SNYK_TOKEN}",
+        "ENABLE_GITLEAKS": "true",
+        "ENABLE_SNYK": "true",
+        "ENABLE_OWASP_DEPENDENCY_CHECK": "true"
+      },
+      "disabled": true,
+      "note": "開発完了後に有効化"
+    },
+    "multi-lang-analyzer": {
+      "description": "PHP/C#静的解析 - PHPStan、Psalm、Roslyn Analyzers",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-v",
+        "${WORKSPACE_PATH}:/workspace",
+        "it-supervisor/multi-lang-analyzer:latest"
+      ],
+      "env": {
+        "ENABLE_PHP_ANALYSIS": "true",
+        "ENABLE_CSHARP_ANALYSIS": "true"
+      },
+      "disabled": true,
+      "note": "開発完了後に有効化"
+    },
+    "proposal-context": {
+      "description": "改善提案コンテキスト - 類似Issue検索、コードスニペット抽出",
+      "command": "node",
+      "args": ["${MCP_SERVERS_PATH}/proposal-context/dist/index.js"],
+      "env": {
+        "WORKSPACE_PATH": "${WORKSPACE_PATH}",
+        "METRICS_DB_PATH": "${METRICS_DB_PATH}",
+        "VECTOR_DB_PATH": "${VECTOR_DB_PATH}",
+        "EMBEDDING_MODEL": "text-embedding-3-small"
+      },
+      "disabled": true,
+      "note": "開発完了後に有効化"
+    }
+  },
+  "notes": {
+    "setup": "セットアップ方法は mcp/README.md を参照",
+    "env_file": "環境変数は mcp/config/.env ファイルで管理",
+    "custom_servers": "カスタムMCPサーバーは mcp/servers/ 配下に実装"
+  }
+}

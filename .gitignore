@@ -1,0 +1,79 @@
+# IT資産監査サービス - .gitignore
+
+# ===== MCP関連 =====
+# 環境変数ファイル（トークンなど機密情報を含む）
+mcp/config/.env
+
+# ログファイル
+logs/
+*.log
+
+# データベースファイル
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# ===== Node.js =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ===== ビルド成果物 =====
+dist/
+build/
+*.egg-info/
+.cache/
+
+# ===== Docker =====
+.docker/
+docker-compose.override.yml
+
+# ===== 一時ファイル =====
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# ===== OS固有 =====
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# ===== 顧客データ（絶対にコミットしない） =====
+projects/*/
+customer-data/
+backups/
+
+# ===== セキュリティ =====
+*.pem
+*.key
+*.cert
+*.p12
+secrets/
+credentials.json
+.env.local
+.env.production
