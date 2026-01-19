@@ -1811,3 +1811,484 @@ section {
         padding: 1.25rem;
     }
 }
+
+/* ========================================
+   改善事例セクション
+   ======================================== */
+.cases {
+    padding: var(--spacing-xl) 0;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.cases-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 3rem;
+}
+
+.case-card {
+    background: var(--bg-white);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+.case-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-xl);
+    border-color: var(--primary-light);
+}
+
+.case-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.case-card:hover::before {
+    opacity: 1;
+}
+
+.case-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.case-icon {
+    font-size: 2rem;
+}
+
+.case-tech-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+}
+
+.case-tech-badge.php {
+    background: linear-gradient(135deg, #777bb3, #4f5b93);
+}
+
+.case-tech-badge.react {
+    background: linear-gradient(135deg, #61dafb, #20232a);
+}
+
+.case-tech-badge.python {
+    background: linear-gradient(135deg, #306998, #ffd43b);
+    color: #306998;
+}
+
+.case-tech-badge.dotnet {
+    background: linear-gradient(135deg, #512bd4, #68217a);
+}
+
+.case-tech-badge.vue {
+    background: linear-gradient(135deg, #42b883, #35495e);
+}
+
+.case-tech-badge.java {
+    background: linear-gradient(135deg, #f89820, #5382a1);
+}
+
+.case-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.case-description {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+.case-stats {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.case-stat {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    background: var(--bg-gray);
+    border-radius: 8px;
+}
+
+.case-stat-number {
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.case-stat-number.critical {
+    color: #dc2626;
+}
+
+.case-stat-number.high {
+    color: #ea580c;
+}
+
+.case-stat-number.medium {
+    color: #ca8a04;
+}
+
+.case-stat-number.low {
+    color: #16a34a;
+}
+
+.case-stat-label {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.case-issues {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.issue-tag {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.issue-tag.security {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.issue-tag.performance {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.issue-tag.quality {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.case-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.case-total {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.case-more {
+    font-size: 0.875rem;
+    color: var(--primary-color);
+    font-weight: 600;
+    transition: transform 0.2s ease;
+}
+
+.case-card:hover .case-more {
+    transform: translateX(4px);
+}
+
+/* 事例サマリー */
+.cases-summary {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    margin-top: 3rem;
+    padding: 2rem;
+    background: var(--bg-white);
+    border-radius: 16px;
+    box-shadow: var(--shadow-md);
+}
+
+.summary-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.summary-icon {
+    font-size: 2.5rem;
+}
+
+.summary-content {
+    text-align: left;
+}
+
+.summary-number {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--primary-color);
+}
+
+.summary-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* 事例詳細モーダル */
+.modal-large {
+    max-width: 800px;
+    max-height: 85vh;
+}
+
+.case-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.case-detail-icon {
+    font-size: 3rem;
+}
+
+.case-detail-title-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.case-detail-title-section .case-tech-badge {
+    font-size: 0.875rem;
+    padding: 0.35rem 1rem;
+}
+
+.case-detail-overview {
+    background: var(--bg-gray);
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+}
+
+.case-detail-overview h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+}
+
+.case-detail-overview p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.7;
+}
+
+.case-detail-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.detail-stat-card {
+    background: var(--bg-white);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.detail-stat-card.critical {
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.detail-stat-card.high {
+    border-color: #fed7aa;
+    background: #fff7ed;
+}
+
+.detail-stat-card.medium {
+    border-color: #fef08a;
+    background: #fefce8;
+}
+
+.detail-stat-card.low {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.detail-stat-number {
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+.detail-stat-card.critical .detail-stat-number {
+    color: #dc2626;
+}
+
+.detail-stat-card.high .detail-stat-number {
+    color: #ea580c;
+}
+
+.detail-stat-card.medium .detail-stat-number {
+    color: #ca8a04;
+}
+
+.detail-stat-card.low .detail-stat-number {
+    color: #16a34a;
+}
+
+.detail-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 0.25rem;
+}
+
+.case-detail-issues {
+    margin-bottom: 1.5rem;
+}
+
+.case-detail-issues h3 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.issue-category {
+    margin-bottom: 1rem;
+}
+
+.issue-category-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.issue-category-title::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.issue-category.security .issue-category-title::before {
+    background: #dc2626;
+}
+
+.issue-category.performance .issue-category-title::before {
+    background: #d97706;
+}
+
+.issue-category.quality .issue-category-title::before {
+    background: #2563eb;
+}
+
+.issue-category.dependencies .issue-category-title::before {
+    background: #7c3aed;
+}
+
+.issue-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-left: 1rem;
+}
+
+.issue-list .issue-tag {
+    font-size: 0.8rem;
+    padding: 0.35rem 0.75rem;
+}
+
+.issue-tag.dependencies {
+    background: #ede9fe;
+    color: #7c3aed;
+}
+
+.case-detail-estimate {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.case-detail-estimate h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+}
+
+.estimate-time {
+    font-size: 1.75rem;
+    font-weight: 800;
+}
+
+.estimate-note {
+    font-size: 0.875rem;
+    opacity: 0.8;
+    margin-top: 0.5rem;
+}
+
+/* 事例セクションのレスポンシブ */
+@media (max-width: 768px) {
+    .cases-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cases-summary {
+        flex-direction: column;
+        gap: 1.5rem;
+        padding: 1.5rem;
+    }
+
+    .summary-item {
+        justify-content: center;
+    }
+
+    .case-detail-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .modal-large {
+        max-width: 95%;
+        margin: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .case-stats {
+        flex-wrap: wrap;
+    }
+
+    .case-stat {
+        flex: 1 1 45%;
+    }
+
+    .case-detail-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

@@ -23,6 +23,7 @@
                     <a href="#features" class="nav-link">特徴</a>
                     <a href="#tools" class="nav-link">ツール</a>
                     <a href="#process" class="nav-link">プロセス</a>
+                    <a href="#cases" class="nav-link">事例</a>
                     <a href="#pricing" class="nav-link">料金プラン</a>
                     <a href="#contact" class="nav-link nav-cta">お問い合わせ</a>
                 </nav>
@@ -687,6 +688,275 @@
             </div>
         </div>
     </section>
+
+    <!-- 改善事例セクション -->
+    <section id="cases" class="cases">
+        <div class="container">
+            <h2 class="section-title">改善<span class="highlight">事例</span></h2>
+            <p class="section-description">
+                様々な技術スタックのシステムで、セキュリティ・パフォーマンス・コード品質の課題を発見・改善してきました<br>
+                <small>（カードをクリックすると診断結果の詳細が表示されます）</small>
+            </p>
+            <div class="cases-grid">
+                <!-- Laravel TODO App -->
+                <div class="case-card" data-case-detail="laravel">
+                    <div class="case-header">
+                        <div class="case-icon">🐘</div>
+                        <div class="case-tech-badge php">PHP / Laravel</div>
+                    </div>
+                    <h3 class="case-title">業務タスク管理システム</h3>
+                    <p class="case-description">5年前に構築されたTODO管理アプリ。機能追加を重ねるうちにセキュリティ対策が後回しになっていた。</p>
+                    <div class="case-stats">
+                        <div class="case-stat">
+                            <div class="case-stat-number critical">5</div>
+                            <div class="case-stat-label">Critical</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number high">7</div>
+                            <div class="case-stat-label">High</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number medium">8</div>
+                            <div class="case-stat-label">Medium</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number low">2</div>
+                            <div class="case-stat-label">Low</div>
+                        </div>
+                    </div>
+                    <div class="case-issues">
+                        <span class="issue-tag security">SQLインジェクション</span>
+                        <span class="issue-tag security">MD5パスワード</span>
+                        <span class="issue-tag performance">N+1クエリ</span>
+                    </div>
+                    <div class="case-footer">
+                        <span class="case-total">合計 22件の問題を検出</span>
+                        <span class="case-more">詳細を見る →</span>
+                    </div>
+                </div>
+
+                <!-- React CMS App -->
+                <div class="case-card" data-case-detail="react">
+                    <div class="case-header">
+                        <div class="case-icon">⚛️</div>
+                        <div class="case-tech-badge react">React / TypeScript</div>
+                    </div>
+                    <h3 class="case-title">コンテンツ管理システム（CMS）</h3>
+                    <p class="case-description">React 16系で構築されたCMS。クラスコンポーネントや古いライブラリが技術的負債に。</p>
+                    <div class="case-stats">
+                        <div class="case-stat">
+                            <div class="case-stat-number critical">6</div>
+                            <div class="case-stat-label">Critical</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number high">20</div>
+                            <div class="case-stat-label">High</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number medium">20</div>
+                            <div class="case-stat-label">Medium</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number low">8</div>
+                            <div class="case-stat-label">Low</div>
+                        </div>
+                    </div>
+                    <div class="case-issues">
+                        <span class="issue-tag security">XSS脆弱性</span>
+                        <span class="issue-tag security">APIキー露出</span>
+                        <span class="issue-tag quality">古いReact</span>
+                    </div>
+                    <div class="case-footer">
+                        <span class="case-total">合計 54件の問題を検出</span>
+                        <span class="case-more">詳細を見る →</span>
+                    </div>
+                </div>
+
+                <!-- Django EC App -->
+                <div class="case-card" data-case-detail="django">
+                    <div class="case-header">
+                        <div class="case-icon">🐍</div>
+                        <div class="case-tech-badge python">Python / Django</div>
+                    </div>
+                    <h3 class="case-title">ECサイト（オンラインショップ）</h3>
+                    <p class="case-description">Django 2.2で構築されたECサイト。EOL済みバージョンでセキュリティリスクが高い状態。</p>
+                    <div class="case-stats">
+                        <div class="case-stat">
+                            <div class="case-stat-number critical">7</div>
+                            <div class="case-stat-label">Critical</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number high">22</div>
+                            <div class="case-stat-label">High</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number medium">15</div>
+                            <div class="case-stat-label">Medium</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number low">4</div>
+                            <div class="case-stat-label">Low</div>
+                        </div>
+                    </div>
+                    <div class="case-issues">
+                        <span class="issue-tag security">SQLインジェクション</span>
+                        <span class="issue-tag security">SECRET_KEY露出</span>
+                        <span class="issue-tag security">DEBUG=True</span>
+                    </div>
+                    <div class="case-footer">
+                        <span class="case-total">合計 48件の問題を検出</span>
+                        <span class="case-more">詳細を見る →</span>
+                    </div>
+                </div>
+
+                <!-- ASP.NET Legacy System -->
+                <div class="case-card" data-case-detail="aspnet">
+                    <div class="case-header">
+                        <div class="case-icon">🔷</div>
+                        <div class="case-tech-badge dotnet">C# / ASP.NET Core</div>
+                    </div>
+                    <h3 class="case-title">社内業務管理システム</h3>
+                    <p class="case-description">.NET Core 2.1で構築されたレガシーシステム。勤怠・経費精算・プロジェクト管理を一括管理。</p>
+                    <div class="case-stats">
+                        <div class="case-stat">
+                            <div class="case-stat-number critical">7</div>
+                            <div class="case-stat-label">Critical</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number high">21</div>
+                            <div class="case-stat-label">High</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number medium">17</div>
+                            <div class="case-stat-label">Medium</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number low">3</div>
+                            <div class="case-stat-label">Low</div>
+                        </div>
+                    </div>
+                    <div class="case-issues">
+                        <span class="issue-tag security">接続文字列露出</span>
+                        <span class="issue-tag security">平文パスワード</span>
+                        <span class="issue-tag quality">巨大コントローラー</span>
+                    </div>
+                    <div class="case-footer">
+                        <span class="case-total">合計 48件の問題を検出</span>
+                        <span class="case-more">詳細を見る →</span>
+                    </div>
+                </div>
+
+                <!-- Vue.js Booking App -->
+                <div class="case-card" data-case-detail="vue">
+                    <div class="case-header">
+                        <div class="case-icon">💚</div>
+                        <div class="case-tech-badge vue">Vue.js / Node.js</div>
+                    </div>
+                    <h3 class="case-title">予約・スケジュール管理システム</h3>
+                    <p class="case-description">Vue 2.xとNode.js/Expressで構築された予約管理アプリ。Vuexの複雑化とセキュリティ問題が課題。</p>
+                    <div class="case-stats">
+                        <div class="case-stat">
+                            <div class="case-stat-number critical">4</div>
+                            <div class="case-stat-label">Critical</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number high">8</div>
+                            <div class="case-stat-label">High</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number medium">9</div>
+                            <div class="case-stat-label">Medium</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number low">2</div>
+                            <div class="case-stat-label">Low</div>
+                        </div>
+                    </div>
+                    <div class="case-issues">
+                        <span class="issue-tag security">XSS（v-html）</span>
+                        <span class="issue-tag security">APIキー露出</span>
+                        <span class="issue-tag performance">再レンダリング</span>
+                    </div>
+                    <div class="case-footer">
+                        <span class="case-total">合計 23件の問題を検出</span>
+                        <span class="case-more">詳細を見る →</span>
+                    </div>
+                </div>
+
+                <!-- Spring Boot CRM App -->
+                <div class="case-card" data-case-detail="springboot">
+                    <div class="case-header">
+                        <div class="case-icon">☕</div>
+                        <div class="case-tech-badge java">Java / Spring Boot</div>
+                    </div>
+                    <h3 class="case-title">顧客管理システム（CRM）</h3>
+                    <p class="case-description">Spring Framework 4.xで構築されたCRM。EOL済みフレームワークとLog4j脆弱性が深刻な課題。</p>
+                    <div class="case-stats">
+                        <div class="case-stat">
+                            <div class="case-stat-number critical">6</div>
+                            <div class="case-stat-label">Critical</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number high">12</div>
+                            <div class="case-stat-label">High</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number medium">8</div>
+                            <div class="case-stat-label">Medium</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number low">2</div>
+                            <div class="case-stat-label">Low</div>
+                        </div>
+                    </div>
+                    <div class="case-issues">
+                        <span class="issue-tag security">SQLインジェクション</span>
+                        <span class="issue-tag security">Log4j脆弱性</span>
+                        <span class="issue-tag quality">God Class</span>
+                    </div>
+                    <div class="case-footer">
+                        <span class="case-total">合計 28件の問題を検出</span>
+                        <span class="case-more">詳細を見る →</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cases-summary">
+                <div class="summary-item">
+                    <div class="summary-icon">🔍</div>
+                    <div class="summary-content">
+                        <div class="summary-number">223件</div>
+                        <div class="summary-label">6事例の合計検出数</div>
+                    </div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-icon">⚠️</div>
+                    <div class="summary-content">
+                        <div class="summary-number">35件</div>
+                        <div class="summary-label">Critical（即時対応必須）</div>
+                    </div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-icon">⏱️</div>
+                    <div class="summary-content">
+                        <div class="summary-number">平均10分</div>
+                        <div class="summary-label">初回診断の所要時間</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 事例詳細モーダル -->
+    <div class="modal" id="caseDetailModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-large">
+            <button class="modal-close" aria-label="閉じる">&times;</button>
+            <div class="modal-body" id="caseDetailBody">
+                <!-- JavaScriptで動的に内容を挿入 -->
+            </div>
+        </div>
+    </div>
 
     <!-- お客様の声（ダミー） -->
     <section class="testimonials">

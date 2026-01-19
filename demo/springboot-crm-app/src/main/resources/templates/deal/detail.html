@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>商談詳細 - CRM</title>
+    <link rel="stylesheet" href="https://cdn.example.com/bootstrap.css">
+</head>
+<body>
+    <div class="container">
+        <!-- ISSUE: th:utextでXSS -->
+        <h1 th:utext="${deal.title}">商談詳細</h1>
+
+        <div class="card">
+            <div class="card-body">
+                <dl>
+                    <dt>顧客</dt>
+                    <dd>
+                        <a th:href="@{/customers/{id}(id=${deal.customer.id})}"
+                           th:utext="${deal.customer.companyName}">顧客名</a>
+                    </dd>
+
+                    <dt>金額</dt>
+                    <!-- ISSUE: 通貨フォーマットなし -->
+                    <dd th:text="${deal.amount}">0</dd>
+
+                    <dt>ステージ</dt>
+                    <dd th:text="${deal.stage}"></dd>
+
+                    <dt>確度</dt>
+                    <dd><span th:text="${deal.probability}"></span>%</dd>
+
+                    <dt>締切日</dt>
+                    <dd th:text="${#dates.format(deal.expectedCloseDate, 'yyyy-MM-dd')}"></dd>
+
+                    <dt>メモ</dt>
+                    <!-- ISSUE: XSS脆弱性 -->
+                    <dd th:utext="${deal.notes}"></dd>
+
+                    <dt>担当者</dt>
+                    <dd th:text="${deal.assignedTo}"></dd>
+
+                    <dt>作成日</dt>
+                    <dd th:text="${#dates.format(deal.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
+
+                    <dt>更新日</dt>
+                    <dd th:text="${#dates.format(deal.updatedAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                </dl>
+            </div>
+        </div>
+
+        <!-- ステージ変更 -->
+        <!-- ISSUE: CSRFトークンなし -->
+        <form th:action="@{/deals/{id}/stage(id=${deal.id})}" method="POST">
+            <div class="form-group">
+                <label>ステージ変更</label>
+                <select name="stage" class="form-control">
+                    <option value="lead" th:selected="${deal.stage == 'lead'}">リード</option>
+                    <option value="proposal" th:selected="${deal.stage == 'proposal'}">提案</option>
+                    <option value="negotiation" th:selected="${deal.stage == 'negotiation'}">交渉</option>
+                    <option value="closed_won" th:selected="${deal.stage == 'closed_won'}">成約</option>
+                    <option value="closed_lost" th:selected="${deal.stage == 'closed_lost'}">失注</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">ステージ更新</button>
+        </form>
+
+        <!-- 活動追加 -->
+        <h3>活動追加</h3>
+        <form th:action="@{/deals/{id}/activities(id=${deal.id})}" method="POST">
+            <div class="form-group">
+                <label>種類</label>
+                <select name="activityType" class="form-control">
+                    <option value="call">電話</option>
+                    <option value="email">メール</option>
+                    <option value="meeting">会議</option>
+                    <option value="note">メモ</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>内容</label>
+                <textarea name="description" class="form-control" required></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-success">活動追加</button>
+        </form>
+
+        <!-- 活動履歴 -->
+        <h3>活動履歴</h3>
+        <div th:each="activity : ${deal.activities}" class="activity-item">
+            <div class="activity-header">
+                <span th:text="${activity.activityType}"></span>
+                <span th:text="${#dates.format(activity.activityDate, 'yyyy-MM-dd HH:mm')}"></span>
+                <span th:text="${activity.performedBy}"></span>
+            </div>
+            <!-- ISSUE: XSS脆弱性 -->
+            <div class="activity-body" th:utext="${activity.description}"></div>
+        </div>
+
+        <!-- ISSUE: GETで削除 -->
+        <a th:href="@{/deals/delete/{id}(id=${deal.id})}"
+           class="btn btn-danger"
+           onclick="return confirm('削除しますか？')">削除</a>
+
+        <a href="/deals" class="btn btn-secondary">一覧に戻る</a>
+    </div>
+</body>
+</html>

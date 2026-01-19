@@ -50,6 +50,28 @@ demo/
 │   ├── Views/                  # Razorビュー
 │   └── Data/                   # DbContext
 │
+├── vue-booking-app/            # 解析対象アプリ5: Vue.js 予約管理システム
+│   ├── README.md               # アプリの説明
+│   ├── ISSUES.md               # 含まれる問題の一覧
+│   ├── package.json            # 依存関係定義
+│   ├── src/                    # ソースコード
+│   │   ├── components/         # Vueコンポーネント
+│   │   ├── views/              # ページコンポーネント
+│   │   ├── stores/             # Vuex/Pinia
+│   │   └── services/           # API通信
+│   └── server/                 # Node.js APIサーバー
+│
+├── springboot-crm-app/         # 解析対象アプリ6: Spring Boot 顧客管理システム（CRM）
+│   ├── README.md               # アプリの説明
+│   ├── ISSUES.md               # 含まれる問題の一覧
+│   ├── pom.xml                 # Maven設定
+│   ├── src/main/java/          # Javaソースコード
+│   │   ├── controller/         # MVCコントローラー
+│   │   ├── service/            # ビジネスロジック
+│   │   ├── repository/         # データアクセス
+│   │   └── model/              # エンティティ
+│   └── src/main/resources/     # 設定ファイル
+│
 ├── scripts/                    # 解析スクリプト（準備中）
 │   └── analyze-todo-app.ts    # メイン解析スクリプト
 │
@@ -195,13 +217,15 @@ xdg-open ../reports/analysis-report.html # Linux
 
 ### デモアプリのカスタマイズ
 
-顧客の技術スタックに合わせて、4種類のデモアプリから選択できます：
+顧客の技術スタックに合わせて、6種類のデモアプリから選択できます：
 
 **利用可能なデモアプリ**:
 1. **PHP/Laravel TODO App** - 基本的なTODO管理アプリ（22件の問題）
 2. **React CMS App** - やや古いコンテンツ管理システム（54件の問題）
 3. **Django EC App** - やや古いECサイト（48件の問題）
 4. **ASP.NET Core Legacy System** - レガシーな社内管理システム（48件の問題）
+5. **Vue.js Booking App** - 予約・スケジュール管理システム（23件の問題）
+6. **Spring Boot CRM App** - 顧客管理システム（28件の問題）
 
 各アプリには、技術スタック、用途、レガシー度に応じた典型的な問題が含まれています。
 
@@ -272,6 +296,34 @@ xdg-open ../reports/analysis-report.html # Linux
 **主要な問題**: 接続文字列ハードコーディング、SQLインジェクション、平文パスワード、DeveloperExceptionPage本番有効、古い.NET Core 2.1（EOL）
 
 詳細: [aspnet-legacy-system/ISSUES.md](aspnet-legacy-system/ISSUES.md)
+
+### 5. Vue.js Booking App（23件）
+
+| カテゴリ | Critical | High | Medium | Low | 合計 |
+|----------|----------|------|--------|-----|------|
+| セキュリティ | 4 | 4 | 0 | 0 | 8 |
+| コード品質 | 0 | 2 | 5 | 2 | 9 |
+| パフォーマンス | 0 | 2 | 3 | 0 | 5 |
+| 依存関係 | 0 | 1 | 4 | 1 | 6 |
+| **合計** | **4** | **9** | **12** | **3** | **23** |
+
+**主要な問題**: XSS（v-html）、APIキー露出、JWTのlocalStorage保存、認証バイパス、不要な再レンダリング、古いVue 2.x
+
+詳細: [vue-booking-app/ISSUES.md](vue-booking-app/ISSUES.md)
+
+### 6. Spring Boot CRM App（28件）
+
+| カテゴリ | Critical | High | Medium | Low | 合計 |
+|----------|----------|------|--------|-----|------|
+| セキュリティ | 3 | 5 | 0 | 0 | 8 |
+| コード品質 | 0 | 2 | 5 | 2 | 9 |
+| パフォーマンス | 0 | 3 | 2 | 0 | 5 |
+| 依存関係 | 3 | 2 | 0 | 1 | 6 |
+| **合計** | **6** | **12** | **7** | **3** | **28** |
+
+**主要な問題**: SQLインジェクション（Native Query）、機密情報ハードコーディング、N+1クエリ、God Class、古いSpring 4.x（EOL）、Log4j脆弱性
+
+詳細: [springboot-crm-app/ISSUES.md](springboot-crm-app/ISSUES.md)
 
 ## 💡 プレゼンのポイント
 
