@@ -356,9 +356,11 @@ git push origin main  # mainブランチへのpushで自動デプロイ
 - **チャート**: Chart.js
 
 ### 静的解析ツール
-- **JavaScript/TypeScript**: ESLint
-- **PHP**: PHP_CodeSniffer
-- **Python**: Pylint
+- **JavaScript/TypeScript**: ESLint, Prettier
+- **PHP**: PHP_CodeSniffer, PHPStan, PHP Mess Detector
+- **C#**: Roslyn Analyzers, StyleCop
+- **Python**: pylint, mypy, bandit
+- **Java**: Checkstyle, SpotBugs, PMD
 - **セキュリティ**: Snyk, Gitleaks, OWASP Dependency-Check
 - **統合**: SonarQube（オプション）
 

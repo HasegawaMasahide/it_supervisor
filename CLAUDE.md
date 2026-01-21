@@ -61,7 +61,7 @@ Issue管理 ← 人間の診断 ← 分析結果の可視化
 - **フロントエンド**: TypeScript, React, Chart.js
 - **バックエンド**: TypeScript (Node.js) / PHP (Laravel)
 - **AI/ML**: Claude API, Claude Code
-- **静的解析**: ESLint, PHP_CodeSniffer, SonarQube, Snyk, Gitleaks, OWASP Dependency-Check
+- **静的解析**: ESLint, PHP_CodeSniffer, PHPStan, Roslyn Analyzers, pylint, mypy, Checkstyle, SpotBugs, SonarQube, Snyk, Gitleaks, OWASP Dependency-Check
 - **インフラ**: Docker, PostgreSQL, Git
 
 ## ドキュメント更新時の注意事項
