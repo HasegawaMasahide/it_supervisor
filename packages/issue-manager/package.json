@@ -1,0 +1,27 @@
+{
+  "name": "@it-supervisor/issue-manager",
+  "version": "0.1.0",
+  "description": "Issue管理システム - 発見された問題を管理・追跡",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "issue-tracking",
+    "project-management",
+    "it-audit"
+  ],
+  "author": "IT Supervisor Team",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@it-supervisor/metrics-model": "^0.1.0",
+    "better-sqlite3": "^9.2.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/node": "^20.10.0"
+  }
+}
