@@ -976,5 +976,159 @@ describe('StaticAnalyzer', () => {
       });
       expect(issues[1].fix).toBeUndefined();
     });
+
+    it('should map all Snyk severity levels correctly', async () => {
+      const snykResult = {
+        vulnerabilities: [
+          {
+            id: 'SNYK-CRITICAL',
+            title: 'Critical vulnerability',
+            packageName: 'pkg1',
+            version: '1.0.0',
+            severity: 'critical',
+            url: 'https://snyk.io/vuln/1'
+          },
+          {
+            id: 'SNYK-HIGH',
+            title: 'High vulnerability',
+            packageName: 'pkg2',
+            version: '2.0.0',
+            severity: 'high',
+            url: 'https://snyk.io/vuln/2'
+          },
+          {
+            id: 'SNYK-MEDIUM',
+            title: 'Medium vulnerability',
+            packageName: 'pkg3',
+            version: '3.0.0',
+            severity: 'medium',
+            url: 'https://snyk.io/vuln/3'
+          },
+          {
+            id: 'SNYK-LOW',
+            title: 'Low vulnerability',
+            packageName: 'pkg4',
+            version: '4.0.0',
+            severity: 'low',
+            url: 'https://snyk.io/vuln/4'
+          },
+          {
+            id: 'SNYK-UNKNOWN',
+            title: 'Unknown severity',
+            packageName: 'pkg5',
+            version: '5.0.0',
+            severity: 'unknown',
+            url: 'https://snyk.io/vuln/5'
+          }
+        ]
+      };
+
+      const issues = (analyzer as any).parseSnykResults(snykResult, '/test');
+
+      expect(issues).toHaveLength(5);
+      expect(issues[0].severity).toBe(Severity.Critical);
+      expect(issues[1].severity).toBe(Severity.High);
+      expect(issues[2].severity).toBe(Severity.Medium);
+      expect(issues[3].severity).toBe(Severity.Low);
+      expect(issues[4].severity).toBe(Severity.Info);
+    });
+
+    it('should handle invalid JSON in Snyk output', async () => {
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) {
+          return Promise.resolve();
+        }
+        return Promise.reject(new Error('File not found'));
+      });
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Command failed') as any;
+        error.stdout = 'invalid json {{{';
+        callback(error, '', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runSnyk('/test/repo', {});
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('Gitleaks with tags', () => {
+    it('should parse Gitleaks findings with tags', async () => {
+      const findings = [
+        {
+          RuleID: 'aws-access-key',
+          Description: 'AWS Access Key',
+          Match: 'AKIAIOSFODNN7EXAMPLE',
+          File: 'config.js',
+          StartLine: 10,
+          Secret: 'AKIA...',
+          Tags: ['aws', 'credentials']
+        },
+        {
+          RuleID: 'generic-api-key',
+          Description: 'Generic API Key',
+          Match: 'sk_test_4eC39HqLyjWDarjtT1zdp7dc',
+          File: 'api.js',
+          StartLine: 20,
+          Secret: 'sk_...',
+          Tags: ['api-key', 'sensitive']
+        },
+        {
+          RuleID: 'github-token',
+          Description: 'GitHub Personal Access Token',
+          Match: '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',
+          File: 'token.js',
+          StartLine: 30,
+          Secret: 'ghp_...',
+          Tags: null
+        }
+      ];
+
+      const issues = (analyzer as any).parseGitleaksResults(findings, '/test');
+
+      expect(issues).toHaveLength(3);
+
+      // First finding with tags
+      expect(issues[0]).toMatchObject({
+        tool: AnalyzerTool.Gitleaks,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        rule: 'aws-access-key',
+        message: 'AWS Access Key: AKIAIOSFODNN7EXAMPLE',
+        file: 'config.js',
+        line: 10,
+        snippet: 'AKIA...'
+      });
+      expect(issues[0].references).toEqual(['Tag: aws', 'Tag: credentials']);
+
+      // Second finding with tags
+      expect(issues[1].references).toEqual(['Tag: api-key', 'Tag: sensitive']);
+
+      // Third finding without tags
+      expect(issues[2].references).toBeUndefined();
+    });
+
+    it('should handle Gitleaks findings with missing optional fields', async () => {
+      const findings = [
+        {
+          RuleID: 'test-rule',
+          Description: 'Test finding',
+          Match: 'matched-secret',
+          File: null,
+          StartLine: undefined,
+          Secret: 'secret',
+          Tags: null
+        }
+      ];
+
+      const issues = (analyzer as any).parseGitleaksResults(findings, '/test');
+
+      expect(issues).toHaveLength(1);
+      expect(issues[0].file).toBe('unknown');
+      expect(issues[0].line).toBeUndefined();
+      expect(issues[0].references).toBeUndefined();
+    });
   });
 });
