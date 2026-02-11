@@ -50,7 +50,7 @@ export class RepositoryAnalyzer {
     // ディレクトリの存在確認
     try {
       await fs.access(absolutePath);
-    } catch (error) {
+    } catch (_error) {
       throw new Error(`Repository path not found: ${absolutePath}`);
     }
 
@@ -211,7 +211,7 @@ export class RepositoryAnalyzer {
           try {
             const childNode = await buildNode(entryPath, depth + 1);
             node.children!.push(childNode);
-          } catch (error) {
+          } catch (_error) {
             // アクセス権限エラー等は無視
           }
         }

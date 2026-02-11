@@ -45,7 +45,7 @@ export class SandboxBuilder {
     // ディレクトリの存在確認
     try {
       await fs.access(absolutePath);
-    } catch (error) {
+    } catch (_error) {
       throw new Error(`Target path not found: ${absolutePath}`);
     }
 
@@ -106,7 +106,7 @@ export class SandboxBuilder {
         if (packageJson.dependencies?.mysql) databases.push(DatabaseType.MySQL);
         if (packageJson.dependencies?.mongodb) databases.push(DatabaseType.MongoDB);
         if (packageJson.dependencies?.redis) databases.push(DatabaseType.Redis);
-      } catch (error) {
+      } catch (_error) {
         // package.jsonのパースに失敗した場合は基本情報のみ設定
         details.runtime = 'Node.js';
         details.packageManager = 'npm';
@@ -134,7 +134,7 @@ export class SandboxBuilder {
 
         // データベース検出
         if (composerJson.require?.['doctrine/dbal']) databases.push(DatabaseType.MySQL);
-      } catch (error) {
+      } catch (_error) {
         // composer.jsonのパースに失敗した場合は基本情報のみ設定
         details.runtime = 'PHP';
         details.packageManager = 'composer';
@@ -652,7 +652,7 @@ export class SandboxController {
 
     try {
       await fs.access(metadataPath);
-    } catch (error) {
+    } catch (_error) {
       throw new Error(`Sandbox metadata not found at: ${metadataPath}`);
     }
 

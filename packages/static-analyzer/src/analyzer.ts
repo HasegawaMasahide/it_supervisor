@@ -175,7 +175,7 @@ export class StaticAnalyzer {
     // ディレクトリの存在確認
     try {
       await fs.access(absolutePath);
-    } catch (error) {
+    } catch (_error) {
       throw new Error(`Repository path not found: ${absolutePath}`);
     }
 

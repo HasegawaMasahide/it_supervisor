@@ -366,13 +366,14 @@
   - Effort: Low
   - Commit: `chore(workspace): update @types/node to 25.x`
 
-- [ ] **Task 35: Update @typescript-eslint packages from 6.x to 8.x**
-  - Update @typescript-eslint/eslint-plugin and @typescript-eslint/parser to ^8.55.0
-  - Review and update ESLint configuration for new rules
-  - Fix any new linting errors that emerge
+- [x] **Task 35: Update @typescript-eslint packages from 6.x to 8.x**
+  - ✅ Updated @typescript-eslint/eslint-plugin and @typescript-eslint/parser to ^8.55.0
+  - ✅ Updated ESLint configuration to handle unused caught errors with `caughtErrorsIgnorePattern`
+  - ✅ Fixed 8 new linting errors (unused error variables in catch blocks)
+  - ✅ All 356 tests pass successfully
   - Priority: P3 (Low - linting improvements)
   - Calculated Priority Score: 36 (Impact: 3, TechDebt: 5, Effort: 3)
-  - Effort: Medium
+  - Status: ✅ Completed
   - Commit: `chore(workspace): update @typescript-eslint to 8.x`
 
 - [ ] **Task 36: Update ESLint from 8.x to 10.x**

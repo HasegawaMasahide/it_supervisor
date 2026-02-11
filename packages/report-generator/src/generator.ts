@@ -200,7 +200,7 @@ export class ReportGenerator {
 
     try {
       return await fs.readFile(templatePath, 'utf-8');
-    } catch (error) {
+    } catch (_error) {
       // テンプレートがない場合はデフォルトテンプレートを使用
       return this.getDefaultTemplate(type);
     }
