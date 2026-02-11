@@ -1061,3 +1061,13 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `ci: create reusable Composite Action for Puppeteer setup`
 
+- [x] **Task 90: Remove obsolete test scripts from individual packages**
+  - ✅ Removed `"test": "node --test"` from 6 packages (issue-manager, metrics-model, repo-analyzer, report-generator, sandbox-builder, static-analyzer)
+  - ✅ Tests are now exclusively run from workspace root using vitest
+  - ✅ Cleaner package.json files with only relevant scripts (build, clean)
+  - ✅ All tests pass (391 passed, 33 skipped)
+  - Priority: P3 (Low - cleanup task)
+  - Calculated Priority Score: 38 (Impact: 3, TechDebt: 4, Effort: 1)
+  - Status: ✅ Completed
+  - Commit: `chore(workspace): remove obsolete test scripts from individual packages`
+
