@@ -3,6 +3,7 @@ import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as yaml from 'js-yaml';
 import {
   DetectionResult,
   EnvironmentType,
@@ -869,27 +870,52 @@ export class SandboxController {
    */
   async createSnapshot(name: string): Promise<Snapshot> {
     try {
-      // ボリュームのバックアップを作成
-      // TODO: Use timestamp for versioning in actual implementation
-      const snapshotDir = path.join(this.sandboxPath, 'snapshots', name);
+      // タイムスタンプ付きスナップショット名を生成
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const versionedName = `${name}-${timestamp}`;
+      const snapshotDir = path.join(this.sandboxPath, 'snapshots', versionedName);
       await fs.mkdir(snapshotDir, { recursive: true });
 
-      // TODO: Parse docker-compose.yml to get volume names in actual implementation
-      // const composeContent = await fs.readFile(path.join(this.sandboxPath, 'docker-compose.yml'), 'utf-8');
+      // docker-compose.ymlをパースしてボリューム名を取得
+      const composeFilePath = path.join(this.sandboxPath, 'docker-compose.yml');
+      const composeContent = await fs.readFile(composeFilePath, 'utf-8');
+      const composeConfig = yaml.load(composeContent) as Record<string, unknown>;
 
-      // 簡易的なバックアップ（実際にはdocker cpを使用）
-      const command = `docker-compose pause`;
-      await this.execAsync(command, { cwd: this.sandboxPath });
+      const volumes: string[] = [];
+      if (composeConfig && typeof composeConfig === 'object' && 'volumes' in composeConfig) {
+        const volumesObj = composeConfig.volumes as Record<string, unknown>;
+        volumes.push(...Object.keys(volumesObj));
+      }
 
-      // ここでボリュームをコピー...（省略）
+      // コンテナを一時停止
+      await this.execAsync('docker-compose pause', { cwd: this.sandboxPath });
 
-      await this.execAsync('docker-compose unpause', { cwd: this.sandboxPath });
+      let totalSize = 0;
+      try {
+        // 各ボリュームをバックアップ
+        for (const volumeName of volumes) {
+          // docker volumeを使ってバックアップを作成
+          const volumeBackupCmd = `docker run --rm -v ${volumeName}:/source -v ${snapshotDir}:/backup alpine tar czf /backup/${volumeName}.tar.gz -C /source .`;
+          await this.execAsync(volumeBackupCmd);
+
+          // バックアップサイズを取得
+          try {
+            const stats = await fs.stat(path.join(snapshotDir, `${volumeName}.tar.gz`));
+            totalSize += stats.size;
+          } catch {
+            // サイズ取得失敗は無視
+          }
+        }
+      } finally {
+        // コンテナを再開
+        await this.execAsync('docker-compose unpause', { cwd: this.sandboxPath });
+      }
 
       const snapshot: Snapshot = {
-        name,
+        name: versionedName,
         createdAt: new Date(),
-        size: 0,
-        description: `Snapshot created at ${new Date().toISOString()}`
+        size: totalSize,
+        description: `Snapshot '${name}' created at ${new Date().toISOString()}`
       };
 
       // スナップショット情報を保存
@@ -911,19 +937,81 @@ export class SandboxController {
   async restoreSnapshot(name: string): Promise<void> {
     try {
       console.log(`Restoring snapshot: ${name}`);
-      // TODO: Implement snapshot restoration logic
-      // This will involve:
-      // 1. Reading snapshot metadata from snapshots/{name}/snapshot.json
-      // 2. Stopping current environment
-      // 3. Restoring volumes from backup
-      // 4. Restarting environment with restored data
+
+      // スナップショットディレクトリを検索
+      const snapshotsBaseDir = path.join(this.sandboxPath, 'snapshots');
+      let snapshotDir: string | null = null;
+
+      // 完全一致のディレクトリを探す
+      try {
+        const candidateDir = path.join(snapshotsBaseDir, name);
+        await fs.access(candidateDir);
+        snapshotDir = candidateDir;
+      } catch {
+        // 見つからない場合、タイムスタンプ付きのディレクトリを探す
+        try {
+          const dirs = await fs.readdir(snapshotsBaseDir);
+          const matchingDirs = dirs.filter(dir => dir.startsWith(`${name}-`));
+          if (matchingDirs.length === 0) {
+            throw new Error(`Snapshot '${name}' not found`);
+          }
+          // 最新のスナップショットを使用
+          snapshotDir = path.join(snapshotsBaseDir, matchingDirs.sort().reverse()[0]);
+        } catch {
+          throw new Error(`Snapshot '${name}' not found`);
+        }
+      }
+
+      // スナップショット情報を読み込み
+      const snapshotMetaPath = path.join(snapshotDir, 'snapshot.json');
+      const snapshotMetaContent = await fs.readFile(snapshotMetaPath, 'utf-8');
+      const snapshotMeta = JSON.parse(snapshotMetaContent) as Snapshot;
+
+      console.log(`Found snapshot: ${snapshotMeta.name} (${snapshotMeta.description})`);
+
+      // docker-compose.ymlをパースしてボリューム名を取得
+      const composeFilePath = path.join(this.sandboxPath, 'docker-compose.yml');
+      const composeContent = await fs.readFile(composeFilePath, 'utf-8');
+      const composeConfig = yaml.load(composeContent) as Record<string, unknown>;
+
+      const volumes: string[] = [];
+      if (composeConfig && typeof composeConfig === 'object' && 'volumes' in composeConfig) {
+        const volumesObj = composeConfig.volumes as Record<string, unknown>;
+        volumes.push(...Object.keys(volumesObj));
+      }
 
       // 環境を停止
+      console.log('Stopping environment...');
       await this.down();
 
-      // ボリュームを復元（実装省略）
+      // 各ボリュームを復元
+      console.log('Restoring volumes...');
+      for (const volumeName of volumes) {
+        const backupFile = path.join(snapshotDir, `${volumeName}.tar.gz`);
+
+        try {
+          await fs.access(backupFile);
+
+          // ボリュームを削除して再作成
+          try {
+            await this.execAsync(`docker volume rm ${volumeName}`);
+          } catch {
+            // ボリュームが存在しない場合は無視
+          }
+          await this.execAsync(`docker volume create ${volumeName}`);
+
+          // バックアップから復元
+          const restoreCmd = `docker run --rm -v ${volumeName}:/target -v ${snapshotDir}:/backup alpine tar xzf /backup/${volumeName}.tar.gz -C /target`;
+          await this.execAsync(restoreCmd);
+
+          console.log(`Restored volume: ${volumeName}`);
+        } catch (error) {
+          console.warn(`Failed to restore volume ${volumeName}: ${error}`);
+        }
+      }
 
       // 環境を再起動
+      console.log('Starting environment...');
       await this.up();
 
       console.log('Snapshot restored successfully');

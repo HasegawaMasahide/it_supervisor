@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import * as yaml from 'js-yaml';
 import { SandboxController } from '../builder.js';
 import { EnvironmentType } from '../types.js';
 
@@ -9,7 +10,10 @@ vi.mock('fs', () => ({
   promises: {
     access: vi.fn(),
     readFile: vi.fn(),
-    writeFile: vi.fn()
+    writeFile: vi.fn(),
+    mkdir: vi.fn(),
+    readdir: vi.fn(),
+    stat: vi.fn()
   }
 }));
 
@@ -19,6 +23,10 @@ vi.mock('child_process', () => ({
 
 vi.mock('util', () => ({
   promisify: (fn: any) => fn
+}));
+
+vi.mock('js-yaml', () => ({
+  load: vi.fn()
 }));
 
 describe('SandboxController - load()', () => {
@@ -144,5 +152,123 @@ describe('SandboxController - health()', () => {
 
     expect(result.healthy).toBe(false);
     expect(result.services.app.status).toBe('unhealthy');
+  });
+});
+
+describe('SandboxController - createSnapshot()', () => {
+  let controller: SandboxController;
+  const sandboxPath = '/test/sandbox';
+
+  beforeEach(() => {
+    controller = new SandboxController(sandboxPath);
+    vi.clearAllMocks();
+  });
+
+  it('タイムスタンプ付きスナップショットを作成できる', async () => {
+    const mockComposeConfig = {
+      volumes: {
+        'db-data': {},
+        'app-data': {}
+      }
+    };
+
+    vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+    vi.mocked(fs.readFile).mockResolvedValue('version: "3"');
+    vi.mocked(yaml.load).mockReturnValue(mockComposeConfig);
+    vi.mocked(fs.stat).mockResolvedValue({ size: 1024 } as any);
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+    const mockExecAsync = vi.fn().mockResolvedValue({ stdout: '' });
+    (controller as any).execAsync = mockExecAsync;
+
+    const snapshot = await controller.createSnapshot('test-backup');
+
+    expect(snapshot.name).toMatch(/^test-backup-\d{4}-\d{2}-\d{2}/);
+    expect(snapshot.size).toBeGreaterThan(0);
+    expect(snapshot.description).toContain('test-backup');
+    expect(mockExecAsync).toHaveBeenCalledWith('docker-compose pause', expect.any(Object));
+    expect(mockExecAsync).toHaveBeenCalledWith('docker-compose unpause', expect.any(Object));
+  });
+
+  it('ボリュームが存在しない場合でもスナップショットを作成できる', async () => {
+    const mockComposeConfig = {
+      volumes: {}
+    };
+
+    vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+    vi.mocked(fs.readFile).mockResolvedValue('version: "3"');
+    vi.mocked(yaml.load).mockReturnValue(mockComposeConfig);
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+    const mockExecAsync = vi.fn().mockResolvedValue({ stdout: '' });
+    (controller as any).execAsync = mockExecAsync;
+
+    const snapshot = await controller.createSnapshot('empty-backup');
+
+    expect(snapshot.name).toMatch(/^empty-backup-\d{4}-\d{2}-\d{2}/);
+    expect(snapshot.size).toBe(0);
+  });
+});
+
+describe('SandboxController - restoreSnapshot()', () => {
+  let controller: SandboxController;
+  const sandboxPath = '/test/sandbox';
+
+  beforeEach(() => {
+    controller = new SandboxController(sandboxPath);
+    vi.clearAllMocks();
+  });
+
+  it('最新のスナップショットから復元できる', async () => {
+    const snapshotName = 'test-backup';
+    const mockSnapshotMeta = {
+      name: `${snapshotName}-2024-01-01T00-00-00-000Z`,
+      createdAt: new Date(),
+      size: 1024,
+      description: 'Test snapshot'
+    };
+
+    const mockComposeConfig = {
+      volumes: {
+        'db-data': {},
+        'app-data': {}
+      }
+    };
+
+    // 完全一致のディレクトリが見つからない場合の処理
+    vi.mocked(fs.access)
+      .mockRejectedValueOnce(new Error('Not found'))
+      .mockResolvedValue(undefined);
+
+    vi.mocked(fs.readdir).mockResolvedValue([
+      `${snapshotName}-2024-01-01T00-00-00-000Z`,
+      `${snapshotName}-2023-12-31T00-00-00-000Z`
+    ] as any);
+
+    vi.mocked(fs.readFile)
+      .mockResolvedValueOnce(JSON.stringify(mockSnapshotMeta))
+      .mockResolvedValueOnce('version: "3"');
+
+    vi.mocked(yaml.load).mockReturnValue(mockComposeConfig);
+
+    const mockExecAsync = vi.fn().mockResolvedValue({ stdout: '' });
+    (controller as any).execAsync = mockExecAsync;
+    (controller as any).down = vi.fn().mockResolvedValue(undefined);
+    (controller as any).up = vi.fn().mockResolvedValue(undefined);
+
+    await controller.restoreSnapshot(snapshotName);
+
+    expect((controller as any).down).toHaveBeenCalled();
+    expect((controller as any).up).toHaveBeenCalled();
+    expect(mockExecAsync).toHaveBeenCalledWith(expect.stringContaining('docker volume create'));
+  });
+
+  it('スナップショットが見つからない場合、エラーをスローする', async () => {
+    vi.mocked(fs.access).mockRejectedValue(new Error('Not found'));
+    vi.mocked(fs.readdir).mockResolvedValue([] as any);
+
+    await expect(controller.restoreSnapshot('nonexistent')).rejects.toThrow(
+      "Snapshot 'nonexistent' not found"
+    );
   });
 });
