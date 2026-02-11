@@ -393,13 +393,13 @@
   - Status: ✅ Completed
   - Commit: `chore(metrics-model,issue-manager): update better-sqlite3 to 12.x`
 
-- [ ] **Task 38: Update marked from 11.x to 17.x**
-  - Update marked to ^17.0.1 in report-generator
-  - Test for breaking changes in markdown parsing API
-  - Verify all report generation tests pass (81 tests)
+- [x] **Task 38: Update marked from 11.x to 17.x**
+  - ✅ Updated marked to ^17.0.1 in report-generator
+  - ✅ Tested for breaking changes in markdown parsing API (no impact - simple usage)
+  - ✅ Verified all report generation tests pass (81 tests)
   - Priority: P3 (Low - markdown parsing update)
   - Calculated Priority Score: 36 (Impact: 3, TechDebt: 5, Effort: 3)
-  - Effort: Low
+  - Status: ✅ Completed
   - Commit: `chore(report-generator): update marked to 17.x`
 
 ### Phase 12: Documentation Improvements (Discovered 2026-02-11)

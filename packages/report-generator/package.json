@@ -20,7 +20,7 @@
   "dependencies": {
     "@it-supervisor/issue-manager": "^0.1.0",
     "@it-supervisor/metrics-model": "^0.1.0",
-    "marked": "^11.1.0"
+    "marked": "^17.0.1"
   },
   "devDependencies": {
     "@types/marked": "^6.0.0",
