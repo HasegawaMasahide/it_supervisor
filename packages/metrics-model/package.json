@@ -17,7 +17,7 @@
   "author": "IT Supervisor Team",
   "license": "MIT",
   "dependencies": {
-    "better-sqlite3": "^9.2.2"
+    "better-sqlite3": "^12.6.2"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8"

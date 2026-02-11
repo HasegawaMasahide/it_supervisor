@@ -384,13 +384,13 @@
   - Effort: Medium
   - Commit: `chore(workspace): update ESLint to 10.x with flat config`
 
-- [ ] **Task 37: Update better-sqlite3 from 9.x to 12.x**
-  - Update better-sqlite3 to ^12.6.2 in metrics-model and issue-manager
-  - Test for breaking changes in SQLite API
-  - Verify all database tests pass (currently 104 tests)
+- [x] **Task 37: Update better-sqlite3 from 9.x to 12.x**
+  - ✅ Updated better-sqlite3 to ^12.6.2 in metrics-model and issue-manager
+  - ✅ Tested for breaking changes in SQLite API (no breaking changes found)
+  - ✅ Verified all database tests pass (104 tests: 48 metrics-model + 56 issue-manager)
   - Priority: P2 (Medium - database dependency update)
   - Calculated Priority Score: 48 (Impact: 5, TechDebt: 5, Effort: 3)
-  - Effort: Low
+  - Status: ✅ Completed
   - Commit: `chore(metrics-model,issue-manager): update better-sqlite3 to 12.x`
 
 - [ ] **Task 38: Update marked from 11.x to 17.x**
