@@ -15,11 +15,11 @@ npm-debug.log*
 .env
 .env.local
 
-# IDE
-.vscode/
+# IDE (keep .vscode/ for shared workspace settings)
 .idea/
 *.swp
 *.swo
+.vscode/*.code-workspace
 
 # OS
 .DS_Store

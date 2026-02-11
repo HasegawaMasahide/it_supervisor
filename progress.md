@@ -750,3 +750,53 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `chore(workspace): add .nvmrc for Node.js version management`
 
+- [x] **Task 66: Update README.md and progress.md with current test coverage**
+  - ✅ Updated README.md coverage from 78.52% to 83.71% (statements)
+  - ✅ Added logger package to package list (7 packages total)
+  - ✅ Reorganized packages by coverage percentage (descending order)
+  - ✅ Updated progress.md coverage table with Lines column
+  - ✅ All coverage numbers now reflect latest test results
+  - Priority: P1 (High - documentation accuracy)
+  - Calculated Priority Score: 70 (Impact: 8, TechDebt: 6, Effort: 2)
+  - Status: ✅ Completed
+  - Commit: `docs(workspace): update test coverage numbers to latest (83.71%)`
+
+- [x] **Task 67: Update CONTRIBUTING.md to include logger package**
+  - ✅ Added logger to project structure (7 packages)
+  - ✅ Updated package dependency diagram showing logger as foundation
+  - ✅ Documented that logger is used by all packages
+  - Priority: P2 (Medium - documentation completeness)
+  - Calculated Priority Score: 54 (Impact: 6, TechDebt: 5, Effort: 2)
+  - Status: ✅ Completed
+  - Commit: `docs(workspace): add logger package to CONTRIBUTING.md`
+
+### Phase 20: Advanced Improvements (Discovered 2026-02-11)
+
+- [ ] **Task 68: Add VSCode workspace settings for consistent development**
+  - Create `.vscode/settings.json` with recommended settings
+  - Configure TypeScript IntelliSense and ESLint integration
+  - Add recommended extensions in `.vscode/extensions.json`
+  - Set up debug configurations in `.vscode/launch.json`
+  - Priority: P2 (Medium - developer experience)
+  - Calculated Priority Score: 48 (Impact: 5, TechDebt: 5, Effort: 2)
+  - Effort: Low-Medium
+
+- [ ] **Task 69: Create performance benchmarks**
+  - Add benchmark suite for critical operations
+  - Benchmark repo-analyzer file processing speed
+  - Benchmark static-analyzer tool execution time
+  - Benchmark report-generator rendering performance
+  - Track performance regressions in CI
+  - Priority: P2 (Medium - performance monitoring)
+  - Calculated Priority Score: 50 (Impact: 6, TechDebt: 5, Effort: 3)
+  - Effort: Medium
+
+- [ ] **Task 70: Add code complexity analysis**
+  - Install and configure complexity-report or similar tool
+  - Set up complexity thresholds in CI
+  - Generate complexity reports for all packages
+  - Identify hotspots for refactoring
+  - Priority: P3 (Low - code quality insight)
+  - Calculated Priority Score: 38 (Impact: 4, TechDebt: 5, Effort: 3)
+  - Effort: Medium
+
