@@ -1011,3 +1011,15 @@ Record any discoveries that need further investigation:
   - Calculated Priority Score: 68 (Impact: 8, TechDebt: 6, Effort: 6)
   - Effort: High (complete rewrite needed)
 
+### Phase 24: Documentation Updates (Discovered 2026-02-11)
+
+- [x] **Task 86: Update CHANGELOG.md with Task 84 completion**
+  - ✅ Added Task 84 details to CHANGELOG.md under "Fixed" section
+  - ✅ Updated E2E test status (33 tests skipped temporarily)
+  - ✅ Documented that tests await full API rewrite (Task 85)
+  - ✅ Maintained Keep a Changelog format consistency
+  - Priority: P2 (Medium - documentation completeness)
+  - Calculated Priority Score: 50 (Impact: 5, TechDebt: 5, Effort: 1)
+  - Status: ✅ Completed
+  - Commit: `docs(workspace): update CHANGELOG.md with Task 84`
+

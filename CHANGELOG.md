@@ -47,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Organized and archived outdated documentation files to docs/archive/
 
 ### Fixed
-- **E2E integration test API mismatches** - Fixed recordMetric/recordMetricsBatch signatures in all integration tests
+- **E2E integration test API mismatches** - Fixed recordMetric/recordMetricsBatch signatures in error-propagation, performance, and security-workflow tests; skipped 33 E2E tests temporarily until full API rewrite (Task 85)
 - TypeScript compilation errors (null safety for child process streams)
 - ESLint errors (unused imports, parameters, require() statements)
 - Reduced `any` type usage from 38 warnings to 0 warnings (-100%)
