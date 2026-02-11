@@ -9,6 +9,12 @@
     "test": "node --test",
     "clean": "rm -rf dist"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "docs"
+  ],
   "keywords": [
     "metrics",
     "data-model",

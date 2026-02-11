@@ -468,6 +468,43 @@
   - Status: ✅ Completed
   - Commit: `docs(workspace): organize and archive outdated documentation`
 
+### Phase 14: API Documentation (Discovered 2026-02-11)
+
+- [x] **Task 44: Create comprehensive API documentation for all packages**
+  - ✅ Created docs/api.md for static-analyzer (421 lines)
+  - ✅ Created docs/api.md for repo-analyzer (601 lines)
+  - ✅ Created docs/api.md for sandbox-builder (723 lines)
+  - ✅ Created docs/api.md for report-generator (887 lines)
+  - ✅ Created docs/api.md for issue-manager (971 lines)
+  - ✅ Created docs/api.md for metrics-model (1072 lines)
+  - ✅ Total: 4,675 lines of professional API documentation
+  - ✅ Each document includes: classes, methods, interfaces, enums, examples, error handling, best practices
+  - ✅ Resolves missing docs/api.md referenced in all package README files
+  - Priority: P1 (High - critical for package usability)
+  - Calculated Priority Score: 72 (Blocks: 0, Security: 0, Impact: 8, TechDebt: 7, Effort: 3)
+  - Status: ✅ Completed
+  - Commit: `docs(workspace): add comprehensive API documentation for all packages`
+
+### Phase 15: Package Publishing Preparation (Discovered 2026-02-11)
+
+- [ ] **Task 45: Add package.json 'files' field to all packages**
+  - Configure which files are included when package is published to npm
+  - Include: dist/, README.md, LICENSE, docs/
+  - Exclude: src/, tests/, coverage/, .github/, etc.
+  - Prevents accidental publication of source files and test artifacts
+  - Priority: P1 (High - blocks npm publication)
+  - Calculated Priority Score: 70 (Blocks: 5, Impact: 7, TechDebt: 6, Effort: 2)
+  - Effort: Low (configuration task)
+
+- [ ] **Task 46: Improve logging strategy**
+  - Replace 31 console.log/error statements with structured logging
+  - Implement logger utility with log levels (debug, info, warn, error)
+  - Make logging configurable (silent mode for production use)
+  - Consider using a lightweight logging library (pino, winston)
+  - Priority: P2 (Medium - code quality and production readiness)
+  - Calculated Priority Score: 62 (Impact: 7, TechDebt: 6, Effort: 4)
+  - Effort: Medium
+
 ## Summary
 
 ### Test Coverage Overview (as of 2026-02-11)

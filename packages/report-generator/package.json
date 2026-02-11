@@ -9,6 +9,13 @@
     "test": "node --test",
     "clean": "rm -rf dist"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "docs",
+    "templates"
+  ],
   "keywords": [
     "report",
     "pdf",
