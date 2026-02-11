@@ -8,18 +8,19 @@
 
 ## 📦 パッケージ構成
 
-このモノレポは、npm workspacesで管理された6つのパッケージで構成されています:
+このモノレポは、npm workspacesで管理された7つのパッケージで構成されています:
 
 | パッケージ | 説明 | テストカバレッジ |
 |-----------|------|----------------|
-| [`@it-supervisor/metrics-model`](./packages/metrics-model) | メトリクスデータベース管理 | 96.29% |
+| [`@it-supervisor/metrics-model`](./packages/metrics-model) | メトリクスデータベース管理 | 96.31% |
 | [`@it-supervisor/issue-manager`](./packages/issue-manager) | 問題管理・トラッキング | 95.06% |
-| [`@it-supervisor/repo-analyzer`](./packages/repo-analyzer) | Gitリポジトリ分析 | 65.50% |
-| [`@it-supervisor/static-analyzer`](./packages/static-analyzer) | 静的解析ツール統合 | 69.28% |
-| [`@it-supervisor/report-generator`](./packages/report-generator) | レポート生成(HTML/PDF) | 89.03% |
-| [`@it-supervisor/sandbox-builder`](./packages/sandbox-builder) | Docker環境自動構築 | 72.87% |
+| [`@it-supervisor/sandbox-builder`](./packages/sandbox-builder) | Docker環境自動構築 | 95.58% |
+| [`@it-supervisor/report-generator`](./packages/report-generator) | レポート生成(HTML/PDF) | 89.10% |
+| [`@it-supervisor/logger`](./packages/logger) | 構造化ロギング | 85.71% |
+| [`@it-supervisor/static-analyzer`](./packages/static-analyzer) | 静的解析ツール統合 | 69.38% |
+| [`@it-supervisor/repo-analyzer`](./packages/repo-analyzer) | Gitリポジトリ分析 | 65.61% |
 
-**全体カバレッジ**: 78.52% (statements), 73.58% (branches), 80.72% (functions)
+**全体カバレッジ**: 83.71% (statements), 75.56% (branches), 84.41% (functions)
 
 ## 🚀 クイックスタート
 

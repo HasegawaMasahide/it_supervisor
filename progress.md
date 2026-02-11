@@ -649,18 +649,18 @@
 
 ## Summary
 
-### Test Coverage Overview (as of 2026-02-11)
+### Test Coverage Overview (as of 2026-02-11 - Latest)
 
-| Package | Statements | Branches | Functions | Status |
-|---------|-----------|----------|-----------|--------|
-| **issue-manager** | 95.06% | 89.7% | 97.22% | ✅ Excellent |
-| **metrics-model** | 96.31% | 81.6% | 92.85% | ✅ Excellent |
-| **sandbox-builder** | 95.58% | 86.3% | 89.47% | ✅ Excellent |
-| **report-generator** | 89.1% | 82.22% | 86.11% | ✅ Good |
-| **logger** | 85.71% | 78.37% | 92.3% | ✅ Good |
-| **static-analyzer** | 69.38% | 58.45% | 76.92% | ⚠️ Acceptable |
-| **repo-analyzer** | 65.61% | 67.83% | 67.39% | ⚠️ Acceptable |
-| **Overall** | **83.71%** | **75.56%** | **84.41%** | ✅ Good |
+| Package | Statements | Branches | Functions | Lines | Status |
+|---------|-----------|----------|-----------|-------|--------|
+| **metrics-model** | 96.31% | 81.60% | 92.85% | 96.19% | ✅ Excellent |
+| **sandbox-builder** | 95.58% | 86.30% | 89.47% | 95.44% | ✅ Excellent |
+| **issue-manager** | 95.06% | 89.70% | 97.22% | 95.16% | ✅ Excellent |
+| **report-generator** | 89.10% | 82.22% | 86.11% | 89.47% | ✅ Good |
+| **logger** | 85.71% | 78.37% | 92.30% | 85.71% | ✅ Good |
+| **static-analyzer** | 69.38% | 58.45% | 76.92% | 69.86% | ⚠️ Acceptable |
+| **repo-analyzer** | 65.61% | 67.83% | 67.39% | 64.70% | ⚠️ Acceptable |
+| **Overall** | **83.71%** | **75.56%** | **84.41%** | **83.84%** | ✅ Good |
 
 ### Tests Count
 - **Total tests**: 381 passed, 11 skipped (392 total)
