@@ -53,30 +53,29 @@ This is a monorepo managed with npm workspaces:
 ```
 @it-supervisor/tools/
 ├── packages/
+│   ├── logger/              # Structured logging utility (foundation)
 │   ├── metrics-model/       # SQLite metrics database
-│   ├── issue-manager/        # Issue tracking & management
-│   ├── repo-analyzer/        # Git repository analysis
-│   ├── static-analyzer/      # Static code analysis orchestrator
-│   ├── report-generator/     # HTML/Markdown/PDF report generation
-│   └── sandbox-builder/      # Docker sandbox environment generator
+│   ├── issue-manager/       # Issue tracking & management
+│   ├── repo-analyzer/       # Git repository analysis
+│   ├── static-analyzer/     # Static code analysis orchestrator
+│   ├── report-generator/    # HTML/Markdown/PDF report generation
+│   └── sandbox-builder/     # Docker sandbox environment generator
 ├── .github/
 │   └── workflows/
-│       └── ci.yml            # CI/CD workflow
-├── vitest.config.ts          # Test configuration
-├── tsconfig.json             # TypeScript configuration
-└── package.json              # Workspace root package.json
+│       └── ci.yml           # CI/CD workflow
+├── vitest.config.ts         # Test configuration
+├── tsconfig.json            # TypeScript configuration
+└── package.json             # Workspace root package.json
 ```
 
 ### Package Dependencies
 
 ```
-metrics-model (foundation)
+logger (foundation - used by all packages)
     ↓
-issue-manager ← report-generator
-    ↓               ↓
-repo-analyzer   static-analyzer
-                    ↓
-            sandbox-builder (independent)
+metrics-model, issue-manager, repo-analyzer, static-analyzer, sandbox-builder
+    ↓
+report-generator (uses issue-manager for reports)
 ```
 
 ## 🔄 Development Workflow
