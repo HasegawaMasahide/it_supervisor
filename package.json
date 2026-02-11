@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "IT資産監査・改善サービス用ツール群",
+  "license": "MIT",
   "workspaces": [
     "packages/*"
   ],

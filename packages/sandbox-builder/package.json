@@ -19,7 +19,7 @@
     "it-audit"
   ],
   "author": "IT Supervisor Team",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "dependencies": {
     "js-yaml": "^4.1.1"
   },

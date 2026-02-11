@@ -15,7 +15,7 @@
     "it-audit"
   ],
   "author": "IT Supervisor Team",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "dependencies": {
     "@it-supervisor/metrics-model": "^0.1.0",
     "better-sqlite3": "^9.2.2"
