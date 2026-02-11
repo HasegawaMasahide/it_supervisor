@@ -15,6 +15,18 @@ export default defineConfig({
         '**/*.test.ts',
         '**/types.ts',
       ],
+      thresholds: {
+        lines: 60,
+        branches: 50,
+        functions: 65,
+        statements: 60,
+      },
+      // Note: Current coverage baseline
+      // - Lines: 61.85% ✓
+      // - Branches: 53.38% ✓
+      // - Functions: 66.47% ✓
+      // - Statements: 62.29% ✓
+      // Goal: Incrementally improve to 80%+ over time
     },
   },
   resolve: {
