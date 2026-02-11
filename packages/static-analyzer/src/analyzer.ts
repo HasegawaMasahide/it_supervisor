@@ -156,6 +156,21 @@ export class StaticAnalyzer {
 
   /**
    * 静的解析を実行
+   *
+   * @param repoPath - 解析対象のリポジトリパス
+   * @param options - 解析オプション（ツール選択、並列実行など）
+   * @returns 解析結果（問題一覧、サマリー、統計情報）
+   * @throws リポジトリパスが存在しない場合
+   *
+   * @example
+   * ```typescript
+   * const analyzer = new StaticAnalyzer();
+   * const result = await analyzer.analyze('/path/to/repo', {
+   *   tools: [AnalyzerTool.ESLint, AnalyzerTool.Gitleaks],
+   *   parallel: true
+   * });
+   * console.log(`Found ${result.summary.totalIssues} issues`);
+   * ```
    */
   async analyze(
     repoPath: string,
@@ -933,6 +948,22 @@ export class StaticAnalyzer {
 
   /**
    * 進捗コールバック付き解析
+   *
+   * @param repoPath - 解析対象のリポジトリパス
+   * @param options - 解析オプション
+   * @param onProgress - 進捗更新時に呼ばれるコールバック関数
+   * @returns 解析結果
+   *
+   * @example
+   * ```typescript
+   * const result = await analyzer.analyzeWithProgress(
+   *   '/path/to/repo',
+   *   { tools: [AnalyzerTool.ESLint] },
+   *   ({ current, total, tool }) => {
+   *     console.log(`[${current}/${total}] Running ${tool}...`);
+   *   }
+   * );
+   * ```
    */
   async analyzeWithProgress(
     repoPath: string,

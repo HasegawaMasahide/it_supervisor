@@ -82,6 +82,26 @@ export class ReportGenerator {
 
   /**
    * レポートを生成
+   *
+   * 指定されたタイプとデータから、Markdown形式のレポートを生成します。
+   * テンプレートエンジンで変数を展開し、目次を自動生成します。
+   *
+   * @param type - レポートタイプ（AnalysisSummary, SecurityAudit, ComplianceCheck）
+   * @param config - レポート設定（プロジェクト名、バージョン、データなど）
+   * @returns 生成されたレポートオブジェクト
+   *
+   * @example
+   * ```typescript
+   * const generator = new ReportGenerator();
+   * const report = await generator.generate(ReportType.AnalysisSummary, {
+   *   projectName: 'My Project',
+   *   version: '1.0.0',
+   *   date: new Date(),
+   *   author: 'DevTeam',
+   *   data: { issues: [], summary: {} }
+   * });
+   * await generator.exportToHTML(report, '/output/report.html');
+   * ```
    */
   async generate(type: ReportType, config: ReportConfig): Promise<Report> {
     // テンプレート読み込み

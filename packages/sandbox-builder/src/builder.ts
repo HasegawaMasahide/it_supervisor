@@ -21,7 +21,22 @@ import {
  */
 export class SandboxBuilder {
   /**
-   * 環境を検出
+   * プロジェクトの環境を自動検出
+   *
+   * package.json、composer.json、requirements.txtなどから
+   * プロジェクトの種類と必要な依存関係を検出します。
+   *
+   * @param targetPath - プロジェクトディレクトリのパス
+   * @returns 検出結果（環境タイプ、データベース、依存関係）
+   * @throws ディレクトリが存在しない場合
+   *
+   * @example
+   * ```typescript
+   * const builder = new SandboxBuilder();
+   * const detection = await builder.detect('/path/to/project');
+   * console.log('Detected:', detection.type); // => 'nodejs'
+   * console.log('Database:', detection.database); // => 'mysql'
+   * ```
    */
   async detect(targetPath: string): Promise<DetectionResult> {
     const absolutePath = path.resolve(targetPath);
@@ -198,6 +213,23 @@ export class SandboxBuilder {
 
   /**
    * サンドボックス環境を構築
+   *
+   * 検出されたプロジェクトタイプに基づいて、Docker Composeファイルと
+   * 必要な設定ファイルを生成します。
+   *
+   * @param targetPath - プロジェクトディレクトリのパス
+   * @param options - ビルドオプション（出力先、分離レベル、ポート設定など）
+   * @returns 構築されたサンドボックス環境の情報
+   *
+   * @example
+   * ```typescript
+   * const env = await builder.build('/path/to/project', {
+   *   outputDir: '/tmp/sandbox',
+   *   isolationLevel: IsolationLevel.Full,
+   *   networkName: 'test-network'
+   * });
+   * console.log('Compose file:', env.composeFile);
+   * ```
    */
   async build(
     targetPath: string,

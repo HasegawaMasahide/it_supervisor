@@ -24,6 +24,22 @@ export class RepositoryAnalyzer {
 
   /**
    * ローカルリポジトリを解析
+   *
+   * @param repoPath - 解析対象のリポジトリパス
+   * @param options - 解析オプション（最大ファイル数、除外パターンなど）
+   * @returns リポジトリ解析結果（ファイル統計、技術スタック、Gitメタデータなど）
+   * @throws ディレクトリが存在しない場合
+   *
+   * @example
+   * ```typescript
+   * const analyzer = new RepositoryAnalyzer();
+   * const result = await analyzer.analyzeLocal('/path/to/repo', {
+   *   maxFiles: 1000,
+   *   excludePatterns: ['node_modules', '.git']
+   * });
+   * console.log(`Repository: ${result.metadata.name}`);
+   * console.log(`Languages: ${result.techStack.languages.map(l => l.name).join(', ')}`);
+   * ```
    */
   async analyzeLocal(
     repoPath: string,
@@ -662,6 +678,20 @@ export class RepositoryAnalyzer {
 
   /**
    * コードの複雑度を計算（循環的複雑度）
+   *
+   * 簡易的な循環的複雑度（Cyclomatic Complexity）を計算します。
+   * 制御フロー構文（if, for, while等）の出現回数をカウントします。
+   *
+   * @param filePath - 解析対象のファイルパス
+   * @returns 循環的複雑度（1以上の整数、エラー時は0）
+   *
+   * @example
+   * ```typescript
+   * const complexity = await analyzer.calculateComplexity('/path/to/file.js');
+   * if (complexity > 10) {
+   *   console.log('Warning: High complexity detected');
+   * }
+   * ```
    */
   async calculateComplexity(filePath: string): Promise<number> {
     try {
@@ -691,6 +721,19 @@ export class RepositoryAnalyzer {
 
   /**
    * エントリーポイントを検出
+   *
+   * package.json（main/bin）、composer.json、pom.xmlなどから
+   * アプリケーションのエントリーポイントファイルを検出します。
+   *
+   * @param repoPath - リポジトリのルートパス
+   * @returns エントリーポイントファイルのパス配列
+   *
+   * @example
+   * ```typescript
+   * const entryPoints = await analyzer.detectEntryPoints('/path/to/repo');
+   * console.log('Entry points:', entryPoints);
+   * // => ['src/index.js', 'bin/cli.js']
+   * ```
    */
   async detectEntryPoints(repoPath: string): Promise<string[]> {
     const entryPoints: string[] = [];
@@ -771,6 +814,18 @@ export class RepositoryAnalyzer {
 
   /**
    * ファイル依存関係を解析
+   *
+   * import/require文を解析して、ファイルが依存する他のモジュールを抽出します。
+   *
+   * @param filePath - 解析対象のファイルパス
+   * @returns 依存モジュール名の配列（相対パスまたはパッケージ名）
+   *
+   * @example
+   * ```typescript
+   * const deps = await analyzer.analyzeDependencyGraph('/path/to/file.js');
+   * console.log('Dependencies:', deps);
+   * // => ['react', './utils', '../config']
+   * ```
    */
   async analyzeDependencyGraph(filePath: string): Promise<string[]> {
     const dependencies: string[] = [];
