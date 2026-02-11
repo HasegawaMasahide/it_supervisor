@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm scripts: `release`, `release:patch`, `release:minor`, `release:major`, `deps`, `deps:graph`
 
 ### Changed
+- **GitHub Actions CI workflow** - Created reusable Composite Action for Puppeteer setup (`.github/actions/setup-puppeteer/action.yml`), reduced duplication by ~40 lines
 - **GitHub Actions release workflow** migrated to softprops/action-gh-release@v2 (replaces deprecated actions/create-release@v1)
 - **README.md architecture section** now includes Mermaid dependency diagram
 - Updated coverage thresholds to 80% (statements, lines, functions) and 70% (branches)
