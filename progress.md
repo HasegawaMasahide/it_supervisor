@@ -26,7 +26,7 @@
   - Test isolation level settings
   - Commit: `test(sandbox-builder): add unit tests for Docker config generation`
 
-- [ ] **Task 4: Unit tests for repo-analyzer (language detection)**
+- [x] **Task 4: Unit tests for repo-analyzer (language detection)**
   - Create `packages/repo-analyzer/src/__tests__/analyzer.test.ts`
   - Test `detectLanguages()` with mocked file listings
   - Test `analyzeFile()` line counting with various comment styles
