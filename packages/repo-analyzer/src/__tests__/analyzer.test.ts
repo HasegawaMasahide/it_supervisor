@@ -1319,4 +1319,79 @@ require_once('helpers/functions.php');
       expect(result).toBeGreaterThanOrEqual(7);
     });
   });
+
+  describe('Comment Detection (Private Methods)', () => {
+    it('should detect single-line comments in JavaScript/TypeScript', () => {
+      expect((analyzer as any).isLineComment('// This is a comment', '.js')).toBe(true);
+      expect((analyzer as any).isLineComment('// Comment', '.ts')).toBe(true);
+      expect((analyzer as any).isLineComment('const x = 1;', '.js')).toBe(false);
+    });
+
+    it('should detect single-line comments in PHP', () => {
+      expect((analyzer as any).isLineComment('// PHP comment', '.php')).toBe(true);
+      expect((analyzer as any).isLineComment('# PHP hash comment', '.php')).toBe(true);
+      expect((analyzer as any).isLineComment('<?php', '.php')).toBe(false);
+    });
+
+    it('should detect single-line comments in Python/Ruby/Shell', () => {
+      expect((analyzer as any).isLineComment('# Python comment', '.py')).toBe(true);
+      expect((analyzer as any).isLineComment('# Ruby comment', '.rb')).toBe(true);
+      expect((analyzer as any).isLineComment('# Shell comment', '.sh')).toBe(true);
+      expect((analyzer as any).isLineComment('print("hello")', '.py')).toBe(false);
+    });
+
+    it('should detect block comment start', () => {
+      expect((analyzer as any).isBlockCommentStart('/*', '.js')).toBe(true);
+      expect((analyzer as any).isBlockCommentStart('/**', '.ts')).toBe(true);
+      expect((analyzer as any).isBlockCommentStart('/* Block comment', '.php')).toBe(true);
+      expect((analyzer as any).isBlockCommentStart('const x = 1;', '.js')).toBe(false);
+    });
+
+    it('should detect block comment end', () => {
+      expect((analyzer as any).isBlockCommentEnd('*/', '.js')).toBe(true);
+      expect((analyzer as any).isBlockCommentEnd(' */', '.ts')).toBe(true);
+      expect((analyzer as any).isBlockCommentEnd('end comment */', '.php')).toBe(true);
+      expect((analyzer as any).isBlockCommentEnd('const x = 1;', '.js')).toBe(false);
+    });
+
+    it('should use default patterns for unknown file types', () => {
+      expect((analyzer as any).isLineComment('// Comment', '.unknown')).toBe(true);
+      expect((analyzer as any).isLineComment('# Comment', '.unknown')).toBe(false);
+      // Unknown extensions have no block comment patterns (returns false)
+      expect((analyzer as any).isBlockCommentStart('/*', '.unknown')).toBe(false);
+      expect((analyzer as any).isBlockCommentEnd('*/', '.unknown')).toBe(false);
+    });
+  });
+
+  describe('File System Operations', () => {
+    it('should skip non-file and non-directory entries', async () => {
+      const mockReaddir = vi.mocked(fs.readdir);
+
+      mockReaddir.mockResolvedValue([
+        { name: 'symlink', isDirectory: () => false, isFile: () => false } as any,
+        { name: 'file.txt', isDirectory: () => false, isFile: () => true } as any,
+      ]);
+
+      const result = await (analyzer as any).getAllFiles('/test', []);
+
+      expect(result).toContain('/test/file.txt');
+      expect(result).toHaveLength(1);
+    });
+
+    it('should respect exclude patterns when listing files', async () => {
+      const mockReaddir = vi.mocked(fs.readdir);
+
+      mockReaddir.mockResolvedValue([
+        { name: 'node_modules', isDirectory: () => true, isFile: () => false } as any,
+        { name: '.git', isDirectory: () => true, isFile: () => false } as any,
+        { name: 'index.js', isDirectory: () => false, isFile: () => true } as any,
+      ]);
+
+      const result = await (analyzer as any).getAllFiles('/test', ['node_modules', '.git']);
+
+      // Should only include index.js, excluding node_modules and .git
+      expect(result).toContain('/test/index.js');
+      expect(result).toHaveLength(1);
+    });
+  });
 });

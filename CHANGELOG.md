@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- Created TEST_COVERAGE_GAPS.md documenting uncovered test areas and improvement recommendations
 - **Project summary document** (PROJECT_SUMMARY.md, 500+ lines) - Executive summary with key metrics, all 7 packages overview, 107 completed tasks, quality progression, and future roadmap for stakeholders
 - **Release documentation** (docs/RELEASE_CHECKLIST.md, 400+ lines) - Comprehensive pre-release verification, release execution guide, and rollback procedures for v0.1.0
 - **Repository setup guide** (docs/REPOSITORY_SETUP.md, 400+ lines) - Instructions for updating GitHub repository URL placeholders (18 files) with automated and manual methods
@@ -46,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm scripts: `release`, `release:patch`, `release:minor`, `release:major`, `deps`, `deps:graph`, `quality`, `quality:json`, `quality:md`
 
 ### Changed
+- **Test coverage improvements** - repo-analyzer coverage increased from 65.61% to 69.71% statements (+4.1%), added 8 new tests for comment detection and file system operations
 - **Progress tracking** - Updated progress.md with Tasks 96-99 completion status (Git hooks documentation, ADRs creation, quality dashboard, autonomous session summary)
 - **Logging consistency** - Replaced 310 console.* calls with structured logger across examples/, benchmarks/, and tests/ (Task 91)
 - **Package scripts** - Removed obsolete `"test": "node --test"` from 6 individual packages (tests now exclusively run from workspace root using vitest)
