@@ -13,7 +13,7 @@
 
 ### Phase 2: Tests for packages WITHOUT native dependencies
 
-- [ ] **Task 2: Unit tests for sandbox-builder (detection)**
+- [x] **Task 2: Unit tests for sandbox-builder (detection)**
   - Create `packages/sandbox-builder/src/__tests__/builder.test.ts`
   - Test `detect()` method: mock `fs.readFile` / `fs.access` to simulate different project types
   - Test cases: Node.js project, PHP project, Python project, unknown project, empty directory
@@ -74,6 +74,7 @@
 ## Completed
 
 - **Task 1: Add vitest to the workspace** ✓
+- **Task 2: Unit tests for sandbox-builder (detection)** ✓
 
 ## Notes
 
