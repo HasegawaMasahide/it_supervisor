@@ -786,6 +786,139 @@ body {
     });
   });
 
+  describe('detectEntryPoints', () => {
+    it('should parse package.json main field', async () => {
+      vi.spyOn(analyzer as any, 'fileExists').mockImplementation(async (path: string) => {
+        return path.includes('package.json');
+      });
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (path.includes('package.json')) {
+          return JSON.stringify({
+            name: 'test-package',
+            main: 'dist/index.js'
+          });
+        }
+        throw new Error('Not found');
+      });
+
+      const result = await analyzer.detectEntryPoints('/test/node-project');
+
+      expect(result).toContain('/test/node-project/dist/index.js');
+    });
+
+    it('should parse package.json bin field as string', async () => {
+      vi.spyOn(analyzer as any, 'fileExists').mockImplementation(async (path: string) => {
+        return path.includes('package.json');
+      });
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (path.includes('package.json')) {
+          return JSON.stringify({
+            name: 'cli-tool',
+            bin: 'bin/cli.js'
+          });
+        }
+        throw new Error('Not found');
+      });
+
+      const result = await analyzer.detectEntryPoints('/test/cli-project');
+
+      expect(result).toContain('/test/cli-project/bin/cli.js');
+    });
+
+    it('should parse package.json bin field as object', async () => {
+      vi.spyOn(analyzer as any, 'fileExists').mockImplementation(async (path: string) => {
+        return path.includes('package.json');
+      });
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (path.includes('package.json')) {
+          return JSON.stringify({
+            name: 'multi-cli',
+            bin: {
+              'tool1': 'bin/tool1.js',
+              'tool2': 'bin/tool2.js'
+            }
+          });
+        }
+        throw new Error('Not found');
+      });
+
+      const result = await analyzer.detectEntryPoints('/test/multi-cli');
+
+      expect(result).toContain('/test/multi-cli/bin/tool1.js');
+      expect(result).toContain('/test/multi-cli/bin/tool2.js');
+    });
+
+    it('should detect common entry points in root directory', async () => {
+      vi.spyOn(analyzer as any, 'fileExists').mockImplementation(async (path: string) => {
+        return path.includes('index.js') || path.includes('main.js');
+      });
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('Not found'));
+
+      const result = await analyzer.detectEntryPoints('/test/project');
+
+      expect(result).toContain('/test/project/index.js');
+      expect(result).toContain('/test/project/main.js');
+    });
+
+    it('should detect entry points in src directory', async () => {
+      vi.spyOn(analyzer as any, 'fileExists').mockImplementation(async (path: string) => {
+        return path.includes('src/index.js') || path.includes('src/app.js');
+      });
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('Not found'));
+
+      const result = await analyzer.detectEntryPoints('/test/project');
+
+      expect(result).toContain('/test/project/src/index.js');
+      expect(result).toContain('/test/project/src/app.js');
+    });
+
+    it('should parse composer.json autoload files', async () => {
+      vi.spyOn(analyzer as any, 'fileExists').mockImplementation(async (path: string) => {
+        return path.includes('composer.json');
+      });
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (path.includes('composer.json')) {
+          return JSON.stringify({
+            autoload: {
+              files: [
+                'src/helpers.php',
+                'src/bootstrap.php'
+              ]
+            }
+          });
+        }
+        throw new Error('Not found');
+      });
+
+      const result = await analyzer.detectEntryPoints('/test/php-project');
+
+      expect(result).toContain('/test/php-project/src/helpers.php');
+      expect(result).toContain('/test/php-project/src/bootstrap.php');
+    });
+
+    it('should handle composer.json without autoload files', async () => {
+      vi.spyOn(analyzer as any, 'fileExists').mockImplementation(async (path: string) => {
+        return path.includes('composer.json');
+      });
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (path.includes('composer.json')) {
+          return JSON.stringify({
+            name: 'test/package',
+            autoload: {
+              'psr-4': { 'App\\': 'src/' }
+            }
+          });
+        }
+        throw new Error('Not found');
+      });
+
+      const result = await analyzer.detectEntryPoints('/test/php-project');
+
+      // Should return empty array when no files specified
+      expect(result).toEqual([]);
+    });
+  });
+
   describe('Error Handling', () => {
     it('should handle invalid JSON in package.json for detectEntryPoints', async () => {
       // Mock fileExists to return true for package.json
@@ -916,6 +1049,114 @@ body {
 
       // Should return empty array, not throw
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('analyzeDependencyGraph', () => {
+    it('should parse ESM imports from JavaScript/TypeScript files', async () => {
+      const content = `
+import React from 'react';
+import { useState } from 'react';
+import * as utils from './utils';
+import helpers from './helpers';
+`;
+      vi.mocked(fs.readFile).mockResolvedValue(content);
+
+      const result = await analyzer.analyzeDependencyGraph('/test/app.js');
+
+      expect(result).toEqual(['react', 'react', './utils', './helpers']);
+    });
+
+    it('should parse CommonJS require from JavaScript files', async () => {
+      const content = `
+const express = require('express');
+const path = require('path');
+const utils = require('./utils');
+`;
+      vi.mocked(fs.readFile).mockResolvedValue(content);
+
+      const result = await analyzer.analyzeDependencyGraph('/test/server.js');
+
+      expect(result).toEqual(['express', 'path', './utils']);
+    });
+
+    it('should parse both ESM and CommonJS in the same file', async () => {
+      const content = `
+import axios from 'axios';
+const fs = require('fs');
+import { config } from './config';
+const logger = require('./logger');
+`;
+      vi.mocked(fs.readFile).mockResolvedValue(content);
+
+      const result = await analyzer.analyzeDependencyGraph('/test/mixed.ts');
+
+      // Order matters: imports are found first, then requires (both in source order)
+      expect(result).toEqual(['axios', './config', 'fs', './logger']);
+    });
+
+    it('should parse PHP use statements', async () => {
+      const content = `
+<?php
+use App\\Models\\User;
+use Illuminate\\Support\\Facades\\DB;
+use App\\Services\\AuthService;
+`;
+      vi.mocked(fs.readFile).mockResolvedValue(content);
+
+      const result = await analyzer.analyzeDependencyGraph('/test/Controller.php');
+
+      expect(result).toEqual([
+        'App\\Models\\User',
+        'Illuminate\\Support\\Facades\\DB',
+        'App\\Services\\AuthService'
+      ]);
+    });
+
+    it('should parse PHP require statements', async () => {
+      const content = `
+<?php
+require 'vendor/autoload.php';
+require_once 'config/database.php';
+require_once('helpers/functions.php');
+`;
+      vi.mocked(fs.readFile).mockResolvedValue(content);
+
+      const result = await analyzer.analyzeDependencyGraph('/test/bootstrap.php');
+
+      expect(result).toEqual([
+        'vendor/autoload.php',
+        'config/database.php',
+        'helpers/functions.php'
+      ]);
+    });
+
+    it('should return empty array for unsupported file types', async () => {
+      const content = 'Some random content';
+      vi.mocked(fs.readFile).mockResolvedValue(content);
+
+      const result = await analyzer.analyzeDependencyGraph('/test/data.json');
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('fileExists', () => {
+    it('should return true when file exists', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+
+      const result = await (analyzer as any).fileExists('/test/exists.txt');
+
+      expect(result).toBe(true);
+      expect(fs.access).toHaveBeenCalledWith('/test/exists.txt');
+    });
+
+    it('should return false when file does not exist', async () => {
+      vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
+
+      const result = await (analyzer as any).fileExists('/test/missing.txt');
+
+      expect(result).toBe(false);
     });
   });
 
