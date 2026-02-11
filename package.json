@@ -36,7 +36,8 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
-    "clean": "npm run clean --workspaces"
+    "clean": "npm run clean --workspaces",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",
@@ -44,11 +45,19 @@
     "@typescript-eslint/parser": "^8.55.0",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^8.55.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "typescript": "^5.3.3",
     "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "vitest related --run --bail"
+    ]
   }
 }
