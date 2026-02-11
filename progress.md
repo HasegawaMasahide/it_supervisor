@@ -313,6 +313,9 @@
   - Commit: `ci: add GitHub Actions workflow for automated testing`
 
 - [ ] **Task 31: Add integration tests for package interactions**
+  - **BLOCKED**: SQL parameter binding issues with better-sqlite3 in tests
+  - Issue: `getIssue` and `addComment` methods fail with "Too few parameter values"
+  - Need to investigate better-sqlite3 prepared statement behavior in test environment
   - Create `packages/__integration__/` directory for integration tests
   - Test: repo-analyzer → metrics-model (analyze and store metrics)
   - Test: static-analyzer → metrics-model (analyze and store issues)
@@ -320,18 +323,21 @@
   - Test: Full pipeline: analyze repo → detect issues → generate report
   - Priority: P1 (High - validates system behavior)
   - Calculated Priority Score: 68 (Impact: 8, TechDebt: 6, Effort: 4)
-  - Effort: Medium
-  - Commit: `test(workspace): add integration tests for package interactions`
+  - Effort: High (requires debugging SQL issues)
+  - Status: ⏸️ Deferred (blocked by technical issues)
 
-- [ ] **Task 32: Add CONTRIBUTING.md with development guidelines**
-  - Document: How to set up development environment
-  - Document: How to run tests, linting, coverage
-  - Document: Commit message conventions (Conventional Commits)
-  - Document: PR process and code review guidelines
-  - Document: Package dependency rules (avoid circular dependencies)
+- [x] **Task 32: Add CONTRIBUTING.md with development guidelines**
+  - ✅ Created comprehensive CONTRIBUTING.md (280+ lines)
+  - ✅ Documented development setup and prerequisites
+  - ✅ Explained project structure and package dependencies
+  - ✅ Detailed testing guidelines and coverage requirements
+  - ✅ Documented code style and naming conventions
+  - ✅ Explained commit message convention (Conventional Commits)
+  - ✅ Described PR process and review guidelines
+  - ✅ Added package dependency rules to avoid circular dependencies
   - Priority: P2 (Medium - documentation)
   - Calculated Priority Score: 52 (Impact: 6, TechDebt: 5, Effort: 2)
-  - Effort: Low
+  - Status: ✅ Completed
   - Commit: `docs(workspace): add CONTRIBUTING.md with development guidelines`
 
 - [x] **Task 33: Add type-check script to package.json**
