@@ -35,12 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm scripts: `release`, `release:patch`, `release:minor`, `release:major`, `deps`, `deps:graph`
 
 ### Changed
+- **Logging consistency** - Replaced 310 console.* calls with structured logger across examples/, benchmarks/, and tests/ (Task 91)
 - **Package scripts** - Removed obsolete `"test": "node --test"` from 6 individual packages (tests now exclusively run from workspace root using vitest)
 - **GitHub Actions CI workflow** - Created reusable Composite Action for Puppeteer setup (`.github/actions/setup-puppeteer/action.yml`), reduced duplication by ~40 lines
 - **GitHub Actions release workflow** migrated to softprops/action-gh-release@v2 (replaces deprecated actions/create-release@v1)
 - **README.md architecture section** now includes Mermaid dependency diagram
 - Updated coverage thresholds to 80% (statements, lines, functions) and 70% (branches)
-- Replaced all console.log/error statements with structured logger (42 instances)
+- Replaced all console.log/error statements in source code with structured logger (42 instances in packages/)
 - Updated puppeteer from ^21.6.0 to ^24.37.2 (fixes 5 high-severity vulnerabilities)
 - Updated @types/node from 20.x to ^25.2.3
 - Updated @typescript-eslint packages from 6.x to ^8.55.0
