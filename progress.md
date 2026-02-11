@@ -292,14 +292,17 @@
 
 ### Phase 9: Further Test Coverage Improvements (Discovered)
 
-- [ ] **Task 29: Improve test coverage for SandboxController**
-  - Current coverage: 72.87% statements (builder.ts includes both SandboxBuilder and SandboxController)
-  - Expand controller.test.ts to cover more methods (up, down, health, logs, metrics, snapshot operations)
-  - Target coverage: >80% statements
+- [x] **Task 29: Improve test coverage for SandboxController**
+  - ✅ Added 11 new unit tests for SandboxController methods
+  - ✅ Coverage: 72.87% → 95.56% statements (+22.69%)
+  - ✅ Coverage: 75% → 86.8% branches (+11.8%)
+  - ✅ Coverage: 67.56% → 89.47% functions (+21.91%)
+  - ✅ All 64 tests passing
   - Priority: P2 (Medium - test coverage)
   - Calculated Priority Score: 62
+  - Status: ✅ Completed (exceeded 80% target!)
   - Effort: Medium
-  - Commit: `test(sandbox-builder): improve test coverage for SandboxController`
+  - Commit: `test(sandbox-builder): improve test coverage to 95% (+22%)`
 
 ### Phase 10: CI/CD and Infrastructure (Discovered 2026-02-11)
 
