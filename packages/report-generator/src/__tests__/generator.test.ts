@@ -1003,4 +1003,472 @@ This is a test.`;
       await expect(generator.exportToMarkdown(report, '/output/report.md')).rejects.toThrow('Disk full');
     });
   });
+
+  describe('generateChartData', () => {
+    it('should generate chart configuration for bar chart', () => {
+      const chartData = generator.generateChartData('bar', ['Jan', 'Feb', 'Mar'], [10, 20, 30], 'Monthly Sales');
+
+      const config = JSON.parse(chartData);
+
+      expect(config.type).toBe('bar');
+      expect(config.data.labels).toEqual(['Jan', 'Feb', 'Mar']);
+      expect(config.data.datasets[0].label).toBe('Monthly Sales');
+      expect(config.data.datasets[0].data).toEqual([10, 20, 30]);
+      expect(config.data.datasets[0].backgroundColor).toHaveLength(3);
+      expect(config.options.responsive).toBe(true);
+    });
+
+    it('should generate chart configuration for pie chart', () => {
+      const chartData = generator.generateChartData('pie', ['Red', 'Blue', 'Green'], [30, 50, 20], 'Color Distribution');
+
+      const config = JSON.parse(chartData);
+
+      expect(config.type).toBe('pie');
+      expect(config.data.labels).toEqual(['Red', 'Blue', 'Green']);
+      expect(config.data.datasets[0].label).toBe('Color Distribution');
+      expect(config.data.datasets[0].data).toEqual([30, 50, 20]);
+    });
+
+    it('should generate chart configuration for line chart', () => {
+      const chartData = generator.generateChartData('line', ['Q1', 'Q2', 'Q3', 'Q4'], [100, 150, 120, 180], 'Quarterly Growth');
+
+      const config = JSON.parse(chartData);
+
+      expect(config.type).toBe('line');
+      expect(config.data.labels).toEqual(['Q1', 'Q2', 'Q3', 'Q4']);
+      expect(config.data.datasets[0].label).toBe('Quarterly Growth');
+      expect(config.data.datasets[0].data).toEqual([100, 150, 120, 180]);
+      expect(config.data.datasets[0].backgroundColor).toHaveLength(4);
+    });
+
+    it('should use default label when not provided', () => {
+      const chartData = generator.generateChartData('bar', ['A', 'B'], [1, 2]);
+
+      const config = JSON.parse(chartData);
+
+      expect(config.data.datasets[0].label).toBe('データ');
+    });
+
+    it('should handle empty data arrays', () => {
+      const chartData = generator.generateChartData('bar', [], [], 'Empty Chart');
+
+      const config = JSON.parse(chartData);
+
+      expect(config.data.labels).toEqual([]);
+      expect(config.data.datasets[0].data).toEqual([]);
+      expect(config.data.datasets[0].backgroundColor).toHaveLength(0);
+    });
+
+    it('should assign colors up to data length', () => {
+      const data = [1, 2, 3, 4, 5];
+      const labels = data.map((_, i) => `Item ${i}`);
+      const chartData = generator.generateChartData('pie', labels, data, 'Many Items');
+
+      const config = JSON.parse(chartData);
+
+      expect(config.data.datasets[0].backgroundColor).toHaveLength(5);
+      expect(config.data.datasets[0].borderColor).toHaveLength(5);
+    });
+
+    it('should include chart.js options for legend and title', () => {
+      const chartData = generator.generateChartData('bar', ['X', 'Y'], [10, 20], 'Test Chart');
+
+      const config = JSON.parse(chartData);
+
+      expect(config.options.plugins.legend.position).toBe('top');
+      expect(config.options.plugins.title.display).toBe(true);
+      expect(config.options.plugins.title.text).toBe('Test Chart');
+    });
+  });
+
+  describe('generateHTMLWithCharts', () => {
+    it('should generate HTML with embedded charts', async () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Chart Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [
+          { title: 'Section 1', level: 1, content: 'Content here', subsections: [] }
+        ],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      const charts = [
+        {
+          id: 'chart1',
+          type: 'bar' as const,
+          labels: ['A', 'B', 'C'],
+          data: [10, 20, 30],
+          title: 'Test Chart 1'
+        },
+        {
+          id: 'chart2',
+          type: 'pie' as const,
+          labels: ['X', 'Y'],
+          data: [40, 60],
+          title: 'Test Chart 2'
+        }
+      ];
+
+      const html = await generator.generateHTMLWithCharts(report, charts);
+
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('Chart Test');
+      expect(html).toContain('<canvas id="chart1"></canvas>');
+      expect(html).toContain('<canvas id="chart2"></canvas>');
+      expect(html).toContain('new Chart(document.getElementById(\'chart1\')');
+      expect(html).toContain('new Chart(document.getElementById(\'chart2\')');
+      expect(html).toContain('https://cdn.jsdelivr.net/npm/chart.js');
+    });
+
+    it('should include chart data configuration in script tags', async () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      const charts = [
+        {
+          id: 'dataChart',
+          type: 'line' as const,
+          labels: ['Jan', 'Feb', 'Mar'],
+          data: [100, 200, 150],
+          title: 'Monthly Data'
+        }
+      ];
+
+      const html = await generator.generateHTMLWithCharts(report, charts);
+
+      expect(html).toContain('"type":"line"');
+      expect(html).toContain('"labels":["Jan","Feb","Mar"]');
+      expect(html).toContain('"data":[100,200,150]');
+      expect(html).toContain('Monthly Data');
+    });
+
+    it('should generate HTML without charts when empty array provided', async () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'No Charts',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      const html = await generator.generateHTMLWithCharts(report, []);
+
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('No Charts');
+      expect(html).toContain('https://cdn.jsdelivr.net/npm/chart.js');
+      // Chart.js library should be included but no charts
+      expect(html).not.toContain('<canvas');
+    });
+
+    it('should properly style chart containers', async () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      const charts = [
+        {
+          id: 'styledChart',
+          type: 'bar' as const,
+          labels: ['A'],
+          data: [1],
+          title: 'Styled'
+        }
+      ];
+
+      const html = await generator.generateHTMLWithCharts(report, charts);
+
+      expect(html).toContain('max-width: 600px');
+      expect(html).toContain('margin: 30px auto');
+    });
+  });
+
+  describe('registerTemplate', () => {
+    beforeEach(() => {
+      // Reset mocks for registerTemplate tests
+      vi.clearAllMocks();
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    });
+
+    it('should create templates directory and write template file', async () => {
+      const templateContent = `# {{projectName}} Custom Template
+
+Custom content here`;
+
+      await generator.registerTemplate('custom-template', templateContent);
+
+      expect(fs.mkdir).toHaveBeenCalledWith('/test/templates', { recursive: true });
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        '/test/templates/custom-template.md',
+        templateContent,
+        'utf-8'
+      );
+    });
+
+    it('should overwrite existing template', async () => {
+      const newContent = `# Updated Template`;
+
+      await generator.registerTemplate('existing', newContent);
+
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        '/test/templates/existing.md',
+        newContent,
+        'utf-8'
+      );
+    });
+
+    it('should handle template names with special characters', async () => {
+      const templateContent = `# Special Template`;
+
+      await generator.registerTemplate('analysis_v2', templateContent);
+
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        '/test/templates/analysis_v2.md',
+        templateContent,
+        'utf-8'
+      );
+    });
+
+    it('should create directory recursively if it does not exist', async () => {
+      const templateContent = `# New Template`;
+
+      await generator.registerTemplate('new-template', templateContent);
+
+      expect(fs.mkdir).toHaveBeenCalledWith('/test/templates', { recursive: true });
+    });
+  });
+
+  describe('listTemplates', () => {
+    it('should list all .md template files', async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([
+        'analysis.md',
+        'diagnosis.md',
+        'custom.md',
+        'readme.txt',
+        'config.json'
+      ] as any);
+
+      const templates = await generator.listTemplates();
+
+      expect(templates).toEqual(['analysis', 'diagnosis', 'custom']);
+    });
+
+    it('should return empty array when no templates exist', async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+
+      const templates = await generator.listTemplates();
+
+      expect(templates).toEqual([]);
+    });
+
+    it('should return empty array when templates directory does not exist', async () => {
+      vi.mocked(fs.readdir).mockRejectedValue(new Error('ENOENT: no such directory'));
+
+      const templates = await generator.listTemplates();
+
+      expect(templates).toEqual([]);
+    });
+
+    it('should filter out non-markdown files', async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([
+        'template1.md',
+        'template2.txt',
+        'template3.pdf',
+        'template4.md'
+      ] as any);
+
+      const templates = await generator.listTemplates();
+
+      expect(templates).toEqual(['template1', 'template4']);
+    });
+
+    it('should handle empty template directory', async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+
+      const templates = await generator.listTemplates();
+
+      expect(templates).toHaveLength(0);
+    });
+
+    it('should remove .md extension from filenames', async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([
+        'my-template.md',
+        'another_template.md'
+      ] as any);
+
+      const templates = await generator.listTemplates();
+
+      expect(templates).toEqual(['my-template', 'another_template']);
+      templates.forEach(t => expect(t).not.toContain('.md'));
+    });
+  });
+
+  describe('generateMultiLanguage', () => {
+    it('should generate reports for multiple languages', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('Template not found'));
+
+      const config: ReportConfig = {
+        projectName: 'Multi-Lang Project',
+        customerName: 'Global Customer',
+        date: new Date('2024-01-15'),
+        data: {}
+      };
+
+      const reports = await generator.generateMultiLanguage(ReportType.Analysis, config, ['ja', 'en']);
+
+      expect(Object.keys(reports)).toEqual(['ja', 'en']);
+      expect(reports['ja']).toBeDefined();
+      expect(reports['en']).toBeDefined();
+      expect(reports['ja'].type).toBe(ReportType.Analysis);
+      expect(reports['en'].type).toBe(ReportType.Analysis);
+      expect(reports['ja'].config.projectName).toBe('Multi-Lang Project');
+      expect(reports['en'].config.projectName).toBe('Multi-Lang Project');
+    });
+
+    it('should use default languages when not specified', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('Template not found'));
+
+      const config: ReportConfig = {
+        projectName: 'Test',
+        customerName: 'Customer',
+        date: new Date(),
+        data: {}
+      };
+
+      const reports = await generator.generateMultiLanguage(ReportType.Diagnosis, config);
+
+      expect(Object.keys(reports)).toEqual(['ja', 'en']);
+    });
+
+    it('should attempt to load language-specific templates', async () => {
+      const jaTemplate = `# {{projectName}} 日本語レポート`;
+      const enTemplate = `# {{projectName}} English Report`;
+
+      let callCount = 0;
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (path.includes('analysis_ja.md')) {
+          return jaTemplate;
+        } else if (path.includes('analysis_en.md')) {
+          return enTemplate;
+        }
+        throw new Error('Template not found');
+      });
+
+      const config: ReportConfig = {
+        projectName: 'Localized',
+        customerName: 'Customer',
+        date: new Date(),
+        data: {}
+      };
+
+      const reports = await generator.generateMultiLanguage(ReportType.Analysis, config, ['ja', 'en']);
+
+      expect(reports['ja'].sections[0].title).toContain('日本語レポート');
+      expect(reports['en'].sections[0].title).toContain('English Report');
+    });
+
+    it('should fallback to default template when language-specific template not found', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('Template not found'));
+
+      const config: ReportConfig = {
+        projectName: 'Fallback Test',
+        customerName: 'Customer',
+        date: new Date(),
+        data: {}
+      };
+
+      const reports = await generator.generateMultiLanguage(ReportType.Analysis, config, ['ja', 'en', 'fr']);
+
+      expect(Object.keys(reports)).toEqual(['ja', 'en', 'fr']);
+      // All should use default template since language-specific ones don't exist
+      expect(reports['ja'].sections.length).toBeGreaterThan(0);
+      expect(reports['en'].sections.length).toBeGreaterThan(0);
+      expect(reports['fr'].sections.length).toBeGreaterThan(0);
+    });
+
+    it('should generate independent reports with same config', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('Template not found'));
+
+      const config: ReportConfig = {
+        projectName: 'Same Config',
+        customerName: 'Test Customer',
+        date: new Date('2024-02-01'),
+        data: { value: 42 }
+      };
+
+      const reports = await generator.generateMultiLanguage(ReportType.Diagnosis, config, ['ja', 'en']);
+
+      expect(reports['ja'].config.projectName).toBe('Same Config');
+      expect(reports['en'].config.projectName).toBe('Same Config');
+      expect(reports['ja'].config.data).toEqual({ value: 42 });
+      expect(reports['en'].config.data).toEqual({ value: 42 });
+      expect(reports['ja'].generatedAt).toBeInstanceOf(Date);
+      expect(reports['en'].generatedAt).toBeInstanceOf(Date);
+    });
+
+    it('should handle single language generation', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('Template not found'));
+
+      const config: ReportConfig = {
+        projectName: 'Single Lang',
+        customerName: 'Customer',
+        date: new Date(),
+        data: {}
+      };
+
+      const reports = await generator.generateMultiLanguage(ReportType.Analysis, config, ['ja']);
+
+      expect(Object.keys(reports)).toEqual(['ja']);
+      expect(reports['ja']).toBeDefined();
+    });
+
+    it('should preserve custom data in each language report', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('Template not found'));
+
+      const config: ReportConfig = {
+        projectName: 'Data Test',
+        customerName: 'Customer',
+        date: new Date(),
+        data: {
+          stats: { files: 100, lines: 5000 },
+          issues: { critical: 2, high: 5 }
+        }
+      };
+
+      const reports = await generator.generateMultiLanguage(ReportType.Analysis, config, ['ja', 'en']);
+
+      expect(reports['ja'].config.data).toEqual(config.data);
+      expect(reports['en'].config.data).toEqual(config.data);
+    });
+  });
 });

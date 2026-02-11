@@ -91,7 +91,7 @@
   - Test error handling for missing templates
   - Commit: `test(report-generator): add unit tests for output generation and exports`
 
-- [ ] **Task 12: Unit tests for report-generator (advanced features)**
+- [x] **Task 12: Unit tests for report-generator (advanced features)**
   - Test `generateChartData()` for Chart.js configuration
   - Test `generateHTMLWithCharts()` for chart embedding
   - Test `registerTemplate()` and `listTemplates()` for template management
@@ -111,6 +111,7 @@
 - **Task 9: Fix error handling in static-analyzer** ✓
 - **Task 10: Unit tests for report-generator (markdown parsing and template expansion)** ✓
 - **Task 11: Unit tests for report-generator (HTML/Markdown/PDF generation)** ✓
+- **Task 12: Unit tests for report-generator (advanced features)** ✓
 
 ## Notes
 
