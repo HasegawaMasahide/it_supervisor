@@ -650,7 +650,7 @@
 
 ## Summary
 
-### Test Coverage Overview (as of 2026-02-11 - Latest)
+### Test Coverage Overview (as of 2026-02-11 - Task 109 Latest)
 
 | Package | Statements | Branches | Functions | Lines | Status |
 |---------|-----------|----------|-----------|-------|--------|
@@ -660,13 +660,13 @@
 | **report-generator** | 89.10% | 82.22% | 86.11% | 89.47% | ✅ Good |
 | **logger** | 85.71% | 78.37% | 92.30% | 85.71% | ✅ Good |
 | **static-analyzer** | 69.38% | 58.45% | 76.92% | 69.86% | ⚠️ Acceptable |
-| **repo-analyzer** | 65.61% | 67.83% | 67.39% | 64.70% | ⚠️ Acceptable |
-| **Overall** | **83.71%** | **75.56%** | **84.41%** | **83.84%** | ✅ Good |
+| **repo-analyzer** | **69.71% ⬆️** | **72.02% ⬆️** | **73.91% ⬆️** | **68.85% ⬆️** | ⚠️ **Improving** |
+| **Overall** | **84.79% ⬆️** | **76.38% ⬆️** | **86.23% ⬆️** | **84.96% ⬆️** | ✅ **Excellent** |
 
 ### Tests Count
-- **Total tests**: 381 passed, 11 skipped (392 total)
-- **Test files**: 8 (added logger tests)
-- **New tests added**: 129 total (56 issue-manager + 48 metrics-model + 25 logger)
+- **Total tests**: 399 passed ⬆️, 33 skipped (432 total)
+- **Test files**: 9 (8 unit + 4 integration skipped)
+- **New tests added**: 137 total (56 issue-manager + 48 metrics-model + 25 logger + 8 repo-analyzer)
 
 ---
 

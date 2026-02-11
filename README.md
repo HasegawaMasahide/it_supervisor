@@ -18,9 +18,9 @@
 | [`@it-supervisor/report-generator`](./packages/report-generator) | レポート生成(HTML/PDF) | 89.10% |
 | [`@it-supervisor/logger`](./packages/logger) | 構造化ロギング | 85.71% |
 | [`@it-supervisor/static-analyzer`](./packages/static-analyzer) | 静的解析ツール統合 | 69.38% |
-| [`@it-supervisor/repo-analyzer`](./packages/repo-analyzer) | Gitリポジトリ分析 | 65.61% |
+| [`@it-supervisor/repo-analyzer`](./packages/repo-analyzer) | Gitリポジトリ分析 | 69.71% ⬆️ |
 
-**全体カバレッジ**: 83.71% (statements), 75.56% (branches), 84.41% (functions)
+**全体カバレッジ**: 84.79% ⬆️ (statements), 76.38% (branches), 86.23% (functions)
 
 ## 🚀 クイックスタート
 
