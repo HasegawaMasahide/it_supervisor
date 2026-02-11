@@ -2,8 +2,30 @@
   "name": "@it-supervisor/tools",
   "version": "0.1.0",
   "private": true,
-  "description": "IT資産監査・改善サービス用ツール群",
+  "description": "IT資産監査・改善サービス用ツール群 - Comprehensive IT asset auditing and improvement toolkit",
   "license": "MIT",
+  "author": "IT Supervisor Tools Team",
+  "keywords": [
+    "it-asset",
+    "audit",
+    "static-analysis",
+    "code-quality",
+    "security",
+    "repository-analysis",
+    "report-generation",
+    "docker",
+    "sandbox",
+    "typescript",
+    "monorepo"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/it-supervisor-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/it-supervisor-tools/issues"
+  },
+  "homepage": "https://github.com/your-org/it-supervisor-tools#readme",
   "workspaces": [
     "packages/*"
   ],

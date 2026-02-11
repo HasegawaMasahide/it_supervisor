@@ -439,13 +439,15 @@
   - Status: ✅ Completed
   - Commit: `docs(workspace): add SECURITY.md with vulnerability reporting guidelines`
 
-- [ ] **Task 42: Enhance package.json metadata**
-  - Add repository, bugs, homepage fields to root package.json
-  - Add author, keywords, license fields
-  - Ensure all packages have consistent metadata
+- [x] **Task 42: Enhance package.json metadata**
+  - ✅ Added repository, bugs, homepage fields to root package.json
+  - ✅ Added author ("IT Supervisor Tools Team") and 11 keywords
+  - ✅ Enhanced description with English translation
+  - ✅ Updated all 6 package.json files with repository (with directory), bugs, homepage
+  - ✅ Ensured consistent metadata across all packages
   - Priority: P2 (Medium - project metadata and discoverability)
   - Calculated Priority Score: 46 (Impact: 5, TechDebt: 5, Effort: 2)
-  - Effort: Low (20 minutes)
+  - Status: ✅ Completed
   - Commit: `chore(workspace): enhance package.json metadata`
 
 ## Summary

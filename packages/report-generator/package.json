@@ -28,5 +28,14 @@
   },
   "optionalDependencies": {
     "puppeteer": "^24.37.2"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/it-supervisor-tools.git",
+    "directory": "packages/report-generator"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/it-supervisor-tools/issues"
+  },
+  "homepage": "https://github.com/your-org/it-supervisor-tools/tree/main/packages/report-generator#readme"
 }

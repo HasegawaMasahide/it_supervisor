@@ -26,5 +26,14 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/it-supervisor-tools.git",
+    "directory": "packages/sandbox-builder"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/it-supervisor-tools/issues"
+  },
+  "homepage": "https://github.com/your-org/it-supervisor-tools/tree/main/packages/sandbox-builder#readme"
 }

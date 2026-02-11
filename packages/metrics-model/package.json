@@ -21,5 +21,14 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/it-supervisor-tools.git",
+    "directory": "packages/metrics-model"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/it-supervisor-tools/issues"
+  },
+  "homepage": "https://github.com/your-org/it-supervisor-tools/tree/main/packages/metrics-model#readme"
 }
