@@ -4,6 +4,18 @@
   "description": "静的解析オーケストレーター - 複数の静的解析ツールを統合的に実行",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
     "build": "tsc",
     "test": "node --test",
