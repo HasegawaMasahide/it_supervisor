@@ -114,8 +114,31 @@ async function runBenchmarks() {
     console.log(`  Per file: ${(result.avgDuration / parseInt(result.name.match(/\d+/)?.[0] || '1')).toFixed(2)}ms\n`);
   });
 
-  // Cleanup
-  await fs.rm(path.join(__dirname, '../.tmp'), { recursive: true, force: true });
+  // Save JSON results for CI comparison
+  const outputDir = path.join(__dirname, '../.tmp/benchmarks');
+  await fs.mkdir(outputDir, { recursive: true });
+
+  const jsonOutput = {
+    package: 'repo-analyzer',
+    timestamp: new Date().toISOString(),
+    results: results.map(r => ({
+      name: r.name,
+      iterations: r.iterations,
+      totalMs: parseFloat(r.duration.toFixed(2)),
+      avgMs: parseFloat(r.avgDuration.toFixed(2)),
+      perFileMs: parseFloat((r.avgDuration / parseInt(r.name.match(/\d+/)?.[0] || '1')).toFixed(2))
+    }))
+  };
+
+  await fs.writeFile(
+    path.join(outputDir, 'repo-analyzer.json'),
+    JSON.stringify(jsonOutput, null, 2)
+  );
+
+  console.log(`\nJSON results saved to: ${path.join(outputDir, 'repo-analyzer.json')}`);
+
+  // Cleanup test files (but keep .tmp/benchmarks/ for CI)
+  await fs.rm(path.join(__dirname, '../.tmp/benchmark-repo'), { recursive: true, force: true });
 }
 
 runBenchmarks().catch(console.error);

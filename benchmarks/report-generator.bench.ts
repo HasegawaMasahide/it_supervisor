@@ -1,5 +1,16 @@
-import { ReportGenerator, ReportType } from '../packages/report-generator/src/generator.js';
+import { ReportGenerator } from '../packages/report-generator/src/generator.js';
 import { performance } from 'perf_hooks';
+
+// Import ReportType enum directly
+enum ReportType {
+  SystemOverview = 'system-overview',
+  Analysis = 'analysis',
+  Diagnosis = 'diagnosis',
+  Proposal = 'proposal',
+  Implementation = 'implementation',
+  Measurement = 'measurement',
+  FinalReport = 'final-report'
+}
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
@@ -10,7 +21,16 @@ interface BenchmarkResult {
   avgDuration: number;
 }
 
-function generateLargeReportData(size: 'small' | 'medium' | 'large') {
+interface ReportConfig {
+  projectName: string;
+  version?: string;
+  customerName?: string;
+  date: Date;
+  author?: string;
+  data: Record<string, unknown>;
+}
+
+function generateLargeReportData(size: 'small' | 'medium' | 'large'): ReportConfig {
   const issueCounts = {
     small: 10,
     medium: 100,
@@ -34,15 +54,21 @@ function generateLargeReportData(size: 'small' | 'medium' | 'large') {
 
   return {
     projectName: 'Benchmark Project',
-    timestamp: new Date().toISOString(),
-    summary: {
-      totalIssues: issueCount,
-      critical: Math.floor(issueCount * 0.1),
-      high: Math.floor(issueCount * 0.2),
-      medium: Math.floor(issueCount * 0.3),
-      low: Math.floor(issueCount * 0.4),
-    },
-    issues,
+    version: '1.0.0',
+    customerName: 'Test Customer',
+    date: new Date(),
+    author: 'Benchmark Suite',
+    data: {
+      timestamp: new Date().toISOString(),
+      summary: {
+        totalIssues: issueCount,
+        critical: Math.floor(issueCount * 0.1),
+        high: Math.floor(issueCount * 0.2),
+        medium: Math.floor(issueCount * 0.3),
+        low: Math.floor(issueCount * 0.4),
+      },
+      issues,
+    }
   };
 }
 
@@ -88,10 +114,8 @@ async function runBenchmarks() {
   const smallHtmlResult = await benchmark(
     'Generate small HTML report (10 issues)',
     async () => {
-      await generator.generate(smallData, {
-        type: ReportType.HTML,
-        outputPath: path.join(tmpDir, 'small.html'),
-      });
+      const report = await generator.generate(ReportType.Analysis, smallData);
+      await generator.exportToHTML(report, path.join(tmpDir, 'small.html'));
     },
     5
   );
@@ -102,10 +126,8 @@ async function runBenchmarks() {
   const mediumHtmlResult = await benchmark(
     'Generate medium HTML report (100 issues)',
     async () => {
-      await generator.generate(mediumData, {
-        type: ReportType.HTML,
-        outputPath: path.join(tmpDir, 'medium.html'),
-      });
+      const report = await generator.generate(ReportType.Analysis, mediumData);
+      await generator.exportToHTML(report, path.join(tmpDir, 'medium.html'));
     },
     5
   );
@@ -116,10 +138,8 @@ async function runBenchmarks() {
   const largeHtmlResult = await benchmark(
     'Generate large HTML report (1000 issues)',
     async () => {
-      await generator.generate(largeData, {
-        type: ReportType.HTML,
-        outputPath: path.join(tmpDir, 'large.html'),
-      });
+      const report = await generator.generate(ReportType.Analysis, largeData);
+      await generator.exportToHTML(report, path.join(tmpDir, 'large.html'));
     },
     3
   );
@@ -129,10 +149,8 @@ async function runBenchmarks() {
   const markdownResult = await benchmark(
     'Generate markdown report (100 issues)',
     async () => {
-      await generator.generate(mediumData, {
-        type: ReportType.Markdown,
-        outputPath: path.join(tmpDir, 'report.md'),
-      });
+      const report = await generator.generate(ReportType.Analysis, mediumData);
+      await generator.exportToMarkdown(report, path.join(tmpDir, 'report.md'));
     },
     5
   );
@@ -147,8 +165,30 @@ async function runBenchmarks() {
     console.log(`  Average: ${result.avgDuration.toFixed(2)}ms\n`);
   });
 
-  // Cleanup
-  await fs.rm(path.join(__dirname, '../.tmp'), { recursive: true, force: true });
+  // Save JSON results for CI comparison
+  const outputDir = path.join(__dirname, '../.tmp/benchmarks');
+  await fs.mkdir(outputDir, { recursive: true });
+
+  const jsonOutput = {
+    package: 'report-generator',
+    timestamp: new Date().toISOString(),
+    results: results.map(r => ({
+      name: r.name,
+      iterations: r.iterations,
+      totalMs: parseFloat(r.duration.toFixed(2)),
+      avgMs: parseFloat(r.avgDuration.toFixed(2))
+    }))
+  };
+
+  await fs.writeFile(
+    path.join(outputDir, 'report-generator.json'),
+    JSON.stringify(jsonOutput, null, 2)
+  );
+
+  console.log(`\nJSON results saved to: ${path.join(outputDir, 'report-generator.json')}`);
+
+  // Cleanup test files (but keep .tmp/benchmarks/ for CI)
+  await fs.rm(path.join(__dirname, '../.tmp/benchmark-reports'), { recursive: true, force: true });
 }
 
 runBenchmarks().catch(console.error);

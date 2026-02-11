@@ -1,4 +1,13 @@
-import { StaticAnalyzer, AnalyzerTool } from '../packages/static-analyzer/src/analyzer.js';
+import { StaticAnalyzer } from '../packages/static-analyzer/src/analyzer.js';
+
+// Import AnalyzerTool enum directly
+enum AnalyzerTool {
+  ESLint = 'eslint',
+  PHPStan = 'phpstan',
+  Snyk = 'snyk',
+  Gitleaks = 'gitleaks',
+  PHPCS = 'phpcs'
+}
 import { performance } from 'perf_hooks';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -130,8 +139,30 @@ async function runBenchmarks() {
     console.log(`  Average: ${result.avgDuration.toFixed(2)}ms\n`);
   });
 
-  // Cleanup
-  await fs.rm(path.join(__dirname, '../.tmp'), { recursive: true, force: true });
+  // Save JSON results for CI comparison
+  const outputDir = path.join(__dirname, '../.tmp/benchmarks');
+  await fs.mkdir(outputDir, { recursive: true });
+
+  const jsonOutput = {
+    package: 'static-analyzer',
+    timestamp: new Date().toISOString(),
+    results: results.map(r => ({
+      name: r.name,
+      iterations: r.iterations,
+      totalMs: parseFloat(r.duration.toFixed(2)),
+      avgMs: parseFloat(r.avgDuration.toFixed(2))
+    }))
+  };
+
+  await fs.writeFile(
+    path.join(outputDir, 'static-analyzer.json'),
+    JSON.stringify(jsonOutput, null, 2)
+  );
+
+  console.log(`\nJSON results saved to: ${path.join(outputDir, 'static-analyzer.json')}`);
+
+  // Cleanup test files (but keep .tmp/benchmarks/ for CI)
+  await fs.rm(path.join(__dirname, '../.tmp/benchmark-project'), { recursive: true, force: true });
 }
 
 runBenchmarks().catch(console.error);
