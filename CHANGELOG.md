@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Architecture Decision Records (ADRs)** (docs/adr/, 4 ADRs) documenting key design decisions:
+  - ADR-001: モノレポ構造の採用 (Monorepo structure with npm workspaces)
+  - ADR-002: 専用ログパッケージの作成 (Dedicated logger package creation)
+  - ADR-003: テスト戦略とカバレッジ目標 (Test strategy and coverage goals)
+  - ADR-004: CI/CDアプローチ (CI/CD approach with GitHub Actions)
 - **Git hooks documentation** in CONTRIBUTING.md with pre-commit workflow, troubleshooting, and emergency bypass instructions
 - **API Integration Guide** (docs/API_INTEGRATION_GUIDE.md, 1,200+ lines) with 5 complete E2E workflow examples
   - Full repository audit pipeline (repo-analyzer → static-analyzer → issue-manager → metrics-model → report-generator)

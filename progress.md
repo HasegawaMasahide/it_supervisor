@@ -1152,11 +1152,16 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `docs(workspace): add Git hooks documentation to CONTRIBUTING.md`
 
-- [ ] **Task 97: Create architecture decision records (ADRs)**
-  - Document key architectural decisions made during development
-  - Create docs/adr/ directory with ADR template
-  - Document: monorepo structure, logger package, test strategy, CI/CD approach
+- [x] **Task 97: Create architecture decision records (ADRs)**
+  - ✅ Created docs/adr/ directory with comprehensive README.md
+  - ✅ Created ADR-001: モノレポ構造の採用
+  - ✅ Created ADR-002: 専用ログパッケージの作成
+  - ✅ Created ADR-003: テスト戦略とカバレッジ目標
+  - ✅ Created ADR-004: CI/CDアプローチ
+  - ✅ Updated README.md to include ADR section in documentation
+  - ✅ All 4 ADRs document key architectural decisions with context, decision, and consequences
   - Priority: P3 (Low - documentation)
   - Calculated Priority Score: 42 (Impact: 5, TechDebt: 4, Effort: 3)
-  - Effort: Medium (requires understanding past decisions)
+  - Status: ✅ Completed
+  - Commit: `docs(workspace): add architecture decision records (ADRs)`
 
