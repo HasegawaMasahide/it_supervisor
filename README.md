@@ -221,10 +221,16 @@ npm run test:coverage
 
 ## 📚 ドキュメント
 
+### メインドキュメント
+
 - **[CONTRIBUTING.md](./CONTRIBUTING.md)**: 開発ガイドライン・コントリビューション方法
 - **[SECURITY.md](./SECURITY.md)**: セキュリティポリシー・脆弱性報告手順
-- **[USAGE_EXAMPLES.md](./USAGE_EXAMPLES.md)**: 詳細な使用例とベストプラクティス
-- **各パッケージのREADME**: パッケージごとの詳細API仕様
+- **[progress.md](./progress.md)**: タスク進捗とプロジェクト履歴
+
+### 追加ドキュメント
+
+- **[docs/USAGE_EXAMPLES.md](./docs/USAGE_EXAMPLES.md)**: 詳細な使用例とベストプラクティス
+- **[docs/archive/](./docs/archive/)**: 過去のドキュメントアーカイブ
 
 ### パッケージドキュメント
 
