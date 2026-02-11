@@ -82,7 +82,7 @@
   - Test `getDefaultTemplate()` for different report types
   - Commit: `test(report-generator): add unit tests for markdown parsing and template expansion`
 
-- [ ] **Task 11: Unit tests for report-generator (HTML/Markdown/PDF generation)**
+- [x] **Task 11: Unit tests for report-generator (HTML/Markdown/PDF generation)**
   - Test `generateHTML()` for complete HTML output structure
   - Test `generateMarkdown()` for markdown output
   - Test `exportToHTML()` and `exportToMarkdown()` with mocked fs
@@ -109,6 +109,8 @@
 - **Task 7: Fix error handling in sandbox-builder** ✓
 - **Task 8: Fix error handling in repo-analyzer** ✓
 - **Task 9: Fix error handling in static-analyzer** ✓
+- **Task 10: Unit tests for report-generator (markdown parsing and template expansion)** ✓
+- **Task 11: Unit tests for report-generator (HTML/Markdown/PDF generation)** ✓
 
 ## Notes
 

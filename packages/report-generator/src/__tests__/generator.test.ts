@@ -551,4 +551,456 @@ Total files: {{stats.totalFiles}}`;
       expect(report.sections[0].content).toContain('Total files: 42');
     });
   });
+
+  describe('generateHTML', () => {
+    it('should generate complete HTML structure', () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test Project',
+          customerName: 'Test Customer',
+          date: new Date('2024-01-15'),
+          data: {}
+        },
+        sections: [
+          { title: 'Introduction', level: 1, content: 'This is the introduction.', subsections: [] },
+          { title: 'Analysis', level: 2, content: 'Analysis content here.', subsections: [] }
+        ],
+        toc: [
+          { title: 'Introduction', level: 1, anchor: 'section-0', page: undefined },
+          { title: 'Analysis', level: 2, anchor: 'section-1', page: undefined }
+        ],
+        generatedAt: new Date('2024-01-15T10:00:00Z')
+      };
+
+      // @ts-ignore
+      const html = generator['generateHTML'](report);
+
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('<html lang="ja">');
+      expect(html).toContain('<title>Test Project - analysis</title>');
+      expect(html).toContain('<h1>Test Project</h1>');
+      expect(html).toContain('<strong>顧客:</strong> Test Customer');
+      expect(html).toContain('<strong>日付:</strong> 2024/1/15');
+      expect(html).toContain('目次');
+      expect(html).toContain('Introduction');
+      expect(html).toContain('Analysis');
+      expect(html).toContain('This is the introduction');
+      expect(html).toContain('Analysis content here');
+      expect(html).toContain('IT Supervisor');
+    });
+
+    it('should include custom CSS when provided', () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test',
+          customerName: 'Customer',
+          date: new Date(),
+          customCSS: 'body { background: red; }',
+          data: {}
+        },
+        sections: [],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      // @ts-ignore
+      const html = generator['generateHTML'](report);
+
+      expect(html).toContain('body { background: red; }');
+    });
+
+    it('should include author when provided', () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test',
+          customerName: 'Customer',
+          date: new Date(),
+          author: 'John Doe',
+          data: {}
+        },
+        sections: [],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      // @ts-ignore
+      const html = generator['generateHTML'](report);
+
+      expect(html).toContain('<strong>作成者:</strong> John Doe');
+    });
+
+    it('should render markdown content properly', () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [
+          {
+            title: 'Code Example',
+            level: 1,
+            content: '```javascript\nconst x = 1;\n```',
+            subsections: []
+          }
+        ],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      // @ts-ignore
+      const html = generator['generateHTML'](report);
+
+      expect(html).toContain('<code');
+      expect(html).toContain('const x = 1;');
+    });
+  });
+
+  describe('generateMarkdown', () => {
+    it('should generate complete Markdown output', () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test Project',
+          customerName: 'Test Customer',
+          date: new Date('2024-01-15'),
+          data: {}
+        },
+        sections: [
+          { title: 'Introduction', level: 1, content: 'Intro content', subsections: [] },
+          { title: 'Details', level: 2, content: 'Detail content', subsections: [] }
+        ],
+        toc: [
+          { title: 'Introduction', level: 1, anchor: 'section-0', page: undefined },
+          { title: 'Details', level: 2, anchor: 'section-1', page: undefined }
+        ],
+        generatedAt: new Date('2024-01-15T10:00:00Z')
+      };
+
+      // @ts-ignore
+      const markdown = generator['generateMarkdown'](report);
+
+      expect(markdown).toContain('# Test Project');
+      expect(markdown).toContain('**顧客:** Test Customer');
+      expect(markdown).toContain('**日付:** 2024/1/15');
+      expect(markdown).toContain('## 目次');
+      expect(markdown).toContain('- [Introduction](#section-0)');
+      expect(markdown).toContain('  - [Details](#section-1)');
+      expect(markdown).toContain('# Introduction');
+      expect(markdown).toContain('Intro content');
+      expect(markdown).toContain('## Details');
+      expect(markdown).toContain('Detail content');
+      expect(markdown).toContain('生成日時:');
+    });
+
+    it('should handle empty sections', () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Empty Report',
+          customerName: 'Customer',
+          date: new Date('2024-01-15'),
+          data: {}
+        },
+        sections: [],
+        toc: [],
+        generatedAt: new Date('2024-01-15T10:00:00Z')
+      };
+
+      // @ts-ignore
+      const markdown = generator['generateMarkdown'](report);
+
+      expect(markdown).toContain('# Empty Report');
+      expect(markdown).toContain('## 目次');
+    });
+
+    it('should indent TOC entries based on level', () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [],
+        toc: [
+          { title: 'Level 1', level: 1, anchor: 'section-0', page: undefined },
+          { title: 'Level 2', level: 2, anchor: 'section-1', page: undefined },
+          { title: 'Level 3', level: 3, anchor: 'section-2', page: undefined }
+        ],
+        generatedAt: new Date()
+      };
+
+      // @ts-ignore
+      const markdown = generator['generateMarkdown'](report);
+
+      expect(markdown).toContain('- [Level 1](#section-0)');
+      expect(markdown).toContain('  - [Level 2](#section-1)');
+      expect(markdown).toContain('    - [Level 3](#section-2)');
+    });
+  });
+
+  describe('exportToHTML', () => {
+    it('should write HTML to file', async () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [
+          { title: 'Test Section', level: 1, content: 'Content', subsections: [] }
+        ],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      await generator.exportToHTML(report, '/output/report.html');
+
+      expect(fs.writeFile).toHaveBeenCalledTimes(1);
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        '/output/report.html',
+        expect.stringContaining('<!DOCTYPE html>'),
+        'utf-8'
+      );
+    });
+
+    it('should generate valid HTML content', async () => {
+      const report = {
+        type: ReportType.Diagnosis,
+        config: {
+          projectName: 'Diagnosis Test',
+          customerName: 'Test Customer',
+          date: new Date('2024-02-01'),
+          data: {}
+        },
+        sections: [],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      await generator.exportToHTML(report, '/output/diagnosis.html');
+
+      const htmlContent = vi.mocked(fs.writeFile).mock.calls[0][1] as string;
+      expect(htmlContent).toContain('<html lang="ja">');
+      expect(htmlContent).toContain('Diagnosis Test');
+    });
+  });
+
+  describe('exportToMarkdown', () => {
+    it('should write Markdown to file', async () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [
+          { title: 'Test Section', level: 1, content: 'Content', subsections: [] }
+        ],
+        toc: [
+          { title: 'Test Section', level: 1, anchor: 'section-0', page: undefined }
+        ],
+        generatedAt: new Date()
+      };
+
+      await generator.exportToMarkdown(report, '/output/report.md');
+
+      expect(fs.writeFile).toHaveBeenCalledTimes(1);
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        '/output/report.md',
+        expect.stringContaining('# Test'),
+        'utf-8'
+      );
+    });
+
+    it('should generate valid Markdown content', async () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Markdown Test',
+          customerName: 'Test Customer',
+          date: new Date('2024-02-01'),
+          data: {}
+        },
+        sections: [
+          { title: 'Section 1', level: 1, content: 'Content 1', subsections: [] }
+        ],
+        toc: [
+          { title: 'Section 1', level: 1, anchor: 'section-0', page: undefined }
+        ],
+        generatedAt: new Date()
+      };
+
+      await generator.exportToMarkdown(report, '/output/test.md');
+
+      const markdownContent = vi.mocked(fs.writeFile).mock.calls[0][1] as string;
+      expect(markdownContent).toContain('# Markdown Test');
+      expect(markdownContent).toContain('# Section 1');
+      expect(markdownContent).toContain('Content 1');
+    });
+  });
+
+  describe('exportToPDF', () => {
+    it('should fallback to HTML when puppeteer is not available', async () => {
+      // In test environment, puppeteer will likely fail to launch
+      // This tests the fallback behavior
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Fallback Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [
+          { title: 'Test', level: 1, content: 'Content', subsections: [] }
+        ],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      // exportToPDF will fallback to HTML when puppeteer fails
+      await generator.exportToPDF(report, '/output/report.pdf');
+
+      // Should write HTML as fallback (the path will be report.html instead of report.pdf)
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        '/output/report.html',
+        expect.stringContaining('<!DOCTYPE html>'),
+        'utf-8'
+      );
+    }, 20000); // Increase timeout to 20 seconds
+
+    it('should handle errors gracefully', async () => {
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Error Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      // Should not throw even if puppeteer fails
+      await expect(generator.exportToPDF(report, '/output/error.pdf')).resolves.not.toThrow();
+    }, 20000); // Increase timeout to 20 seconds
+  });
+
+  describe('markdownToPDF', () => {
+    it('should read markdown file and attempt to generate PDF', async () => {
+      const markdownContent = `# Test Report
+
+This is a test.`;
+
+      vi.mocked(fs.readFile).mockResolvedValue(markdownContent);
+
+      await generator.markdownToPDF('/input/test.md', '/output/test.pdf');
+
+      expect(fs.readFile).toHaveBeenCalledWith('/input/test.md', 'utf-8');
+      // Will fallback to HTML when puppeteer is not available
+      expect(fs.writeFile).toHaveBeenCalled();
+    });
+
+    it('should use custom config when provided', async () => {
+      const markdownContent = `# Custom Report`;
+
+      vi.mocked(fs.readFile).mockResolvedValue(markdownContent);
+
+      const customConfig = {
+        projectName: 'Custom Project',
+        customerName: 'Custom Customer'
+      };
+
+      await generator.markdownToPDF('/input/test.md', '/output/test.pdf', customConfig);
+
+      expect(fs.readFile).toHaveBeenCalledWith('/input/test.md', 'utf-8');
+    });
+
+    it('should fallback to HTML when PDF generation fails', async () => {
+      const markdownContent = `# Fallback Test`;
+
+      vi.mocked(fs.readFile).mockResolvedValue(markdownContent);
+
+      await generator.markdownToPDF('/input/test.md', '/output/test.pdf');
+
+      // When puppeteer fails, it should write HTML as fallback
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        '/output/test.html',
+        expect.stringContaining('<!DOCTYPE html>'),
+        'utf-8'
+      );
+    });
+  });
+
+  describe('Error handling', () => {
+    it('should handle missing template gracefully in generate()', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('ENOENT: no such file'));
+
+      const config: ReportConfig = {
+        projectName: 'Test',
+        customerName: 'Customer',
+        date: new Date(),
+        data: {}
+      };
+
+      const report = await generator.generate(ReportType.Analysis, config);
+
+      // Should use default template
+      expect(report.sections.length).toBeGreaterThan(0);
+      // The first section after template expansion should contain the expanded project name
+      expect(report.sections[0].title).toContain('Test');
+    });
+
+    it('should handle file write errors in exportToHTML', async () => {
+      vi.mocked(fs.writeFile).mockRejectedValue(new Error('Write permission denied'));
+
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      await expect(generator.exportToHTML(report, '/output/report.html')).rejects.toThrow('Write permission denied');
+    });
+
+    it('should handle file write errors in exportToMarkdown', async () => {
+      vi.mocked(fs.writeFile).mockRejectedValue(new Error('Disk full'));
+
+      const report = {
+        type: ReportType.Analysis,
+        config: {
+          projectName: 'Test',
+          customerName: 'Customer',
+          date: new Date(),
+          data: {}
+        },
+        sections: [],
+        toc: [],
+        generatedAt: new Date()
+      };
+
+      await expect(generator.exportToMarkdown(report, '/output/report.md')).rejects.toThrow('Disk full');
+    });
+  });
 });
