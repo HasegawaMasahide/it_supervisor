@@ -39,7 +39,7 @@ export interface ReportConfig {
   /** カスタムCSS */
   customCSS?: string;
   /** データ */
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 }
 
 /**
@@ -82,5 +82,5 @@ export interface TemplateVariables {
   date: string;
   author?: string;
   version?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }

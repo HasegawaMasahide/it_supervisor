@@ -716,8 +716,10 @@ export class RepositoryAnalyzer {
           if (typeof packageJson.bin === 'string') {
             entryPoints.push(path.join(repoPath, packageJson.bin));
           } else {
-            Object.values(packageJson.bin).forEach((binPath: any) => {
-              entryPoints.push(path.join(repoPath, binPath));
+            Object.values(packageJson.bin).forEach((binPath) => {
+              if (typeof binPath === 'string') {
+                entryPoints.push(path.join(repoPath, binPath));
+              }
             });
           }
         }

@@ -12,7 +12,8 @@ import {
   DockerComposeConfig,
   DockerfileConfig,
   HealthCheckResult,
-  Snapshot
+  Snapshot,
+  ServiceHealth
 } from './types.js';
 
 /**
@@ -55,7 +56,7 @@ export class SandboxBuilder {
 
     let type = EnvironmentType.Unknown;
     let confidence = 0;
-    const details: any = {};
+    const details: Record<string, unknown> = {};
     const databases: DatabaseType[] = [];
     const ports: number[] = [];
 
@@ -468,8 +469,8 @@ export class SandboxBuilder {
       yaml += 'networks:\n';
       for (const [name, network] of Object.entries(config.networks)) {
         yaml += `  ${name}:\n`;
-        if (network.driver) {
-          yaml += `    driver: ${network.driver}\n`;
+        if (network && typeof network === 'object' && 'driver' in network) {
+          yaml += `    driver: ${(network as { driver: string }).driver}\n`;
         }
       }
       yaml += '\n';
@@ -690,9 +691,14 @@ export class SandboxController {
         };
       }
 
-      let containers: any[];
+      interface DockerComposeContainer {
+        Service: string;
+        State: string;
+      }
+
+      let containers: DockerComposeContainer[];
       try {
-        containers = JSON.parse(`[${stdout.trim().split('\n').join(',')}]`);
+        containers = JSON.parse(`[${stdout.trim().split('\n').join(',')}]`) as DockerComposeContainer[];
       } catch (parseError) {
         return {
           healthy: false,
@@ -702,7 +708,7 @@ export class SandboxController {
         };
       }
 
-      const services: Record<string, any> = {};
+      const services: Record<string, ServiceHealth> = {};
 
       for (const container of containers) {
         services[container.Service] = {
@@ -712,7 +718,7 @@ export class SandboxController {
         };
       }
 
-      const healthy = Object.values(services).every((s: any) => s.status === 'healthy');
+      const healthy = Object.values(services).every((s) => s.status === 'healthy');
 
       return {
         healthy,
@@ -778,8 +784,8 @@ export class SandboxController {
 
       const lines = stdout.trim().split('\n');
       const cpu: Record<string, number> = {};
-      const memory: Record<string, any> = {};
-      const network: Record<string, any> = {};
+      const memory: Record<string, { used: number; limit: number; percentage: number }> = {};
+      const network: Record<string, { rx: number; tx: number }> = {};
 
       for (const line of lines) {
         const [container, cpuPerc, memUsage, netIO] = line.split('|');

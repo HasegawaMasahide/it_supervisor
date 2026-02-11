@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { marked } from 'marked';
 import * as http from 'http';
+import type { IncomingMessage, ServerResponse } from 'http';
 import {
   Report,
   ReportType,
@@ -312,10 +313,15 @@ export class ReportGenerator {
     const dotNotationRegex = /{{(\w+)\.(\w+)(?:\.(\w+))?}}/g;
     result = result.replace(dotNotationRegex, (match, obj, prop1, prop2) => {
       try {
+        const objValue = variables[obj];
+        if (!objValue || typeof objValue !== 'object') return '';
+
+        const prop1Value = (objValue as Record<string, unknown>)[prop1];
         if (prop2) {
-          return String(variables[obj]?.[prop1]?.[prop2] ?? '');
+          if (!prop1Value || typeof prop1Value !== 'object') return '';
+          return String((prop1Value as Record<string, unknown>)[prop2] ?? '');
         }
-        return String(variables[obj]?.[prop1] ?? '');
+        return String(prop1Value ?? '');
       } catch {
         return '';
       }
@@ -657,7 +663,7 @@ export class ReportGenerator {
   async preview(report: Report, port: number = 3000): Promise<void> {
     const html = this.generateHTML(report);
 
-    const server = http.createServer((req: any, res: any) => {
+    const server = http.createServer((req: IncomingMessage, res: ServerResponse) => {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
     });

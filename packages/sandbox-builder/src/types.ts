@@ -85,8 +85,8 @@ export interface DockerComposeService {
 export interface DockerComposeConfig {
   version: string;
   services: Record<string, DockerComposeService>;
-  networks?: Record<string, any>;
-  volumes?: Record<string, any>;
+  networks?: Record<string, unknown>;
+  volumes?: Record<string, unknown>;
 }
 
 /**
