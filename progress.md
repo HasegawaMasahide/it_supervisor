@@ -253,16 +253,20 @@
   - Status: ✅ Completed (56 tests, all passing)
   - Commit: `test(issue-manager): add comprehensive unit tests for IssueManager`
 
-- [ ] **Task 28: Add unit tests for metrics-model**
-  - Create `packages/metrics-model/src/__tests__/database.test.ts`
-  - Test MetricsDatabase initialization and connection
-  - Test saveMetric, getMetric, and deleteMetric operations
-  - Test query and aggregation methods
-  - Mock better-sqlite3 database operations
-  - Target coverage: >70% statements
+- [x] **Task 28: Add unit tests for metrics-model**
+  - Created `packages/metrics-model/src/__tests__/database.test.ts` with 48 tests
+  - ✅ Tested database initialization and project CRUD operations
+  - ✅ Tested metric recording (numeric, string, boolean values)
+  - ✅ Tested metric queries with filters (projectId, category, name, date range, limit, offset)
+  - ✅ Tested metric deletion and batch recording
+  - ✅ Tested metric aggregation (count, min, max, avg, sum)
+  - ✅ Tested before/after metric comparison
+  - ✅ Tested export/import functionality (JSON, CSV)
+  - ✅ Tested transactions and validation
+  - **Coverage achieved: 96.29% statements, 82.11% branches** (far exceeds 70% target!)
   - Priority: P1 (High - missing core tests)
   - Calculated Priority Score: 74
-  - Effort: Medium
+  - Status: ✅ Completed (48 tests, all passing)
   - Commit: `test(metrics-model): add comprehensive unit tests for MetricsDatabase`
 
 - [x] **Task 22: Improve test coverage for static-analyzer**
