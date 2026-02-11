@@ -298,6 +298,98 @@
   - Effort: Medium
   - Commit: `test(sandbox-builder): improve test coverage for SandboxController`
 
+### Phase 10: CI/CD and Infrastructure (Discovered 2026-02-11)
+
+- [x] **Task 30: Add GitHub Actions CI/CD workflow**
+  - ✅ Created `.github/workflows/ci.yml` with 5 jobs (lint, type-check, test, coverage, build)
+  - ✅ Added matrix strategy for Node.js 18.x and 20.x
+  - ✅ Added node_modules caching for faster builds
+  - ✅ Added Codecov integration for coverage reports
+  - ✅ Added system dependencies installation for Puppeteer
+  - ✅ Added `type-check` script to package.json (`tsc --noEmit`)
+  - Priority: P1 (High - blocks automation and quality gates)
+  - Calculated Priority Score: 72 (Impact: 8, TechDebt: 7, Effort: 3)
+  - Status: ✅ Completed
+  - Commit: `ci: add GitHub Actions workflow for automated testing`
+
+- [ ] **Task 31: Add integration tests for package interactions**
+  - Create `packages/__integration__/` directory for integration tests
+  - Test: repo-analyzer → metrics-model (analyze and store metrics)
+  - Test: static-analyzer → metrics-model (analyze and store issues)
+  - Test: issue-manager ↔ report-generator (fetch issues and generate report)
+  - Test: Full pipeline: analyze repo → detect issues → generate report
+  - Priority: P1 (High - validates system behavior)
+  - Calculated Priority Score: 68 (Impact: 8, TechDebt: 6, Effort: 4)
+  - Effort: Medium
+  - Commit: `test(workspace): add integration tests for package interactions`
+
+- [ ] **Task 32: Add CONTRIBUTING.md with development guidelines**
+  - Document: How to set up development environment
+  - Document: How to run tests, linting, coverage
+  - Document: Commit message conventions (Conventional Commits)
+  - Document: PR process and code review guidelines
+  - Document: Package dependency rules (avoid circular dependencies)
+  - Priority: P2 (Medium - documentation)
+  - Calculated Priority Score: 52 (Impact: 6, TechDebt: 5, Effort: 2)
+  - Effort: Low
+  - Commit: `docs(workspace): add CONTRIBUTING.md with development guidelines`
+
+- [x] **Task 33: Add type-check script to package.json**
+  - ✅ Added `"type-check": "tsc --noEmit"` to root package.json
+  - ✅ Verified TypeScript compilation without emitting files
+  - ✅ Added type-check job to CI workflow (runs in parallel with lint)
+  - Priority: P2 (Medium - type safety verification)
+  - Calculated Priority Score: 54 (Impact: 5, TechDebt: 6, Effort: 1)
+  - Status: ✅ Completed (part of Task 30)
+  - Commit: `ci: add GitHub Actions workflow for automated testing`
+
+### Phase 11: Dependency Management (Discovered 2026-02-11)
+
+- [ ] **Task 34: Update @types/node from 20.x to 25.x**
+  - Update @types/node to ^25.2.3 across all packages
+  - Test for breaking changes in Node.js type definitions
+  - Verify all tests pass after update
+  - Priority: P3 (Low - not critical but keeps types current)
+  - Calculated Priority Score: 34 (Impact: 3, TechDebt: 4, Effort: 2)
+  - Effort: Low
+  - Commit: `chore(workspace): update @types/node to 25.x`
+
+- [ ] **Task 35: Update @typescript-eslint packages from 6.x to 8.x**
+  - Update @typescript-eslint/eslint-plugin and @typescript-eslint/parser to ^8.55.0
+  - Review and update ESLint configuration for new rules
+  - Fix any new linting errors that emerge
+  - Priority: P3 (Low - linting improvements)
+  - Calculated Priority Score: 36 (Impact: 3, TechDebt: 5, Effort: 3)
+  - Effort: Medium
+  - Commit: `chore(workspace): update @typescript-eslint to 8.x`
+
+- [ ] **Task 36: Update ESLint from 8.x to 10.x**
+  - Update eslint to ^10.0.0
+  - Update .eslintrc configuration for ESLint 10 format (flat config)
+  - Test for breaking changes and update rules as needed
+  - Priority: P3 (Low - linting improvements)
+  - Calculated Priority Score: 35 (Impact: 3, TechDebt: 5, Effort: 4)
+  - Effort: Medium
+  - Commit: `chore(workspace): update ESLint to 10.x with flat config`
+
+- [ ] **Task 37: Update better-sqlite3 from 9.x to 12.x**
+  - Update better-sqlite3 to ^12.6.2 in metrics-model and issue-manager
+  - Test for breaking changes in SQLite API
+  - Verify all database tests pass (currently 104 tests)
+  - Priority: P2 (Medium - database dependency update)
+  - Calculated Priority Score: 48 (Impact: 5, TechDebt: 5, Effort: 3)
+  - Effort: Low
+  - Commit: `chore(metrics-model,issue-manager): update better-sqlite3 to 12.x`
+
+- [ ] **Task 38: Update marked from 11.x to 17.x**
+  - Update marked to ^17.0.1 in report-generator
+  - Test for breaking changes in markdown parsing API
+  - Verify all report generation tests pass (81 tests)
+  - Priority: P3 (Low - markdown parsing update)
+  - Calculated Priority Score: 36 (Impact: 3, TechDebt: 5, Effort: 3)
+  - Effort: Low
+  - Commit: `chore(report-generator): update marked to 17.x`
+
 ## Summary
 
 ### Test Coverage Overview (as of 2026-02-11)
