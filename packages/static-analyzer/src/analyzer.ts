@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import { promises as fs } from 'fs';
@@ -15,7 +15,10 @@ import {
   ToolConfig
 } from './types.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+// デフォルトのタイムアウト（ミリ秒）
+const DEFAULT_TIMEOUT = 300000; // 5分
 
 /**
  * 静的解析オーケストレータークラス
@@ -206,22 +209,41 @@ export class StaticAnalyzer {
       // PHPStanコマンド実行
       // Docker経由またはローカルで実行
       let command: string;
+      let args: string[];
       if (options.useDocker) {
-        command = `docker run --rm -v "${repoPath}:/app" -w /app ghcr.io/phpstan/phpstan analyse --error-format=json --no-progress`;
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app`,
+          '-w', '/app',
+          'ghcr.io/phpstan/phpstan',
+          'analyse', '--error-format=json', '--no-progress'
+        ];
       } else {
-        command = `./vendor/bin/phpstan analyse --error-format=json --no-progress`;
+        command = './vendor/bin/phpstan';
+        args = ['analyse', '--error-format=json', '--no-progress'];
       }
 
-      const { stdout } = await execAsync(command, {
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const { stdout } = await execFileAsync(command, args, {
         cwd: repoPath,
-        maxBuffer: 10 * 1024 * 1024
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
       }).catch(error => {
         // PHPStanは問題があるとexit code 1を返す
         return { stdout: error.stdout || '{"files":{},"errors":[]}', stderr: error.stderr || '' };
       });
 
       // 結果をパース
-      const result = JSON.parse(stdout || '{"files":{},"errors":[]}');
+      let result;
+      try {
+        result = JSON.parse(stdout || '{"files":{},"errors":[]}');
+      } catch (parseError) {
+        console.error('Failed to parse PHPStan output:', parseError);
+        return [];
+      }
+
       return this.parsePHPStanResults(result, repoPath);
     } catch (error) {
       console.error('PHPStan execution failed:', error);
@@ -346,22 +368,42 @@ export class StaticAnalyzer {
 
       // PHPCSコマンド実行
       let command: string;
+      let args: string[];
       if (options.useDocker) {
-        command = `docker run --rm -v "${repoPath}:/app" -w /app php:8.2-cli php ./vendor/bin/phpcs --report=json --standard=PSR12`;
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app`,
+          '-w', '/app',
+          'php:8.2-cli',
+          'php', './vendor/bin/phpcs',
+          '--report=json', '--standard=PSR12'
+        ];
       } else {
-        command = `./vendor/bin/phpcs --report=json --standard=PSR12`;
+        command = './vendor/bin/phpcs';
+        args = ['--report=json', '--standard=PSR12'];
       }
 
-      const { stdout } = await execAsync(command, {
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const { stdout } = await execFileAsync(command, args, {
         cwd: repoPath,
-        maxBuffer: 10 * 1024 * 1024
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
       }).catch(error => {
         // PHPCSは問題があるとexit code 1を返す
         return { stdout: error.stdout || '{"files":{},"totals":{}}', stderr: error.stderr || '' };
       });
 
       // 結果をパース
-      const result = JSON.parse(stdout || '{"files":{},"totals":{}}');
+      let result;
+      try {
+        result = JSON.parse(stdout || '{"files":{},"totals":{}}');
+      } catch (parseError) {
+        console.error('Failed to parse PHPCS output:', parseError);
+        return [];
+      }
+
       return this.parsePHPCSResults(result, repoPath);
     } catch (error) {
       console.error('PHP_CodeSniffer execution failed:', error);
@@ -459,17 +501,34 @@ export class StaticAnalyzer {
       await fs.access(packageJsonPath);
 
       // ESLintコマンド実行
-      const command = `npx eslint "${repoPath}" --format json --ext .js,.ts,.jsx,.tsx`;
-      const { stdout, stderr } = await execAsync(command, {
+      const command = 'npx';
+      const args = [
+        'eslint',
+        repoPath,
+        '--format', 'json',
+        '--ext', '.js,.ts,.jsx,.tsx'
+      ];
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const { stdout } = await execFileAsync(command, args, {
         cwd: repoPath,
-        maxBuffer: 10 * 1024 * 1024 // 10MB
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
       }).catch(error => {
         // ESLintは問題があるとexit code 1を返すので、エラーを無視
         return { stdout: error.stdout || '[]', stderr: error.stderr || '' };
       });
 
       // 結果をパース
-      const results = JSON.parse(stdout || '[]');
+      let results;
+      try {
+        results = JSON.parse(stdout || '[]');
+      } catch (parseError) {
+        console.error('Failed to parse ESLint output:', parseError);
+        return [];
+      }
+
       return this.parseESLintResults(results, repoPath);
     } catch (error) {
       console.error('ESLint execution failed:', error);
@@ -571,17 +630,29 @@ export class StaticAnalyzer {
       }
 
       // Snykコマンド実行
-      const command = `snyk test --json`;
-      const { stdout } = await execAsync(command, {
+      const command = 'snyk';
+      const args = ['test', '--json'];
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const { stdout } = await execFileAsync(command, args, {
         cwd: repoPath,
-        maxBuffer: 10 * 1024 * 1024
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
       }).catch(error => {
         // Snykは脆弱性があるとexit code 1を返す
         return { stdout: error.stdout || '{}', stderr: error.stderr || '' };
       });
 
       // 結果をパース
-      const result = JSON.parse(stdout || '{}');
+      let result;
+      try {
+        result = JSON.parse(stdout || '{}');
+      } catch (parseError) {
+        console.error('Failed to parse Snyk output:', parseError);
+        return [];
+      }
+
       return this.parseSnykResults(result, repoPath);
     } catch (error) {
       console.error('Snyk execution failed:', error);
@@ -645,30 +716,49 @@ export class StaticAnalyzer {
     repoPath: string,
     options: AnalysisOptions
   ): Promise<AnalysisIssue[]> {
+    const reportPath = path.join(repoPath, 'gitleaks-report.json');
+
     try {
       // .gitディレクトリの存在確認
       await fs.access(path.join(repoPath, '.git'));
 
       // Gitleaksコマンド実行
-      const command = `gitleaks detect --report-format json --report-path gitleaks-report.json`;
-      await execAsync(command, {
-        cwd: repoPath
+      const command = 'gitleaks';
+      const args = [
+        'detect',
+        '--report-format', 'json',
+        '--report-path', 'gitleaks-report.json'
+      ];
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      await execFileAsync(command, args, {
+        cwd: repoPath,
+        timeout
       }).catch(() => {
         // Gitleaksは検出があるとexit code 1を返す
       });
 
       // 結果ファイルを読み込み
-      const reportPath = path.join(repoPath, 'gitleaks-report.json');
       const reportContent = await fs.readFile(reportPath, 'utf-8').catch(() => '[]');
-      const results = JSON.parse(reportContent);
 
-      // レポートファイルを削除
-      await fs.unlink(reportPath).catch(() => {});
+      let results;
+      try {
+        results = JSON.parse(reportContent);
+      } catch (parseError) {
+        console.error('Failed to parse Gitleaks output:', parseError);
+        return [];
+      }
 
       return this.parseGitleaksResults(results, repoPath);
     } catch (error) {
       console.error('Gitleaks execution failed:', error);
       return [];
+    } finally {
+      // レポートファイルを確実に削除
+      await fs.unlink(reportPath).catch(() => {
+        // ファイルが存在しない場合は無視
+      });
     }
   }
 

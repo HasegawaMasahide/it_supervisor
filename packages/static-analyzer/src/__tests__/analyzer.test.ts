@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
+import { execFile } from 'child_process';
 import { StaticAnalyzer } from '../analyzer.js';
 import {
   AnalyzerTool,
@@ -9,6 +10,11 @@ import {
   ToolResult
 } from '../types.js';
 
+// child_process をモック
+vi.mock('child_process', () => ({
+  execFile: vi.fn()
+}));
+
 // fs.access と fs.readdir をモック
 vi.mock('fs', async () => {
   const actual = await vi.importActual('fs');
@@ -17,7 +23,9 @@ vi.mock('fs', async () => {
     promises: {
       ...((actual as any).promises || {}),
       access: vi.fn(),
-      readdir: vi.fn()
+      readdir: vi.fn(),
+      readFile: vi.fn(),
+      unlink: vi.fn()
     }
   };
 });
@@ -517,6 +525,168 @@ describe('StaticAnalyzer', () => {
       const suggestion = analyzer.generateFixSuggestion(issue);
 
       expect(suggestion).toBeNull();
+    });
+  });
+
+  describe('Error handling', () => {
+    it('should handle timeout in tool execution', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Timeout') as any;
+        error.code = 'ETIMEDOUT';
+        error.killed = true;
+        callback(error, '', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runESLint('/test/repo', { timeout: 1000 });
+
+      expect(result).toEqual([]);
+    });
+
+    it('should handle invalid JSON output from tools', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        callback(null, 'invalid json output', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runESLint('/test/repo', {});
+
+      expect(result).toEqual([]);
+    });
+
+    it('should cleanup temp files even on error in Gitleaks', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        callback(null, '', '');
+        return {} as any;
+      });
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('File read error'));
+      vi.mocked(fs.unlink).mockResolvedValue();
+
+      const result = await (analyzer as any).runGitleaks('/test/repo', {});
+
+      // エラーが発生しても空配列を返す
+      expect(result).toEqual([]);
+      // 一時ファイルの削除が試行される
+      expect(fs.unlink).toHaveBeenCalledWith('/test/repo/gitleaks-report.json');
+    });
+
+    it('should cleanup temp files on success in Gitleaks', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        callback(null, '', '');
+        return {} as any;
+      });
+      vi.mocked(fs.readFile).mockResolvedValue('[{"RuleID":"test","File":"test.js"}]');
+      vi.mocked(fs.unlink).mockResolvedValue();
+
+      const result = await (analyzer as any).runGitleaks('/test/repo', {});
+
+      expect(result).toBeDefined();
+      // 一時ファイルの削除が試行される
+      expect(fs.unlink).toHaveBeenCalledWith('/test/repo/gitleaks-report.json');
+    });
+
+    it('should handle invalid JSON in Gitleaks report', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        callback(null, '', '');
+        return {} as any;
+      });
+      vi.mocked(fs.readFile).mockResolvedValue('invalid json');
+      vi.mocked(fs.unlink).mockResolvedValue();
+
+      const result = await (analyzer as any).runGitleaks('/test/repo', {});
+
+      expect(result).toEqual([]);
+      // 一時ファイルの削除が試行される
+      expect(fs.unlink).toHaveBeenCalledWith('/test/repo/gitleaks-report.json');
+    });
+
+    it('should handle tool execution errors gracefully in PHPStan', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Command failed') as any;
+        error.stdout = '{"files":{}}';
+        callback(error, '', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runPHPStan('/test/repo', {});
+
+      // エラーでも stdout がある場合はパースを試みる
+      expect(result).toEqual([]);
+    });
+
+    it('should handle tool execution errors gracefully in PHPCS', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(fs.readdir).mockResolvedValue(['test.php'] as any);
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Command failed') as any;
+        error.stdout = '{"files":{}}';
+        callback(error, '', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runPHPCS('/test/repo', {});
+
+      // エラーでも stdout がある場合はパースを試みる
+      expect(result).toEqual([]);
+    });
+
+    it('should handle tool execution errors gracefully in Snyk', async () => {
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) {
+          return Promise.resolve();
+        }
+        return Promise.reject(new Error('File not found'));
+      });
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Command failed') as any;
+        error.stdout = '{}';
+        callback(error, '', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runSnyk('/test/repo', {});
+
+      // エラーでも stdout がある場合はパースを試みる
+      expect(result).toEqual([]);
+    });
+
+    it('should apply timeout option to tool execution', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      const mockExecFile = vi.mocked(execFile);
+
+      mockExecFile.mockImplementation((cmd, args, options: any, callback: any) => {
+        // timeout オプションが渡されていることを確認
+        expect(options.timeout).toBe(60000);
+        callback(null, '[]', '');
+        return {} as any;
+      });
+
+      await (analyzer as any).runESLint('/test/repo', { timeout: 60000 });
+
+      expect(mockExecFile).toHaveBeenCalled();
+    });
+
+    it('should use default timeout when not specified', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      const mockExecFile = vi.mocked(execFile);
+
+      mockExecFile.mockImplementation((cmd, args, options: any, callback: any) => {
+        // デフォルトタイムアウト（300000ms）が使われることを確認
+        expect(options.timeout).toBe(300000);
+        callback(null, '[]', '');
+        return {} as any;
+      });
+
+      await (analyzer as any).runESLint('/test/repo', {});
+
+      expect(mockExecFile).toHaveBeenCalled();
     });
   });
 });
