@@ -208,6 +208,28 @@
 
 ### Phase 8: Future Improvements (Discovered)
 
+- [x] **Task 24: Fix ESLint errors**
+  - Fixed 3 ESLint errors (unused callCount, unused GitleaksMatch, vitest.config.ts parsing error)
+  - Priority: P0 (Critical - blocks build quality)
+  - Status: ✅ Completed (21 errors → 0 errors)
+  - Commit: `fix(workspace): resolve 3 ESLint errors`
+
+- [ ] **Task 25: Reduce any type usage in issue-manager and metrics-model**
+  - Current: 18 warnings (8 in issue-manager, 8 in metrics-model, 2 in static-analyzer)
+  - Target: <10 warnings total
+  - Priority: P2 (Medium - type safety) | Calculated Priority Score: 68
+  - Expected outcome: Better type safety, easier maintenance
+  - Effort: Medium (4-6 hours)
+  - Commit: `refactor(issue-manager,metrics-model): reduce any type usage to improve type safety`
+
+- [ ] **Task 26: Fix high-severity security vulnerabilities in puppeteer**
+  - 5 high-severity vulnerabilities in puppeteer dependencies (tar-fs, ws)
+  - Recommendation: Update puppeteer to v24+ (breaking change)
+  - Priority: P1 (High - security)
+  - Impact: Optional dependency, low user-facing risk
+  - Effort: Low-Medium (test compatibility after update)
+  - Commit: `chore(report-generator): update puppeteer to fix security vulnerabilities`
+
 - [ ] **Task 21: Implement TODOs in sandbox-builder**
   - Implement snapshot versioning with timestamps (line 873)
   - Parse docker-compose.yml to get actual volume names (line 877)
