@@ -32,3 +32,10 @@ coverage/
 *.tmp
 *.temp
 tmp/
+
+# Example outputs
+examples/**/*.db
+examples/**/output/
+examples/**/.tmp/
+examples/**/pipeline-*.html
+examples/**/pipeline-*.md

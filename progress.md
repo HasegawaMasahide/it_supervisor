@@ -604,6 +604,15 @@
 
 ### Phase 18: Release Preparation (Discovered 2026-02-11)
 
+- [x] **Task 58: Update .gitignore for example project outputs**
+  - ✅ Added example output directories to .gitignore
+  - ✅ Excludes: *.db, output/, .tmp/, pipeline-*.html, pipeline-*.md
+  - ✅ Prevents generated files from being committed
+  - Priority: P2 (Medium - repository cleanliness)
+  - Calculated Priority Score: 44 (Impact: 4, TechDebt: 5, Effort: 1)
+  - Status: ✅ Completed
+  - Commit: `chore(workspace): add example outputs to .gitignore`
+
 - [x] **Task 55: Update package versions to 0.1.0 and prepare for npm publishing**
   - ✅ All packages already at version 0.1.0
   - ✅ All 7 packages build successfully with TypeScript
