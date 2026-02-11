@@ -50,7 +50,7 @@
 
 ### Phase 3: Error handling improvements
 
-- [ ] **Task 7: Fix error handling in sandbox-builder**
+- [x] **Task 7: Fix error handling in sandbox-builder**
   - Wrap all `JSON.parse()` calls in try-catch (builder.ts lines ~65, ~95, etc.)
   - Add input validation for `detect()` and `build()` (check path exists)
   - Return meaningful error messages instead of crashing
@@ -79,6 +79,7 @@
 - **Task 4: Unit tests for repo-analyzer (language detection and file analysis)** ✓
 - **Task 5: Unit tests for repo-analyzer (tech stack detection)** ✓
 - **Task 6: Unit tests for static-analyzer** ✓
+- **Task 7: Fix error handling in sandbox-builder** ✓
 
 ## Notes
 

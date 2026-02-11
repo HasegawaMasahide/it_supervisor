@@ -62,50 +62,66 @@ export class SandboxBuilder {
     if (hasPackageJson) {
       type = EnvironmentType.NodeJS;
       confidence = 0.9;
-      const packageJson = JSON.parse(
-        await fs.readFile(path.join(absolutePath, 'package.json'), 'utf-8')
-      );
 
-      details.runtime = 'Node.js';
-      details.packageManager = 'npm';
+      try {
+        const packageJson = JSON.parse(
+          await fs.readFile(path.join(absolutePath, 'package.json'), 'utf-8')
+        );
 
-      if (packageJson.dependencies?.typescript) {
-        details.framework = 'TypeScript';
-      }
-      if (packageJson.dependencies?.express) {
-        details.framework = 'Express';
-        ports.push(3000);
-      }
-      if (packageJson.dependencies?.next) {
-        details.framework = 'Next.js';
-        ports.push(3000);
-      }
+        details.runtime = 'Node.js';
+        details.packageManager = 'npm';
 
-      // データベース検出
-      if (packageJson.dependencies?.pg) databases.push(DatabaseType.PostgreSQL);
-      if (packageJson.dependencies?.mysql) databases.push(DatabaseType.MySQL);
-      if (packageJson.dependencies?.mongodb) databases.push(DatabaseType.MongoDB);
-      if (packageJson.dependencies?.redis) databases.push(DatabaseType.Redis);
+        if (packageJson.dependencies?.typescript) {
+          details.framework = 'TypeScript';
+        }
+        if (packageJson.dependencies?.express) {
+          details.framework = 'Express';
+          ports.push(3000);
+        }
+        if (packageJson.dependencies?.next) {
+          details.framework = 'Next.js';
+          ports.push(3000);
+        }
+
+        // データベース検出
+        if (packageJson.dependencies?.pg) databases.push(DatabaseType.PostgreSQL);
+        if (packageJson.dependencies?.mysql) databases.push(DatabaseType.MySQL);
+        if (packageJson.dependencies?.mongodb) databases.push(DatabaseType.MongoDB);
+        if (packageJson.dependencies?.redis) databases.push(DatabaseType.Redis);
+      } catch (error) {
+        // package.jsonのパースに失敗した場合は基本情報のみ設定
+        details.runtime = 'Node.js';
+        details.packageManager = 'npm';
+        details.error = 'Failed to parse package.json';
+      }
     }
 
     // PHP検出
     if (hasComposerJson) {
       type = EnvironmentType.PHP;
       confidence = 0.9;
-      const composerJson = JSON.parse(
-        await fs.readFile(path.join(absolutePath, 'composer.json'), 'utf-8')
-      );
 
-      details.runtime = 'PHP';
-      details.packageManager = 'composer';
+      try {
+        const composerJson = JSON.parse(
+          await fs.readFile(path.join(absolutePath, 'composer.json'), 'utf-8')
+        );
 
-      if (composerJson.require?.['laravel/framework']) {
-        details.framework = 'Laravel';
-        ports.push(8000);
+        details.runtime = 'PHP';
+        details.packageManager = 'composer';
+
+        if (composerJson.require?.['laravel/framework']) {
+          details.framework = 'Laravel';
+          ports.push(8000);
+        }
+
+        // データベース検出
+        if (composerJson.require?.['doctrine/dbal']) databases.push(DatabaseType.MySQL);
+      } catch (error) {
+        // composer.jsonのパースに失敗した場合は基本情報のみ設定
+        details.runtime = 'PHP';
+        details.packageManager = 'composer';
+        details.error = 'Failed to parse composer.json';
       }
-
-      // データベース検出
-      if (composerJson.require?.['doctrine/dbal']) databases.push(DatabaseType.MySQL);
     }
 
     // Python検出
@@ -598,8 +614,22 @@ export class SandboxController {
    */
   async load(): Promise<void> {
     const metadataPath = path.join(this.sandboxPath, 'sandbox.json');
-    const content = await fs.readFile(metadataPath, 'utf-8');
-    this.sandbox = JSON.parse(content);
+
+    try {
+      await fs.access(metadataPath);
+    } catch (error) {
+      throw new Error(`Sandbox metadata not found at: ${metadataPath}`);
+    }
+
+    try {
+      const content = await fs.readFile(metadataPath, 'utf-8');
+      this.sandbox = JSON.parse(content);
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        throw new Error(`Invalid JSON in sandbox metadata: ${error.message}`);
+      }
+      throw new Error(`Failed to read sandbox metadata: ${error}`);
+    }
   }
 
   /**
@@ -650,7 +680,27 @@ export class SandboxController {
       const command = 'docker-compose ps --format json';
       const { stdout } = await this.execAsync(command, { cwd: this.sandboxPath });
 
-      const containers = JSON.parse(`[${stdout.trim().split('\n').join(',')}]`);
+      if (!stdout || stdout.trim() === '') {
+        return {
+          healthy: false,
+          services: {},
+          timestamp: new Date(),
+          error: 'No containers found'
+        };
+      }
+
+      let containers: any[];
+      try {
+        containers = JSON.parse(`[${stdout.trim().split('\n').join(',')}]`);
+      } catch (parseError) {
+        return {
+          healthy: false,
+          services: {},
+          timestamp: new Date(),
+          error: `Failed to parse docker-compose output: ${parseError}`
+        };
+      }
+
       const services: Record<string, any> = {};
 
       for (const container of containers) {

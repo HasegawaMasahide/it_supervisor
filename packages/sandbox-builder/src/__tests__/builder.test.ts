@@ -689,6 +689,60 @@ describe('SandboxBuilder - detect()', () => {
 
       await expect(builder.detect(targetPath)).rejects.toThrow('Target path not found');
     });
+
+    it('不正なJSONのpackage.jsonの場合、基本情報のみ設定する', async () => {
+      const targetPath = '/test/invalid-json';
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) return;
+        if (pathStr === '/test/invalid-json') return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('package.json')) {
+          return '{ invalid json }';
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+
+      const result = await builder.detect(targetPath);
+
+      expect(result.type).toBe(EnvironmentType.NodeJS);
+      expect(result.details.runtime).toBe('Node.js');
+      expect(result.details.packageManager).toBe('npm');
+      expect(result.details.error).toBe('Failed to parse package.json');
+    });
+
+    it('不正なJSONのcomposer.jsonの場合、基本情報のみ設定する', async () => {
+      const targetPath = '/test/invalid-composer';
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('composer.json')) return;
+        if (pathStr === '/test/invalid-composer') return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('composer.json')) {
+          return '{ "name": "test", invalid }';
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+
+      const result = await builder.detect(targetPath);
+
+      expect(result.type).toBe(EnvironmentType.PHP);
+      expect(result.details.runtime).toBe('PHP');
+      expect(result.details.packageManager).toBe('composer');
+      expect(result.details.error).toBe('Failed to parse composer.json');
+    });
   });
 });
 
