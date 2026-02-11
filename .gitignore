@@ -39,3 +39,4 @@ examples/**/output/
 examples/**/.tmp/
 examples/**/pipeline-*.html
 examples/**/pipeline-*.md
+examples/**/package-lock.json

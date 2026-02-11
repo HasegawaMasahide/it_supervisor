@@ -698,3 +698,23 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `fix(examples): correct API usage in Example 01`
 
+### Phase 19: Developer Experience Improvements (Discovered 2026-02-11)
+
+- [x] **Task 61: Add coverage script alias to package.json**
+  - ✅ Added `coverage` script as an alias for `test:coverage`
+  - ✅ Improves developer experience with shorter command
+  - ✅ Verified script works correctly with `npm run coverage`
+  - Priority: P2 (Medium - developer experience)
+  - Calculated Priority Score: 38 (Impact: 4, TechDebt: 3, Effort: 1)
+  - Status: ✅ Completed
+  - Commit: `chore(workspace): add coverage script and ignore example lock files`
+
+- [x] **Task 62: Add example package-lock.json files to .gitignore**
+  - ✅ Added `examples/**/package-lock.json` to .gitignore
+  - ✅ Prevents example dependency lock files from being committed
+  - ✅ Keeps repository clean from generated files
+  - Priority: P2 (Medium - repository cleanliness)
+  - Calculated Priority Score: 42 (Impact: 4, TechDebt: 4, Effort: 1)
+  - Status: ✅ Completed
+  - Commit: `chore(workspace): add coverage script and ignore example lock files`
+

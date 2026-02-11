@@ -34,6 +34,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "coverage": "vitest run --coverage",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
     "clean": "npm run clean --workspaces",
