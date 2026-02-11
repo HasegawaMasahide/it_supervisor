@@ -272,3 +272,184 @@ describe('SandboxController - restoreSnapshot()', () => {
     );
   });
 });
+
+describe('SandboxController - up()', () => {
+  let controller: SandboxController;
+  const sandboxPath = '/test/sandbox';
+
+  beforeEach(() => {
+    controller = new SandboxController(sandboxPath);
+    vi.clearAllMocks();
+  });
+
+  it('docker-composeで環境を起動できる', async () => {
+    const mockExecAsync = vi.fn().mockResolvedValue({ stdout: 'Started' });
+    const mockSave = vi.fn().mockResolvedValue(undefined);
+    (controller as any).execAsync = mockExecAsync;
+    (controller as any).save = mockSave;
+    (controller as any).sandbox = { status: 'stopped' };
+
+    await controller.up();
+
+    expect(mockExecAsync).toHaveBeenCalledWith(
+      'docker-compose up -d',
+      { cwd: sandboxPath }
+    );
+    expect(mockSave).toHaveBeenCalled();
+    expect((controller as any).sandbox.status).toBe('running');
+  });
+
+  it('起動エラーをスローする', async () => {
+    const mockExecAsync = vi.fn().mockRejectedValue(new Error('Docker daemon not running'));
+    (controller as any).execAsync = mockExecAsync;
+
+    await expect(controller.up()).rejects.toThrow('Failed to start sandbox');
+  });
+});
+
+describe('SandboxController - down()', () => {
+  let controller: SandboxController;
+  const sandboxPath = '/test/sandbox';
+
+  beforeEach(() => {
+    controller = new SandboxController(sandboxPath);
+    vi.clearAllMocks();
+  });
+
+  it('docker-composeで環境を停止できる', async () => {
+    const mockExecAsync = vi.fn().mockResolvedValue({ stdout: 'Stopped' });
+    const mockSave = vi.fn().mockResolvedValue(undefined);
+    (controller as any).execAsync = mockExecAsync;
+    (controller as any).save = mockSave;
+    (controller as any).sandbox = { status: 'running' };
+
+    await controller.down();
+
+    expect(mockExecAsync).toHaveBeenCalledWith(
+      'docker-compose down',
+      { cwd: sandboxPath }
+    );
+    expect(mockSave).toHaveBeenCalled();
+    expect((controller as any).sandbox.status).toBe('stopped');
+  });
+
+  it('停止エラーをスローする', async () => {
+    const mockExecAsync = vi.fn().mockRejectedValue(new Error('Container not found'));
+    (controller as any).execAsync = mockExecAsync;
+
+    await expect(controller.down()).rejects.toThrow('Failed to stop sandbox');
+  });
+});
+
+describe('SandboxController - getLogs()', () => {
+  let controller: SandboxController;
+  const sandboxPath = '/test/sandbox';
+
+  beforeEach(() => {
+    controller = new SandboxController(sandboxPath);
+    vi.clearAllMocks();
+  });
+
+  it('特定サービスのログを取得できる', async () => {
+    const mockLogs = 'Application logs...';
+    const mockExecAsync = vi.fn().mockResolvedValue({ stdout: mockLogs });
+    (controller as any).execAsync = mockExecAsync;
+
+    const logs = await controller.getLogs('app', 50);
+
+    expect(mockExecAsync).toHaveBeenCalledWith(
+      'docker-compose logs --tail=50 app',
+      { cwd: sandboxPath }
+    );
+    expect(logs).toBe(mockLogs);
+  });
+
+  it('全サービスのログを取得できる', async () => {
+    const mockLogs = 'All service logs...';
+    const mockExecAsync = vi.fn().mockResolvedValue({ stdout: mockLogs });
+    (controller as any).execAsync = mockExecAsync;
+
+    const logs = await controller.getLogs();
+
+    expect(mockExecAsync).toHaveBeenCalledWith(
+      'docker-compose logs --tail=100 ',
+      { cwd: sandboxPath }
+    );
+    expect(logs).toBe(mockLogs);
+  });
+
+  it('ログ取得エラーをスローする', async () => {
+    const mockExecAsync = vi.fn().mockRejectedValue(new Error('Service not found'));
+    (controller as any).execAsync = mockExecAsync;
+
+    await expect(controller.getLogs('nonexistent')).rejects.toThrow('Failed to get logs');
+  });
+});
+
+describe('SandboxController - exec()', () => {
+  let controller: SandboxController;
+  const sandboxPath = '/test/sandbox';
+
+  beforeEach(() => {
+    controller = new SandboxController(sandboxPath);
+    vi.clearAllMocks();
+  });
+
+  it('コンテナ内でコマンドを実行できる', async () => {
+    const mockOutput = 'Command output';
+    const mockExecAsync = vi.fn().mockResolvedValue({ stdout: mockOutput });
+    (controller as any).execAsync = mockExecAsync;
+
+    const output = await controller.exec('app', 'ls -la');
+
+    expect(mockExecAsync).toHaveBeenCalledWith(
+      'docker-compose exec -T app ls -la',
+      { cwd: sandboxPath }
+    );
+    expect(output).toBe(mockOutput);
+  });
+
+  it('コマンド実行エラーをスローする', async () => {
+    const mockExecAsync = vi.fn().mockRejectedValue(new Error('Command failed'));
+    (controller as any).execAsync = mockExecAsync;
+
+    await expect(controller.exec('app', 'invalid-command')).rejects.toThrow(
+      'Failed to execute command'
+    );
+  });
+});
+
+describe('SandboxController - getPerformanceMetrics()', () => {
+  let controller: SandboxController;
+  const sandboxPath = '/test/sandbox';
+
+  beforeEach(() => {
+    controller = new SandboxController(sandboxPath);
+    vi.clearAllMocks();
+  });
+
+  it('パフォーマンスメトリクスを取得できる', async () => {
+    const mockStats = 'container1|5.50%|100MiB / 1GiB|1.2kB / 3.4kB\ncontainer2|10.20%|200MiB / 2GiB|5.6kB / 7.8kB';
+    const mockExecAsync = vi.fn().mockResolvedValue({ stdout: mockStats });
+    (controller as any).execAsync = mockExecAsync;
+
+    const metrics = await controller.getPerformanceMetrics();
+
+    expect(mockExecAsync).toHaveBeenCalledWith(
+      'docker stats --no-stream --format "{{.Container}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}"'
+    );
+    expect(metrics.cpu).toHaveProperty('container1', 5.50);
+    expect(metrics.cpu).toHaveProperty('container2', 10.20);
+    expect(metrics.memory).toHaveProperty('container1');
+    expect(metrics.network).toHaveProperty('container1');
+  });
+
+  it('メトリクス取得エラーをスローする', async () => {
+    const mockExecAsync = vi.fn().mockRejectedValue(new Error('Container not running'));
+    (controller as any).execAsync = mockExecAsync;
+
+    await expect(controller.getPerformanceMetrics()).rejects.toThrow(
+      'Failed to get performance metrics'
+    );
+  });
+});
