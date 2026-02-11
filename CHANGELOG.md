@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Integration tests for logger package exports (10 tests verifying all exports)
 - Comprehensive API documentation for all 6 packages (4,675+ lines)
 - `@it-supervisor/logger` package for structured logging with configurable log levels
 - Test coverage reporting with vitest (@vitest/coverage-v8)
@@ -29,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated @types/node from 20.x to ^25.2.3
 - Updated @typescript-eslint packages from 6.x to ^8.55.0
 - Updated better-sqlite3 from 9.x to ^12.6.2
-- Updated marked from 11.x to ^17.0.1
+- Updated marked from 11.x to ^17.0.2 (latest patch)
 - Enhanced package.json metadata with repository, bugs, homepage fields
 - Organized and archived outdated documentation files to docs/archive/
 
