@@ -4,7 +4,7 @@
 
 ### Phase 1: Build Infrastructure
 
-- [ ] **Task 1: Add vitest to the workspace**
+- [x] **Task 1: Add vitest to the workspace**
   - Install vitest as a devDependency at the workspace root
   - Add a root `vitest.config.ts` with TypeScript support
   - Update root `package.json` scripts: `"test": "vitest run"`, `"test:watch": "vitest"`
@@ -73,7 +73,7 @@
 
 ## Completed
 
-(none yet)
+- **Task 1: Add vitest to the workspace** ✓
 
 ## Notes
 
