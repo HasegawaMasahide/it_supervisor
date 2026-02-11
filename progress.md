@@ -1140,14 +1140,17 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `fix(workspace): fix quality dashboard metrics parsing (ANSI codes and JSON structure)`
 
-- [ ] **Task 96: Add Git hooks documentation to CONTRIBUTING.md**
-  - Document pre-commit hooks (ESLint, tests, type-check)
-  - Explain how to bypass hooks in emergency (--no-verify)
-  - Document how to debug hook failures
-  - Add troubleshooting section for common hook issues
+- [x] **Task 96: Add Git hooks documentation to CONTRIBUTING.md**
+  - ✅ Added comprehensive Git hooks section explaining pre-commit workflow
+  - ✅ Documented automatic checks: ESLint auto-fix, related tests, type-check
+  - ✅ Explained how to bypass hooks in emergencies (--no-verify)
+  - ✅ Added troubleshooting guide for common hook failures
+  - ✅ Updated table of contents to include Git hooks section
+  - ✅ Helps developers understand automated quality gates
   - Priority: P2 (Medium - developer experience)
   - Calculated Priority Score: 48 (Impact: 5, TechDebt: 5, Effort: 2)
-  - Effort: Low (documentation task)
+  - Status: ✅ Completed
+  - Commit: `docs(workspace): add Git hooks documentation to CONTRIBUTING.md`
 
 - [ ] **Task 97: Create architecture decision records (ADRs)**
   - Document key architectural decisions made during development

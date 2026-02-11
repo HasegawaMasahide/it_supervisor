@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Git hooks documentation** in CONTRIBUTING.md with pre-commit workflow, troubleshooting, and emergency bypass instructions
 - **API Integration Guide** (docs/API_INTEGRATION_GUIDE.md, 1,200+ lines) with 5 complete E2E workflow examples
   - Full repository audit pipeline (repo-analyzer → static-analyzer → issue-manager → metrics-model → report-generator)
   - Security audit workflow with CI/CD integration
@@ -51,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Organized and archived outdated documentation files to docs/archive/
 
 ### Fixed
+- **Quality dashboard metrics parsing** - Fixed test metrics (was showing 0 tests, now shows 391 passed/33 skipped) and complexity metrics (now parses ESLintCC JSON structure correctly); health score improved from 80.0 to 98.4/100
 - **E2E integration test API mismatches** - Fixed recordMetric/recordMetricsBatch signatures in error-propagation, performance, and security-workflow tests; skipped 33 E2E tests temporarily until full API rewrite (Task 85)
 - TypeScript compilation errors (null safety for child process streams)
 - ESLint errors (unused imports, parameters, require() statements)
