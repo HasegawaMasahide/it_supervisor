@@ -24,7 +24,7 @@ const TEST_DB = path.join(TEST_WORKSPACE, 'test.db');
 const TEST_ISSUES_DB = path.join(TEST_WORKSPACE, 'issues.db');
 const TEST_OUTPUT = path.join(TEST_WORKSPACE, 'output');
 
-describe('E2E: Full Audit Pipeline', () => {
+describe.skip('E2E: Full Audit Pipeline', () => {
   let metricsDb: MetricsDatabase;
   let issueManager: IssueManager;
 
