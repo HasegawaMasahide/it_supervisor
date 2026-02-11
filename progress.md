@@ -71,6 +71,33 @@
   - Add tests for error cases
   - Commit: `fix(static-analyzer): prevent shell injection and add timeout enforcement`
 
+### Phase 4: Tests for report-generator
+
+- [x] **Task 10: Unit tests for report-generator (markdown parsing and template expansion)**
+  - Create `packages/report-generator/src/__tests__/generator.test.ts`
+  - Test `parseMarkdown()` with various heading levels and content
+  - Test `expandTemplate()` with variable substitution and dot notation
+  - Test `prepareVariables()` for config transformation
+  - Test `generateTOC()` for table of contents generation
+  - Test `getDefaultTemplate()` for different report types
+  - Commit: `test(report-generator): add unit tests for markdown parsing and template expansion`
+
+- [ ] **Task 11: Unit tests for report-generator (HTML/Markdown/PDF generation)**
+  - Test `generateHTML()` for complete HTML output structure
+  - Test `generateMarkdown()` for markdown output
+  - Test `exportToHTML()` and `exportToMarkdown()` with mocked fs
+  - Test `exportToPDF()` with mocked puppeteer (test both success and fallback)
+  - Test `markdownToHTML()` and `markdownToPDF()` convenience methods
+  - Test error handling for missing templates
+  - Commit: `test(report-generator): add unit tests for output generation and exports`
+
+- [ ] **Task 12: Unit tests for report-generator (advanced features)**
+  - Test `generateChartData()` for Chart.js configuration
+  - Test `generateHTMLWithCharts()` for chart embedding
+  - Test `registerTemplate()` and `listTemplates()` for template management
+  - Test `generateMultiLanguage()` for multi-language support
+  - Commit: `test(report-generator): add unit tests for charts and template management`
+
 ## Completed
 
 - **Task 1: Add vitest to the workspace** ✓
