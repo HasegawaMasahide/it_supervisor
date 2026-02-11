@@ -547,57 +547,84 @@ export class SandboxBuilder {
   private generateServiceConfig(service: unknown): string {
     if (!service || typeof service !== 'object') return '';
 
-    let yaml = '';
     const svc = service as Record<string, unknown>;
+    let yaml = '';
 
-    if (svc.image) {
-      yaml += `    image: ${svc.image}\n`;
+    // 各フィールドのYAMLを生成
+    yaml += this.generateImageField(svc);
+    yaml += this.generateBuildField(svc);
+    yaml += this.generatePortsField(svc);
+    yaml += this.generateEnvironmentField(svc);
+    yaml += this.generateVolumesField(svc);
+    yaml += this.generateDependsOnField(svc);
+    yaml += this.generateNetworksField(svc);
+
+    return yaml;
+  }
+
+  private generateImageField(svc: Record<string, unknown>): string {
+    return svc.image ? `    image: ${svc.image}\n` : '';
+  }
+
+  private generateBuildField(svc: Record<string, unknown>): string {
+    if (!svc.build || typeof svc.build !== 'object') return '';
+
+    const build = svc.build as Record<string, unknown>;
+    let yaml = `    build:\n`;
+    yaml += `      context: ${build.context}\n`;
+    if (build.dockerfile) {
+      yaml += `      dockerfile: ${build.dockerfile}\n`;
     }
+    return yaml;
+  }
 
-    if (svc.build && typeof svc.build === 'object') {
-      const build = svc.build as Record<string, unknown>;
-      yaml += `    build:\n`;
-      yaml += `      context: ${build.context}\n`;
-      if (build.dockerfile) {
-        yaml += `      dockerfile: ${build.dockerfile}\n`;
-      }
-    }
+  private generatePortsField(svc: Record<string, unknown>): string {
+    if (!Array.isArray(svc.ports)) return '';
 
-    if (Array.isArray(svc.ports)) {
-      yaml += `    ports:\n`;
-      svc.ports.forEach(p => {
-        yaml += `      - "${p}"\n`;
-      });
-    }
+    let yaml = `    ports:\n`;
+    svc.ports.forEach(p => {
+      yaml += `      - "${p}"\n`;
+    });
+    return yaml;
+  }
 
-    if (svc.environment && typeof svc.environment === 'object') {
-      yaml += `    environment:\n`;
-      Object.entries(svc.environment).forEach(([key, value]) => {
-        yaml += `      ${key}: ${value}\n`;
-      });
-    }
+  private generateEnvironmentField(svc: Record<string, unknown>): string {
+    if (!svc.environment || typeof svc.environment !== 'object') return '';
 
-    if (Array.isArray(svc.volumes)) {
-      yaml += `    volumes:\n`;
-      svc.volumes.forEach(v => {
-        yaml += `      - ${v}\n`;
-      });
-    }
+    let yaml = `    environment:\n`;
+    Object.entries(svc.environment).forEach(([key, value]) => {
+      yaml += `      ${key}: ${value}\n`;
+    });
+    return yaml;
+  }
 
-    if (Array.isArray(svc.depends_on)) {
-      yaml += `    depends_on:\n`;
-      svc.depends_on.forEach(d => {
-        yaml += `      - ${d}\n`;
-      });
-    }
+  private generateVolumesField(svc: Record<string, unknown>): string {
+    if (!Array.isArray(svc.volumes)) return '';
 
-    if (Array.isArray(svc.networks)) {
-      yaml += `    networks:\n`;
-      svc.networks.forEach(n => {
-        yaml += `      - ${n}\n`;
-      });
-    }
+    let yaml = `    volumes:\n`;
+    svc.volumes.forEach(v => {
+      yaml += `      - ${v}\n`;
+    });
+    return yaml;
+  }
 
+  private generateDependsOnField(svc: Record<string, unknown>): string {
+    if (!Array.isArray(svc.depends_on)) return '';
+
+    let yaml = `    depends_on:\n`;
+    svc.depends_on.forEach(d => {
+      yaml += `      - ${d}\n`;
+    });
+    return yaml;
+  }
+
+  private generateNetworksField(svc: Record<string, unknown>): string {
+    if (!Array.isArray(svc.networks)) return '';
+
+    let yaml = `    networks:\n`;
+    svc.networks.forEach(n => {
+      yaml += `      - ${n}\n`;
+    });
     return yaml;
   }
 
@@ -1043,77 +1070,18 @@ export class SandboxController {
     try {
       logger.info(`Restoring snapshot: ${name}`);
 
-      // スナップショットディレクトリを検索
-      const snapshotsBaseDir = path.join(this.sandboxPath, 'snapshots');
-      let snapshotDir: string | null = null;
-
-      // 完全一致のディレクトリを探す
-      try {
-        const candidateDir = path.join(snapshotsBaseDir, name);
-        await fs.access(candidateDir);
-        snapshotDir = candidateDir;
-      } catch {
-        // 見つからない場合、タイムスタンプ付きのディレクトリを探す
-        try {
-          const dirs = await fs.readdir(snapshotsBaseDir);
-          const matchingDirs = dirs.filter(dir => dir.startsWith(`${name}-`));
-          if (matchingDirs.length === 0) {
-            throw new Error(`Snapshot '${name}' not found`);
-          }
-          // 最新のスナップショットを使用
-          snapshotDir = path.join(snapshotsBaseDir, matchingDirs.sort().reverse()[0]);
-        } catch {
-          throw new Error(`Snapshot '${name}' not found`);
-        }
-      }
-
-      // スナップショット情報を読み込み
-      const snapshotMetaPath = path.join(snapshotDir, 'snapshot.json');
-      const snapshotMetaContent = await fs.readFile(snapshotMetaPath, 'utf-8');
-      const snapshotMeta = JSON.parse(snapshotMetaContent) as Snapshot;
-
+      const snapshotDir = await this.findSnapshotDirectory(name);
+      const snapshotMeta = await this.loadSnapshotMetadata(snapshotDir);
       logger.info(`Found snapshot: ${snapshotMeta.name} (${snapshotMeta.description})`);
 
-      // docker-compose.ymlをパースしてボリューム名を取得
-      const composeFilePath = path.join(this.sandboxPath, 'docker-compose.yml');
-      const composeContent = await fs.readFile(composeFilePath, 'utf-8');
-      const composeConfig = yaml.load(composeContent) as Record<string, unknown>;
-
-      const volumes: string[] = [];
-      if (composeConfig && typeof composeConfig === 'object' && 'volumes' in composeConfig) {
-        const volumesObj = composeConfig.volumes as Record<string, unknown>;
-        volumes.push(...Object.keys(volumesObj));
-      }
+      const volumes = await this.extractVolumeNamesFromCompose();
 
       // 環境を停止
       logger.info('Stopping environment...');
       await this.down();
 
       // 各ボリュームを復元
-      logger.info('Restoring volumes...');
-      for (const volumeName of volumes) {
-        const backupFile = path.join(snapshotDir, `${volumeName}.tar.gz`);
-
-        try {
-          await fs.access(backupFile);
-
-          // ボリュームを削除して再作成
-          try {
-            await this.execAsync(`docker volume rm ${volumeName}`);
-          } catch {
-            // ボリュームが存在しない場合は無視
-          }
-          await this.execAsync(`docker volume create ${volumeName}`);
-
-          // バックアップから復元
-          const restoreCmd = `docker run --rm -v ${volumeName}:/target -v ${snapshotDir}:/backup alpine tar xzf /backup/${volumeName}.tar.gz -C /target`;
-          await this.execAsync(restoreCmd);
-
-          logger.info(`Restored volume: ${volumeName}`);
-        } catch (error) {
-          logger.warn(`Failed to restore volume ${volumeName}: ${error}`);
-        }
-      }
+      await this.restoreVolumes(snapshotDir, volumes);
 
       // 環境を再起動
       logger.info('Starting environment...');
@@ -1122,6 +1090,89 @@ export class SandboxController {
       logger.info('Snapshot restored successfully');
     } catch (error) {
       throw new Error(`Failed to restore snapshot: ${error}`);
+    }
+  }
+
+  /**
+   * スナップショットディレクトリを検索
+   */
+  private async findSnapshotDirectory(name: string): Promise<string> {
+    const snapshotsBaseDir = path.join(this.sandboxPath, 'snapshots');
+
+    // 完全一致のディレクトリを探す
+    try {
+      const candidateDir = path.join(snapshotsBaseDir, name);
+      await fs.access(candidateDir);
+      return candidateDir;
+    } catch {
+      // 見つからない場合、タイムスタンプ付きのディレクトリを探す
+      try {
+        const dirs = await fs.readdir(snapshotsBaseDir);
+        const matchingDirs = dirs.filter(dir => dir.startsWith(`${name}-`));
+        if (matchingDirs.length === 0) {
+          throw new Error(`Snapshot '${name}' not found`);
+        }
+        // 最新のスナップショットを使用
+        return path.join(snapshotsBaseDir, matchingDirs.sort().reverse()[0]);
+      } catch {
+        throw new Error(`Snapshot '${name}' not found`);
+      }
+    }
+  }
+
+  /**
+   * スナップショットメタデータを読み込み
+   */
+  private async loadSnapshotMetadata(snapshotDir: string): Promise<Snapshot> {
+    const snapshotMetaPath = path.join(snapshotDir, 'snapshot.json');
+    const snapshotMetaContent = await fs.readFile(snapshotMetaPath, 'utf-8');
+    return JSON.parse(snapshotMetaContent) as Snapshot;
+  }
+
+  /**
+   * docker-compose.ymlからボリューム名を抽出
+   */
+  private async extractVolumeNamesFromCompose(): Promise<string[]> {
+    const composeFilePath = path.join(this.sandboxPath, 'docker-compose.yml');
+    const composeContent = await fs.readFile(composeFilePath, 'utf-8');
+    const composeConfig = yaml.load(composeContent) as Record<string, unknown>;
+
+    const volumes: string[] = [];
+    if (composeConfig && typeof composeConfig === 'object' && 'volumes' in composeConfig) {
+      const volumesObj = composeConfig.volumes as Record<string, unknown>;
+      volumes.push(...Object.keys(volumesObj));
+    }
+
+    return volumes;
+  }
+
+  /**
+   * ボリュームを復元
+   */
+  private async restoreVolumes(snapshotDir: string, volumes: string[]): Promise<void> {
+    logger.info('Restoring volumes...');
+    for (const volumeName of volumes) {
+      const backupFile = path.join(snapshotDir, `${volumeName}.tar.gz`);
+
+      try {
+        await fs.access(backupFile);
+
+        // ボリュームを削除して再作成
+        try {
+          await this.execAsync(`docker volume rm ${volumeName}`);
+        } catch {
+          // ボリュームが存在しない場合は無視
+        }
+        await this.execAsync(`docker volume create ${volumeName}`);
+
+        // バックアップから復元
+        const restoreCmd = `docker run --rm -v ${volumeName}:/target -v ${snapshotDir}:/backup alpine tar xzf /backup/${volumeName}.tar.gz -C /target`;
+        await this.execAsync(restoreCmd);
+
+        logger.info(`Restored volume: ${volumeName}`);
+      } catch (error) {
+        logger.warn(`Failed to restore volume ${volumeName}: ${error}`);
+      }
     }
   }
 

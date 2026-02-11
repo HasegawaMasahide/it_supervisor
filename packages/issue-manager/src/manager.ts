@@ -132,39 +132,44 @@ export class IssueManager {
     const current = this.getIssue(issueId);
     if (!current) return null;
 
+    const { updates, values } = this.buildUpdateClausesForIssue(params);
+
+    updates.push('updated_at = ?');
+    values.push(Date.now());
+    values.push(issueId);
+
+    const sql = `UPDATE issues SET ${updates.join(', ')} WHERE id = ?`;
+    const stmt = this.db.prepare(sql);
+    stmt.run(...values);
+
+    return this.getIssue(issueId);
+  }
+
+  /**
+   * Issue更新用のSET句を構築
+   */
+  private buildUpdateClausesForIssue(params: UpdateIssueParams): { updates: string[]; values: (string | number | null)[] } {
     const updates: string[] = [];
     const values: (string | number | null)[] = [];
 
-    if (params.title !== undefined) {
-      updates.push('title = ?');
-      values.push(params.title);
+    // 単純なフィールド(string/number型)のマッピング
+    const simpleFields: Array<{ param: keyof UpdateIssueParams; column: string }> = [
+      { param: 'title', column: 'title' },
+      { param: 'description', column: 'description' },
+      { param: 'category', column: 'category' },
+      { param: 'severity', column: 'severity' },
+      { param: 'status', column: 'status' },
+      { param: 'assignee', column: 'assignee' },
+    ];
+
+    for (const field of simpleFields) {
+      if (params[field.param] !== undefined) {
+        updates.push(`${field.column} = ?`);
+        values.push(params[field.param] as string | number);
+      }
     }
 
-    if (params.description !== undefined) {
-      updates.push('description = ?');
-      values.push(params.description);
-    }
-
-    if (params.category !== undefined) {
-      updates.push('category = ?');
-      values.push(params.category);
-    }
-
-    if (params.severity !== undefined) {
-      updates.push('severity = ?');
-      values.push(params.severity);
-    }
-
-    if (params.status !== undefined) {
-      updates.push('status = ?');
-      values.push(params.status);
-    }
-
-    if (params.assignee !== undefined) {
-      updates.push('assignee = ?');
-      values.push(params.assignee);
-    }
-
+    // 特殊なフィールド(Date, Array)
     if (params.dueDate !== undefined) {
       updates.push('due_date = ?');
       values.push(params.dueDate ? params.dueDate.getTime() : null);
@@ -175,16 +180,7 @@ export class IssueManager {
       values.push(JSON.stringify(params.tags));
     }
 
-    updates.push('updated_at = ?');
-    values.push(Date.now());
-
-    values.push(issueId);
-
-    const sql = `UPDATE issues SET ${updates.join(', ')} WHERE id = ?`;
-    const stmt = this.db.prepare(sql);
-    stmt.run(...values);
-
-    return this.getIssue(issueId);
+    return { updates, values };
   }
 
   /**
@@ -231,47 +227,87 @@ export class IssueManager {
     params: (string | number | null)[]
   ): string {
     let sql = baseSql;
-    if (query.projectId) {
-      sql += ' AND project_id = ?';
-      params.push(query.projectId);
-    }
 
-    if (query.category) {
-      sql += ' AND category = ?';
-      params.push(query.category);
-    }
+    // 単純な等価フィルター
+    sql = this.addSimpleEqualityFilters(sql, query, params);
 
-    if (query.severity) {
-      if (Array.isArray(query.severity)) {
-        sql += ` AND severity IN (${query.severity.map(() => '?').join(', ')})`;
-        params.push(...query.severity);
-      } else {
-        sql += ' AND severity = ?';
-        params.push(query.severity);
+    // 配列対応フィルター (severity, status)
+    sql = this.addArrayFilters(sql, query, params);
+
+    // キーワード検索フィルター
+    sql = this.addKeywordFilter(sql, query, params);
+
+    // 日付範囲フィルター
+    sql = this.addDateRangeFilters(sql, query, params);
+
+    return sql;
+  }
+
+  private addSimpleEqualityFilters(
+    sql: string,
+    query: IssueQuery,
+    params: (string | number | null)[]
+  ): string {
+    const simpleFilters: Array<{ field: keyof IssueQuery; column: string }> = [
+      { field: 'projectId', column: 'project_id' },
+      { field: 'category', column: 'category' },
+      { field: 'assignee', column: 'assignee' },
+    ];
+
+    for (const filter of simpleFilters) {
+      if (query[filter.field] !== undefined) {
+        sql += ` AND ${filter.column} = ?`;
+        params.push(query[filter.field] as string);
       }
     }
 
-    if (query.status) {
-      if (Array.isArray(query.status)) {
-        sql += ` AND status IN (${query.status.map(() => '?').join(', ')})`;
-        params.push(...query.status);
-      } else {
-        sql += ' AND status = ?';
-        params.push(query.status);
+    return sql;
+  }
+
+  private addArrayFilters(
+    sql: string,
+    query: IssueQuery,
+    params: (string | number | null)[]
+  ): string {
+    const arrayFields: Array<{ field: 'severity' | 'status'; column: string }> = [
+      { field: 'severity', column: 'severity' },
+      { field: 'status', column: 'status' },
+    ];
+
+    for (const field of arrayFields) {
+      const value = query[field.field];
+      if (value !== undefined) {
+        if (Array.isArray(value)) {
+          sql += ` AND ${field.column} IN (${value.map(() => '?').join(', ')})`;
+          params.push(...value);
+        } else {
+          sql += ` AND ${field.column} = ?`;
+          params.push(value);
+        }
       }
     }
 
-    if (query.assignee) {
-      sql += ' AND assignee = ?';
-      params.push(query.assignee);
-    }
+    return sql;
+  }
 
+  private addKeywordFilter(
+    sql: string,
+    query: IssueQuery,
+    params: (string | number | null)[]
+  ): string {
     if (query.keyword) {
       sql += ' AND (title LIKE ? OR description LIKE ?)';
       const keyword = `%${query.keyword}%`;
       params.push(keyword, keyword);
     }
+    return sql;
+  }
 
+  private addDateRangeFilters(
+    sql: string,
+    query: IssueQuery,
+    params: (string | number | null)[]
+  ): string {
     if (query.createdAfter) {
       sql += ' AND created_at >= ?';
       params.push(query.createdAfter.getTime());

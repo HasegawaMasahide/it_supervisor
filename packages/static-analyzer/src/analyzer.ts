@@ -393,7 +393,21 @@ export class StaticAnalyzer {
   private parsePHPStanResults(result: PHPStanResult, __repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
-    // エラー形式: { files: { "path/file.php": { errors: [{ message, line, ... }] } } }
+    // ファイルごとのエラーを解析
+    issues.push(...this.parsePHPStanFileErrors(result));
+
+    // グローバルエラーを解析
+    issues.push(...this.parsePHPStanGlobalErrors(result));
+
+    return issues;
+  }
+
+  /**
+   * PHPStanファイルごとのエラーを解析
+   */
+  private parsePHPStanFileErrors(result: PHPStanResult): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
     if (result.files) {
       for (const [filePath, fileData] of Object.entries(result.files)) {
         if (!fileData.errors) continue;
@@ -421,7 +435,15 @@ export class StaticAnalyzer {
       }
     }
 
-    // グローバルエラー
+    return issues;
+  }
+
+  /**
+   * PHPStanグローバルエラーを解析
+   */
+  private parsePHPStanGlobalErrors(result: PHPStanResult): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
     if (result.errors && Array.isArray(result.errors)) {
       for (const error of result.errors) {
         issues.push({

@@ -289,7 +289,21 @@ export class RepositoryAnalyzer {
   private async detectFrameworks(repoPath: string): Promise<Framework[]> {
     const frameworks: Framework[] = [];
 
-    // package.json (Node.js)
+    // 各エコシステムのフレームワークを検出
+    frameworks.push(...await this.detectNodeJSFrameworks(repoPath));
+    frameworks.push(...await this.detectPHPFrameworks(repoPath));
+    frameworks.push(...await this.detectJavaFrameworks(repoPath));
+    frameworks.push(...await this.detectDotNetFrameworks(repoPath));
+
+    return frameworks;
+  }
+
+  /**
+   * Node.jsフレームワークを検出 (package.json)
+   */
+  private async detectNodeJSFrameworks(repoPath: string): Promise<Framework[]> {
+    const frameworks: Framework[] = [];
+
     try {
       const packageJson = JSON.parse(
         await fs.readFile(path.join(repoPath, 'package.json'), 'utf-8')
@@ -306,7 +320,15 @@ export class RepositoryAnalyzer {
       // package.jsonがない
     }
 
-    // composer.json (PHP)
+    return frameworks;
+  }
+
+  /**
+   * PHPフレームワークを検出 (composer.json)
+   */
+  private async detectPHPFrameworks(repoPath: string): Promise<Framework[]> {
+    const frameworks: Framework[] = [];
+
     try {
       const composerJson = JSON.parse(
         await fs.readFile(path.join(repoPath, 'composer.json'), 'utf-8')
@@ -320,7 +342,15 @@ export class RepositoryAnalyzer {
       // composer.jsonがない
     }
 
-    // pom.xml (Java Maven)
+    return frameworks;
+  }
+
+  /**
+   * Javaフレームワークを検出 (pom.xml)
+   */
+  private async detectJavaFrameworks(repoPath: string): Promise<Framework[]> {
+    const frameworks: Framework[] = [];
+
     try {
       const pomXml = await fs.readFile(path.join(repoPath, 'pom.xml'), 'utf-8');
       if (pomXml.includes('spring-boot')) frameworks.push({ name: 'Spring Boot', detectionMethod: 'pom.xml', confidence: 'high' });
@@ -328,7 +358,15 @@ export class RepositoryAnalyzer {
       // pom.xmlがない
     }
 
-    // *.csproj (C# .NET)
+    return frameworks;
+  }
+
+  /**
+   * .NETフレームワークを検出 (*.csproj)
+   */
+  private async detectDotNetFrameworks(repoPath: string): Promise<Framework[]> {
+    const frameworks: Framework[] = [];
+
     try {
       const files = await fs.readdir(repoPath);
       const csprojFiles = files.filter(f => f.endsWith('.csproj'));
@@ -405,51 +443,8 @@ export class RepositoryAnalyzer {
       const branches = await this.git.branchLocal();
       const tags = await this.git.tags();
 
-      // コントリビューター集計
-      const contributorMap = new Map<string, Contributor>();
-
-      for (const commit of log.all) {
-        const key = `${commit.author_name}:${commit.author_email}`;
-
-        if (!contributorMap.has(key)) {
-          contributorMap.set(key, {
-            name: commit.author_name,
-            email: commit.author_email,
-            commits: 0,
-            firstCommit: new Date(commit.date),
-            lastCommit: new Date(commit.date)
-          });
-        }
-
-        const contributor = contributorMap.get(key)!;
-        contributor.commits++;
-
-        const commitDate = new Date(commit.date);
-        if (commitDate < contributor.firstCommit) {
-          contributor.firstCommit = commitDate;
-        }
-        if (commitDate > contributor.lastCommit) {
-          contributor.lastCommit = commitDate;
-        }
-      }
-
-      const contributors = Array.from(contributorMap.values());
-
-      // コミット頻度計算
-      const firstCommit = log.all.length > 0 ? new Date(log.all[log.all.length - 1].date) : undefined;
-      const lastCommit = log.all.length > 0 ? new Date(log.all[0].date) : undefined;
-
-      let commitFrequency = { daily: 0, weekly: 0, monthly: 0, yearly: 0 };
-
-      if (firstCommit && lastCommit) {
-        const days = Math.max(1, (lastCommit.getTime() - firstCommit.getTime()) / (1000 * 60 * 60 * 24));
-        commitFrequency = {
-          daily: log.total / days,
-          weekly: (log.total / days) * 7,
-          monthly: (log.total / days) * 30,
-          yearly: (log.total / days) * 365
-        };
-      }
+      const contributors = this.aggregateContributors(log.all);
+      const { firstCommit, lastCommit, commitFrequency } = this.calculateCommitFrequency(log);
 
       return {
         totalCommits: log.total,
@@ -464,6 +459,66 @@ export class RepositoryAnalyzer {
       logger.error('Failed to analyze git history:', error);
       return undefined;
     }
+  }
+
+  /**
+   * コントリビューターを集計
+   */
+  private aggregateContributors(commits: ReadonlyArray<{ author_name: string; author_email: string; date: string }>): Contributor[] {
+    const contributorMap = new Map<string, Contributor>();
+
+    for (const commit of commits) {
+      const key = `${commit.author_name}:${commit.author_email}`;
+
+      if (!contributorMap.has(key)) {
+        contributorMap.set(key, {
+          name: commit.author_name,
+          email: commit.author_email,
+          commits: 0,
+          firstCommit: new Date(commit.date),
+          lastCommit: new Date(commit.date)
+        });
+      }
+
+      const contributor = contributorMap.get(key)!;
+      contributor.commits++;
+
+      const commitDate = new Date(commit.date);
+      if (commitDate < contributor.firstCommit) {
+        contributor.firstCommit = commitDate;
+      }
+      if (commitDate > contributor.lastCommit) {
+        contributor.lastCommit = commitDate;
+      }
+    }
+
+    return Array.from(contributorMap.values());
+  }
+
+  /**
+   * コミット頻度を計算
+   */
+  private calculateCommitFrequency(log: { total: number; all: ReadonlyArray<{ date: string }> }): {
+    firstCommit: Date | undefined;
+    lastCommit: Date | undefined;
+    commitFrequency: { daily: number; weekly: number; monthly: number; yearly: number };
+  } {
+    const firstCommit = log.all.length > 0 ? new Date(log.all[log.all.length - 1].date) : undefined;
+    const lastCommit = log.all.length > 0 ? new Date(log.all[0].date) : undefined;
+
+    let commitFrequency = { daily: 0, weekly: 0, monthly: 0, yearly: 0 };
+
+    if (firstCommit && lastCommit) {
+      const days = Math.max(1, (lastCommit.getTime() - firstCommit.getTime()) / (1000 * 60 * 60 * 24));
+      commitFrequency = {
+        daily: log.total / days,
+        weekly: (log.total / days) * 7,
+        monthly: (log.total / days) * 30,
+        yearly: (log.total / days) * 365
+      };
+    }
+
+    return { firstCommit, lastCommit, commitFrequency };
   }
 
   /**
@@ -741,80 +796,122 @@ export class RepositoryAnalyzer {
    * ```
    */
   async detectEntryPoints(repoPath: string): Promise<string[]> {
-    const entryPoints: string[] = [];
-
     try {
-      // package.json の main/bin フィールドをチェック
-      const packageJsonPath = path.join(repoPath, 'package.json');
-      if (await this.fileExists(packageJsonPath)) {
-        const content = await fs.readFile(packageJsonPath, 'utf-8');
-        let packageJson;
-        try {
-          packageJson = JSON.parse(content);
-        } catch (parseError) {
-          logger.error(`Failed to parse package.json at ${packageJsonPath}:`, parseError);
-          return entryPoints;
-        }
+      const entryPoints: string[] = [];
 
-        if (packageJson.main) {
-          entryPoints.push(path.join(repoPath, packageJson.main));
-        }
-
-        if (packageJson.bin) {
-          if (typeof packageJson.bin === 'string') {
-            entryPoints.push(path.join(repoPath, packageJson.bin));
-          } else {
-            Object.values(packageJson.bin).forEach((binPath) => {
-              if (typeof binPath === 'string') {
-                entryPoints.push(path.join(repoPath, binPath));
-              }
-            });
-          }
-        }
+      // package.jsonから検出（パースエラー時は早期リターン）
+      const packageJsonEntryPoints = await this.detectPackageJsonEntryPoints(repoPath);
+      if (packageJsonEntryPoints === null) {
+        return []; // package.jsonパースエラー時は空配列を返す（元の動作）
       }
+      entryPoints.push(...packageJsonEntryPoints);
 
-      // 一般的なエントリーポイントファイル名
-      const commonEntryPoints = [
-        'index.js', 'index.ts', 'main.js', 'main.ts',
-        'app.js', 'app.ts', 'server.js', 'server.ts',
-        'index.php', 'index.html'
-      ];
+      // 一般的なファイル名から検出
+      entryPoints.push(...await this.detectCommonEntryPointFiles(repoPath, entryPoints));
 
-      for (const fileName of commonEntryPoints) {
-        const filePath = path.join(repoPath, fileName);
-        if (await this.fileExists(filePath) && !entryPoints.includes(filePath)) {
-          entryPoints.push(filePath);
-        }
-
-        // srcディレクトリもチェック
-        const srcFilePath = path.join(repoPath, 'src', fileName);
-        if (await this.fileExists(srcFilePath) && !entryPoints.includes(srcFilePath)) {
-          entryPoints.push(srcFilePath);
-        }
+      // composer.jsonから検出（パースエラー時は早期リターン）
+      const composerEntryPoints = await this.detectComposerEntryPoints(repoPath);
+      if (composerEntryPoints === null) {
+        return []; // composer.jsonパースエラー時は空配列を返す（元の動作）
       }
-
-      // Composerのautoload（PHP）
-      const composerJsonPath = path.join(repoPath, 'composer.json');
-      if (await this.fileExists(composerJsonPath)) {
-        const content = await fs.readFile(composerJsonPath, 'utf-8');
-        let composerJson;
-        try {
-          composerJson = JSON.parse(content);
-        } catch (parseError) {
-          logger.error(`Failed to parse composer.json at ${composerJsonPath}:`, parseError);
-          return entryPoints;
-        }
-        if (composerJson.autoload?.files) {
-          composerJson.autoload.files.forEach((file: string) => {
-            entryPoints.push(path.join(repoPath, file));
-          });
-        }
-      }
+      entryPoints.push(...composerEntryPoints);
 
       return entryPoints;
     } catch {
-      return entryPoints;
+      return [];
     }
+  }
+
+  /**
+   * package.jsonからエントリーポイントを検出 (main/bin)
+   * @returns エントリーポイント配列、またはパースエラー時はnull（早期リターン用）
+   */
+  private async detectPackageJsonEntryPoints(repoPath: string): Promise<string[] | null> {
+    const entryPoints: string[] = [];
+    const packageJsonPath = path.join(repoPath, 'package.json');
+
+    if (await this.fileExists(packageJsonPath)) {
+      const content = await fs.readFile(packageJsonPath, 'utf-8');
+      let packageJson;
+      try {
+        packageJson = JSON.parse(content);
+      } catch (parseError) {
+        logger.error(`Failed to parse package.json at ${packageJsonPath}:`, parseError);
+        return null; // パースエラー時はnullを返す（早期リターン）
+      }
+
+      if (packageJson.main) {
+        entryPoints.push(path.join(repoPath, packageJson.main));
+      }
+
+      if (packageJson.bin) {
+        if (typeof packageJson.bin === 'string') {
+          entryPoints.push(path.join(repoPath, packageJson.bin));
+        } else {
+          Object.values(packageJson.bin).forEach((binPath) => {
+            if (typeof binPath === 'string') {
+              entryPoints.push(path.join(repoPath, binPath));
+            }
+          });
+        }
+      }
+    }
+
+    return entryPoints;
+  }
+
+  /**
+   * 一般的なファイル名からエントリーポイントを検出
+   */
+  private async detectCommonEntryPointFiles(repoPath: string, existingEntryPoints: string[]): Promise<string[]> {
+    const entryPoints: string[] = [];
+    const commonEntryPoints = [
+      'index.js', 'index.ts', 'main.js', 'main.ts',
+      'app.js', 'app.ts', 'server.js', 'server.ts',
+      'index.php', 'index.html'
+    ];
+
+    for (const fileName of commonEntryPoints) {
+      const filePath = path.join(repoPath, fileName);
+      if (await this.fileExists(filePath) && !existingEntryPoints.includes(filePath)) {
+        entryPoints.push(filePath);
+      }
+
+      // srcディレクトリもチェック
+      const srcFilePath = path.join(repoPath, 'src', fileName);
+      if (await this.fileExists(srcFilePath) && !existingEntryPoints.includes(srcFilePath)) {
+        entryPoints.push(srcFilePath);
+      }
+    }
+
+    return entryPoints;
+  }
+
+  /**
+   * composer.jsonからエントリーポイントを検出 (autoload.files)
+   * @returns エントリーポイント配列、またはパースエラー時はnull（早期リターン用）
+   */
+  private async detectComposerEntryPoints(repoPath: string): Promise<string[] | null> {
+    const entryPoints: string[] = [];
+    const composerJsonPath = path.join(repoPath, 'composer.json');
+
+    if (await this.fileExists(composerJsonPath)) {
+      const content = await fs.readFile(composerJsonPath, 'utf-8');
+      let composerJson;
+      try {
+        composerJson = JSON.parse(content);
+      } catch (parseError) {
+        logger.error(`Failed to parse composer.json at ${composerJsonPath}:`, parseError);
+        return null; // パースエラー時はnullを返す（早期リターン）
+      }
+      if (composerJson.autoload?.files) {
+        composerJson.autoload.files.forEach((file: string) => {
+          entryPoints.push(path.join(repoPath, file));
+        });
+      }
+    }
+
+    return entryPoints;
   }
 
   /**

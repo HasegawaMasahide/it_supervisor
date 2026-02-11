@@ -1294,3 +1294,24 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `docs(workspace): update CHANGELOG.md with Task 93 completion`
 
+### Phase 31: Code Quality Refinement (Discovered 2026-02-11)
+
+- [x] **Task 111: Refactor medium-complexity functions (11-15)**
+  - ✅ Reduced complexity of 8 functions from 11-15 to <10
+  - ✅ Refactored functions:
+    1. `RepositoryAnalyzer.detectFrameworks()` (15 → ~5): Extracted 4 ecosystem-specific methods
+    2. `RepositoryAnalyzer.detectEntryPoints()` (15 → ~5): Extracted 3 detection methods
+    3. `SandboxBuilder.generateServiceConfig()` (13 → ~3): Extracted 7 field generators
+    4. `IssueManager.updateIssue()` (11 → ~6): Extracted buildUpdateClausesForIssue()
+    5. `IssueManager.buildFilterClauses()` (11 → ~5): Extracted 4 filter methods
+    6. `RepositoryAnalyzer.analyzeGitHistory()` (11 → ~5): Extracted 2 calculation methods
+    7. `SandboxController.restoreSnapshot()` (11 → ~5): Extracted 4 helper methods
+    8. `StaticAnalyzer.parsePHPStanResults()` (11 → ~5): Extracted 2 parser methods
+  - ✅ All 403 tests pass (no regressions)
+  - ✅ Complexity report: 0 medium/high complexity functions (was 8)
+  - ✅ Created 30+ new helper methods across 4 packages
+  - Priority: P2 (Medium - code maintainability)
+  - Calculated Priority Score: 54 (Impact: 5, TechDebt: 7, Effort: 4)
+  - Status: ✅ Completed
+  - Commit: `refactor(workspace): reduce complexity of 8 medium-complexity functions`
+
