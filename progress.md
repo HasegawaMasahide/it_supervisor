@@ -39,7 +39,7 @@
   - Test `analyzeMetadata()` for README, LICENSE, Dockerfile detection
   - Commit: `test(repo-analyzer): add unit tests for tech stack detection`
 
-- [ ] **Task 6: Unit tests for static-analyzer**
+- [x] **Task 6: Unit tests for static-analyzer**
   - Create `packages/static-analyzer/src/__tests__/analyzer.test.ts`
   - Test `selectTools()` auto-detection based on project files
   - Test `removeDuplicateIssues()` deduplication logic
@@ -78,6 +78,7 @@
 - **Task 3: Unit tests for sandbox-builder (Docker config generation)** ✓
 - **Task 4: Unit tests for repo-analyzer (language detection and file analysis)** ✓
 - **Task 5: Unit tests for repo-analyzer (tech stack detection)** ✓
+- **Task 6: Unit tests for static-analyzer** ✓
 
 ## Notes
 
