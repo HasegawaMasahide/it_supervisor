@@ -245,6 +245,7 @@ npm run test:coverage
 
 ### 追加ドキュメント
 
+- **[docs/API_INTEGRATION_GUIDE.md](./docs/API_INTEGRATION_GUIDE.md)**: 複数パッケージの統合ガイド（5つのE2Eワークフロー例）
 - **[docs/USAGE_EXAMPLES.md](./docs/USAGE_EXAMPLES.md)**: 詳細な使用例とベストプラクティス
 - **[docs/archive/](./docs/archive/)**: 過去のドキュメントアーカイブ
 

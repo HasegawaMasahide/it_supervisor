@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **API Integration Guide** (docs/API_INTEGRATION_GUIDE.md, 1,200+ lines) with 5 complete E2E workflow examples
+  - Full repository audit pipeline (repo-analyzer → static-analyzer → issue-manager → metrics-model → report-generator)
+  - Security audit workflow with CI/CD integration
+  - Code quality monitoring with trend analysis
+  - Issue-driven development workflow
+  - Performance benchmarking pipeline with regression detection
 - **Release automation workflow** (.github/workflows/release.yml) with automated npm publishing and GitHub Releases
 - **Package dependency visualization tool** (scripts/dependency-graph.ts) generating JSON/Mermaid/DOT graphs
 - **Release script** (scripts/release.sh) for automated version bumping and tag creation
