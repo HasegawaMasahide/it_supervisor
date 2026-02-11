@@ -602,8 +602,8 @@ ${detection.ports.map(p => `- アプリケーション: http://localhost:${p}`).
 export class SandboxController {
   private sandboxPath: string;
   private sandbox: SandboxEnvironment | null = null;
-  private exec = require('child_process').exec;
-  private execAsync = require('util').promisify(this.exec);
+  private execRaw = require('child_process').exec;
+  private execAsync = require('util').promisify(this.execRaw);
 
   constructor(sandboxPath: string) {
     this.sandboxPath = sandboxPath;
@@ -752,7 +752,7 @@ export class SandboxController {
     const serviceArg = service ? service : '';
     const command = `docker-compose logs -f ${serviceArg}`;
 
-    const child = this.exec(command, { cwd: this.sandboxPath });
+    const child = this.execRaw(command, { cwd: this.sandboxPath });
 
     child.stdout.on('data', (data: Buffer) => {
       onLog(data.toString());

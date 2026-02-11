@@ -98,6 +98,14 @@
   - Test `generateMultiLanguage()` for multi-language support
   - Commit: `test(report-generator): add unit tests for charts and template management`
 
+### Phase 5: Code quality improvements
+
+- [x] **Task 13: Fix duplicate member name in SandboxController**
+  - Rename `exec` property to `execRaw` to avoid conflict with `exec()` method
+  - Update `streamLogs()` method to use `execRaw`
+  - Verify all tests still pass
+  - Commit: `fix(sandbox-builder): rename exec property to execRaw to resolve duplicate member warning`
+
 ## Completed
 
 - **Task 1: Add vitest to the workspace** ✓
@@ -112,6 +120,7 @@
 - **Task 10: Unit tests for report-generator (markdown parsing and template expansion)** ✓
 - **Task 11: Unit tests for report-generator (HTML/Markdown/PDF generation)** ✓
 - **Task 12: Unit tests for report-generator (advanced features)** ✓
+- **Task 13: Fix duplicate member name in SandboxController** ✓
 
 ## Notes
 
