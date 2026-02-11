@@ -687,3 +687,14 @@ Record any discoveries that need further investigation:
 - `report-generator` depends on `puppeteer` (optional) — mock it in tests.
 - All tests should use mocks for filesystem, git, and child_process operations.
 - **Agent Mode**: Self-directed task discovery enabled — agent will identify and create new tasks autonomously.
+
+
+- [x] **Task 60: Fix API usage in Example 01**
+  - ✅ Corrected static-analyzer API usage (AnalyzerTool enum, progress callback, result properties)
+  - ✅ Example 01 now builds successfully with TypeScript
+  - ✅ Verified compilation with no errors
+  - Priority: P1 (High - example code must work)
+  - Calculated Priority Score: 74 (Blocks: 5, Impact: 8, TechDebt: 6, Effort: 2)
+  - Status: ✅ Completed
+  - Commit: `fix(examples): correct API usage in Example 01`
+
