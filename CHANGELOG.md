@@ -48,7 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm scripts: `release`, `release:patch`, `release:minor`, `release:major`, `deps`, `deps:graph`, `quality`, `quality:json`, `quality:md`
 
 ### Changed
-- **Test coverage improvements** - repo-analyzer coverage increased from 65.61% to 69.71% statements (+4.1%), added 8 new tests for comment detection and file system operations
+- **Test coverage improvements - static-analyzer** (Task 93) - coverage increased from 69.38% to 71.33% statements (+1.95%), 58.45% to 60.86% branches (+2.41%); added 4 new tests for Snyk severity mapping, Snyk invalid JSON handling, Gitleaks tags parsing, and Gitleaks missing fields handling; overall workspace coverage: 84.79% → 85.16% (+0.37%)
+- **Test coverage improvements - repo-analyzer** (Task 109) - coverage increased from 65.61% to 69.71% statements (+4.1%), added 8 new tests for comment detection and file system operations
 - **Progress tracking** - Updated progress.md with Tasks 96-99 completion status (Git hooks documentation, ADRs creation, quality dashboard, autonomous session summary)
 - **Logging consistency** - Replaced 310 console.* calls with structured logger across examples/, benchmarks/, and tests/ (Task 91)
 - **Package scripts** - Removed obsolete `"test": "node --test"` from 6 individual packages (tests now exclusively run from workspace root using vitest)
