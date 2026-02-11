@@ -78,15 +78,26 @@ interface PackageMetric {
 }
 
 /**
+ * Strip ANSI color codes from terminal output
+ */
+function stripAnsi(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+/**
  * Extract test metrics from npm test output
  */
 function getTestMetrics(): TestMetrics {
   try {
     const output = execSync('npm test 2>&1', { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
 
+    // Strip ANSI color codes before parsing
+    const cleanOutput = stripAnsi(output);
+
     // Parse "Tests  391 passed | 33 skipped (424)"
     // Use more flexible regex to handle whitespace variations
-    const testsMatch = output.match(/Tests\s+(\d+)\s+passed\s*\|\s*(\d+)\s+skipped\s*\((\d+)\)/);
+    const testsMatch = cleanOutput.match(/Tests\s+(\d+)\s+passed\s*\|\s*(\d+)\s+skipped\s*\((\d+)\)/);
 
     if (testsMatch) {
       const passed = parseInt(testsMatch[1], 10);
@@ -176,26 +187,32 @@ function getComplexityMetrics(): ComplexityMetrics {
       let functionCount = 0;
       let highComplexity = 0;
       let maxComplexity = 0;
-      const filesAnalyzed = data.length;
 
-      for (const file of data) {
-        for (const func of file.functions || []) {
-          const complexity = func.complexity || 0;
-          totalComplexity += complexity;
-          functionCount++;
+      // ESLintCC outputs {"files": [...]} structure
+      const files = data.files || data;
+      const filesAnalyzed = Array.isArray(files) ? files.length : 0;
 
-          if (complexity > 15) {
-            highComplexity++;
-          }
+      for (const file of files) {
+        for (const message of file.messages || []) {
+          // Each message has rules.complexity.value
+          const complexity = message.rules?.complexity?.value || 0;
+          if (complexity > 0) {
+            totalComplexity += complexity;
+            functionCount++;
 
-          if (complexity > maxComplexity) {
-            maxComplexity = complexity;
+            if (complexity > 15) {
+              highComplexity++;
+            }
+
+            if (complexity > maxComplexity) {
+              maxComplexity = complexity;
+            }
           }
         }
       }
 
       return {
-        averageComplexity: functionCount > 0 ? totalComplexity / functionCount : 0,
+        averageComplexity: functionCount > 0 ? parseFloat((totalComplexity / functionCount).toFixed(2)) : 0,
         highComplexityFunctions: highComplexity,
         maxComplexity,
         filesAnalyzed,

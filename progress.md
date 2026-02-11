@@ -1128,6 +1128,16 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `feat(workspace): add quality metrics dashboard script`
 
+- [ ] **Task 98: Fix quality dashboard test metrics parsing (ANSI color codes)**
+  - **BUG**: Test metrics showing 0 tests (should show 391 passed, 33 skipped)
+  - Issue: Regex pattern doesn't account for ANSI color codes in vitest output
+  - Fix: Strip ANSI codes before regex matching or update regex pattern
+  - Expected output: "Tests  391 passed | 33 skipped (424)"
+  - Actual output includes: [1m[32m, [39m[22m, etc.
+  - Priority: P1 (High - quality dashboard showing incorrect data)
+  - Calculated Priority Score: 68 (Blocks: 4, Impact: 7, TechDebt: 6, Effort: 2)
+  - Effort: Low (regex fix)
+
 - [ ] **Task 96: Add Git hooks documentation to CONTRIBUTING.md**
   - Document pre-commit hooks (ESLint, tests, type-check)
   - Explain how to bypass hooks in emergency (--no-verify)
