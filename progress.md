@@ -996,3 +996,18 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed (unit tests restored, E2E deferred)
   - Commit: `test(workspace): fix E2E test API mismatches and skip failing tests`
 
+### Phase 23: Future Work (Deferred Tasks)
+
+- [ ] **Task 85: Rewrite E2E integration tests to match actual APIs**
+  - **DEFERRED**: Requires extensive rewrite of all 4 test suites
+  - Need to update test expectations to match actual API structure:
+    - RepositoryAnalysisResult.fileStats (totalFiles, not files array)
+    - MetricsDatabase.recordMetric() signature (metric object, not project ID + metric)
+    - MetricsDatabase.recordMetricsBatch() (not recordMetrics)
+    - Static analyzer output format verification
+  - Current status: 21 E2E tests skipped (full-pipeline: 3, security-workflow: 3, error-propagation: 8, performance: 7)
+  - All unit tests passing (391 passed, 11 skipped)
+  - Priority: P1 (High - validates system integration)
+  - Calculated Priority Score: 68 (Impact: 8, TechDebt: 6, Effort: 6)
+  - Effort: High (complete rewrite needed)
+
