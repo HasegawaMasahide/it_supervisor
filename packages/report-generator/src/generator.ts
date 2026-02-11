@@ -1,13 +1,13 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { marked } from 'marked';
+import * as http from 'http';
 import {
   Report,
   ReportType,
   ReportConfig,
   ReportSection,
   TableOfContents,
-  OutputFormat,
   TemplateVariables
 } from './types.js';
 
@@ -127,7 +127,10 @@ export class ReportGenerator {
   async exportToPDF(report: Report, outputPath: string): Promise<void> {
     try {
       // puppeteerを使用してPDF生成
-      const puppeteer = require('puppeteer');
+      const puppeteer = await import('puppeteer').catch(() => null);
+      if (!puppeteer) {
+        throw new Error('Puppeteer not available');
+      }
       const html = this.generateHTML(report);
 
       const browser = await puppeteer.launch({
@@ -653,7 +656,6 @@ export class ReportGenerator {
    */
   async preview(report: Report, port: number = 3000): Promise<void> {
     const html = this.generateHTML(report);
-    const http = require('http');
 
     const server = http.createServer((req: any, res: any) => {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

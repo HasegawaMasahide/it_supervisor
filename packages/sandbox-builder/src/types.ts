@@ -144,6 +144,7 @@ export interface HealthCheckResult {
   healthy: boolean;
   services: Record<string, ServiceHealth>;
   timestamp: Date;
+  error?: string;
 }
 
 /**

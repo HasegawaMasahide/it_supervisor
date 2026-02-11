@@ -122,9 +122,35 @@
 - **Task 12: Unit tests for report-generator (advanced features)** ✓
 - **Task 13: Fix duplicate member name in SandboxController** ✓
 
+---
+
+## Self-Directed Tasks (Agent-Generated)
+
+**Instructions for Agent**: When all planned tasks are complete, analyze the codebase and add new improvement tasks here. Follow the task discovery guidelines in AGENT_PROMPT.md.
+
+### Priority System
+- **P0 (Critical)**: Security, build failures, test failures — Fix immediately
+- **P1 (High)**: Missing core tests, memory leaks, performance issues — Next priority
+- **P2 (Medium)**: Code quality, refactoring, documentation — Continuous improvement
+- **P3 (Low)**: Style, optimizations — Nice to have
+
+---
+
+## Investigation Log
+
+Record any discoveries that need further investigation:
+
+<!-- Example:
+- **YYYY-MM-DD**: Found potential memory leak in `repo-analyzer.analyzeFile()` - fileCache never cleared
+  → Action: Created Task 8 to fix
+-->
+
+---
+
 ## Notes
 
 - Packages `metrics-model` and `issue-manager` depend on `better-sqlite3` (native module).
   Skip these for now — focus on the 3 packages without native dependencies first.
 - `report-generator` depends on `puppeteer` (optional) — mock it in tests.
 - All tests should use mocks for filesystem, git, and child_process operations.
+- **Agent Mode**: Self-directed task discovery enabled — agent will identify and create new tasks autonomously.

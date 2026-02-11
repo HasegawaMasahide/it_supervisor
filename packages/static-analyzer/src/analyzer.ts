@@ -254,7 +254,7 @@ export class StaticAnalyzer {
   /**
    * PHPStan結果をパース
    */
-  private parsePHPStanResults(result: any, repoPath: string): AnalysisIssue[] {
+  private parsePHPStanResults(result: any, __repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
     // エラー形式: { files: { "path/file.php": { errors: [{ message, line, ... }] } } }
@@ -414,7 +414,7 @@ export class StaticAnalyzer {
   /**
    * PHPCS結果をパース
    */
-  private parsePHPCSResults(result: any, repoPath: string): AnalysisIssue[] {
+  private parsePHPCSResults(result: any, _repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
     if (!result.files) return issues;
@@ -539,7 +539,7 @@ export class StaticAnalyzer {
   /**
    * ESLint結果をパース
    */
-  private parseESLintResults(results: any[], repoPath: string): AnalysisIssue[] {
+  private parseESLintResults(results: any[], _repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
     for (const result of results) {
@@ -663,7 +663,7 @@ export class StaticAnalyzer {
   /**
    * Snyk結果をパース
    */
-  private parseSnykResults(result: any, repoPath: string): AnalysisIssue[] {
+  private parseSnykResults(result: any, _repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
     if (!result.vulnerabilities) return issues;
@@ -765,7 +765,7 @@ export class StaticAnalyzer {
   /**
    * Gitleaks結果をパース
    */
-  private parseGitleaksResults(results: any[], repoPath: string): AnalysisIssue[] {
+  private parseGitleaksResults(results: any[], _repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
     for (const finding of results) {

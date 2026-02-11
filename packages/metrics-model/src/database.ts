@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
+import { writeFileSync } from 'fs';
 import {
   MetricRecord,
   MetricQuery,
@@ -476,8 +477,7 @@ export class MetricsDatabase {
    */
   exportToJSONFile(filepath: string, projectIds?: string[]): void {
     const data = this.exportMetrics(projectIds);
-    const fs = require('fs');
-    fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+    writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
   }
 
   /**

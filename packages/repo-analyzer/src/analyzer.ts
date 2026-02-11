@@ -666,7 +666,6 @@ export class RepositoryAnalyzer {
   async calculateComplexity(filePath: string): Promise<number> {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
-      const ext = path.extname(filePath).toLowerCase();
 
       // 簡易的な循環的複雑度計算
       let complexity = 1; // 基本パス

@@ -1,11 +1,12 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import {
   DetectionResult,
   EnvironmentType,
   DatabaseType,
-  IsolationLevel,
   SandboxBuildOptions,
   SandboxEnvironment,
   DockerComposeConfig,
@@ -602,8 +603,8 @@ ${detection.ports.map(p => `- アプリケーション: http://localhost:${p}`).
 export class SandboxController {
   private sandboxPath: string;
   private sandbox: SandboxEnvironment | null = null;
-  private execRaw = require('child_process').exec;
-  private execAsync = require('util').promisify(this.execRaw);
+  private execRaw = exec;
+  private execAsync = promisify(this.execRaw);
 
   constructor(sandboxPath: string) {
     this.sandboxPath = sandboxPath;
@@ -754,11 +755,11 @@ export class SandboxController {
 
     const child = this.execRaw(command, { cwd: this.sandboxPath });
 
-    child.stdout.on('data', (data: Buffer) => {
+    child.stdout?.on('data', (data: Buffer) => {
       onLog(data.toString());
     });
 
-    child.stderr.on('data', (data: Buffer) => {
+    child.stderr?.on('data', (data: Buffer) => {
       onLog(`ERROR: ${data.toString()}`);
     });
   }
@@ -831,15 +832,12 @@ export class SandboxController {
   async createSnapshot(name: string): Promise<Snapshot> {
     try {
       // ボリュームのバックアップを作成
-      const timestamp = Date.now();
+      // TODO: Use timestamp for versioning in actual implementation
       const snapshotDir = path.join(this.sandboxPath, 'snapshots', name);
       await fs.mkdir(snapshotDir, { recursive: true });
 
-      // docker-compose.ymlから ボリューム名を取得
-      const composeContent = await fs.readFile(
-        path.join(this.sandboxPath, 'docker-compose.yml'),
-        'utf-8'
-      );
+      // TODO: Parse docker-compose.yml to get volume names in actual implementation
+      // const composeContent = await fs.readFile(path.join(this.sandboxPath, 'docker-compose.yml'), 'utf-8');
 
       // 簡易的なバックアップ（実際にはdocker cpを使用）
       const command = `docker-compose pause`;
@@ -875,13 +873,12 @@ export class SandboxController {
   async restoreSnapshot(name: string): Promise<void> {
     try {
       console.log(`Restoring snapshot: ${name}`);
-      const snapshotDir = path.join(this.sandboxPath, 'snapshots', name);
-
-      // スナップショット情報を読み込み
-      const snapshotInfo = await fs.readFile(
-        path.join(snapshotDir, 'snapshot.json'),
-        'utf-8'
-      );
+      // TODO: Implement snapshot restoration logic
+      // This will involve:
+      // 1. Reading snapshot metadata from snapshots/{name}/snapshot.json
+      // 2. Stopping current environment
+      // 3. Restoring volumes from backup
+      // 4. Restarting environment with restored data
 
       // 環境を停止
       await this.down();
