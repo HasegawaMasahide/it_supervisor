@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm scripts: `release`, `release:patch`, `release:minor`, `release:major`, `deps`, `deps:graph`, `quality`, `quality:json`, `quality:md`
 
 ### Changed
+- **Code complexity refactoring** (Task 111) - Reduced cyclomatic complexity of 8 medium-complexity functions (11-15) to <10 by extracting 30+ helper methods across 4 packages; complexity report now shows 0 medium/high complexity functions (was 8); all 403 tests pass with no regressions
 - **Test coverage improvements - static-analyzer** (Task 93) - coverage increased from 69.38% to 71.33% statements (+1.95%), 58.45% to 60.86% branches (+2.41%); added 4 new tests for Snyk severity mapping, Snyk invalid JSON handling, Gitleaks tags parsing, and Gitleaks missing fields handling; overall workspace coverage: 84.79% → 85.16% (+0.37%)
 - **Test coverage improvements - repo-analyzer** (Task 109) - coverage increased from 65.61% to 69.71% statements (+4.1%), added 8 new tests for comment detection and file system operations
 - **Progress tracking** - Updated progress.md with Tasks 96-99 completion status (Git hooks documentation, ADRs creation, quality dashboard, autonomous session summary)
