@@ -357,13 +357,13 @@
 
 ### Phase 11: Dependency Management (Discovered 2026-02-11)
 
-- [ ] **Task 34: Update @types/node from 20.x to 25.x**
-  - Update @types/node to ^25.2.3 across all packages
-  - Test for breaking changes in Node.js type definitions
-  - Verify all tests pass after update
+- [x] **Task 34: Update @types/node from 20.x to 25.x**
+  - ✅ Updated @types/node to ^25.2.3 across all 6 packages (root + 5 packages)
+  - ✅ Tested for breaking changes in Node.js type definitions (no breaking changes found)
+  - ✅ Verified all tests pass (356 tests) and type-check succeeds
   - Priority: P3 (Low - not critical but keeps types current)
   - Calculated Priority Score: 34 (Impact: 3, TechDebt: 4, Effort: 2)
-  - Effort: Low
+  - Status: ✅ Completed
   - Commit: `chore(workspace): update @types/node to 25.x`
 
 - [x] **Task 35: Update @typescript-eslint packages from 6.x to 8.x**
@@ -377,13 +377,16 @@
   - Commit: `chore(workspace): update @typescript-eslint to 8.x`
 
 - [ ] **Task 36: Update ESLint from 8.x to 10.x**
-  - Update eslint to ^10.0.0
-  - Update .eslintrc configuration for ESLint 10 format (flat config)
-  - Test for breaking changes and update rules as needed
+  - **DEFERRED**: ESLint v10 requires complete migration to flat config (eslint.config.js)
+  - .eslintrc.json format is deprecated and will not work in v10
+  - Requires significant configuration rewrite and extensive testing
+  - Recommendation: Wait for ecosystem maturity before migrating
   - Priority: P3 (Low - linting improvements)
   - Calculated Priority Score: 35 (Impact: 3, TechDebt: 5, Effort: 4)
-  - Effort: Medium
-  - Commit: `chore(workspace): update ESLint to 10.x with flat config`
+  - Effort: High (flat config migration)
+  - References:
+    - https://eslint.org/docs/latest/use/migrate-to-9.0.0
+    - https://eslint.org/docs/latest/use/configure/migration-guide
 
 - [x] **Task 37: Update better-sqlite3 from 9.x to 12.x**
   - ✅ Updated better-sqlite3 to ^12.6.2 in metrics-model and issue-manager

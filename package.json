@@ -39,7 +39,7 @@
     "clean": "npm run clean --workspaces"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/node": "^25.2.3",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
     "@vitest/coverage-v8": "^4.0.18",

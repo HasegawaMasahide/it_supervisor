@@ -21,7 +21,7 @@
     "@it-supervisor/metrics-model": "^0.1.0"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0"
+    "@types/node": "^25.2.3"
   },
   "repository": {
     "type": "git",
