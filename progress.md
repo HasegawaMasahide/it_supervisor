@@ -206,6 +206,36 @@
   - Status: ✅ Completed (11 tests remain skipped, properly documented)
   - Commit: `docs(repo-analyzer): document skipped tests and mocking limitations`
 
+### Phase 8: Future Improvements (Discovered)
+
+- [ ] **Task 21: Implement TODOs in sandbox-builder**
+  - Implement snapshot versioning with timestamps (line 873)
+  - Parse docker-compose.yml to get actual volume names (line 877)
+  - Complete snapshot restoration logic (line 914)
+  - Priority: P2 (Medium - feature completion)
+  - Expected outcome: Snapshot feature fully functional
+  - Effort: Medium
+  - Commit: `feat(sandbox-builder): implement snapshot versioning and restoration`
+
+- [ ] **Task 22: Improve test coverage for static-analyzer**
+  - Current coverage: 45.75% (statements), 31.21% (branches)
+  - Add tests for tool execution error paths
+  - Add tests for JSON parsing edge cases
+  - Add tests for parallel vs sequential execution
+  - Priority: P2 (Medium - test coverage)
+  - Target coverage: >70% statements, >50% branches
+  - Effort: Medium-High
+  - Commit: `test(static-analyzer): improve test coverage to 70%+`
+
+- [ ] **Task 23: Improve test coverage for repo-analyzer**
+  - Current coverage: 54.74% (statements), 55.31% (branches)
+  - Add tests for Git history analysis (lines 835-865)
+  - Add tests for directory structure analysis (lines 875-879)
+  - Priority: P2 (Medium - test coverage)
+  - Target coverage: >70% statements
+  - Effort: Medium
+  - Commit: `test(repo-analyzer): add tests for Git history and directory analysis`
+
 ---
 
 ## Investigation Log
