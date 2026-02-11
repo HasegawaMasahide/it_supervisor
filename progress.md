@@ -134,6 +134,74 @@
 - **P2 (Medium)**: Code quality, refactoring, documentation — Continuous improvement
 - **P3 (Low)**: Style, optimizations — Nice to have
 
+### Phase 6: Code Quality Improvements (Self-Directed)
+
+- [x] **Task 14: Fix TypeScript compilation errors**
+  - Added `error` field to HealthCheckResult type
+  - Fixed null safety for child process streams (stdout/stderr)
+  - Priority: P0 (Critical - blocks build)
+  - Status: ✅ Completed
+  - Commit: `fix(workspace): resolve TypeScript and ESLint errors across packages`
+
+- [x] **Task 15: Resolve ESLint errors**
+  - Removed unused imports (IsolationLevel, OutputFormat)
+  - Prefixed unused parameters with underscore (_repoPath)
+  - Replaced require() with proper ES imports
+  - Configured ESLint overrides for test files
+  - Priority: P1 (High - code quality)
+  - Status: ✅ Completed (21 errors → 0 errors)
+  - Commit: `fix(workspace): resolve TypeScript and ESLint errors across packages`
+
+- [x] **Task 16: Reduce any type usage**
+  - Replaced any with unknown in flexible types
+  - Added proper types for Docker Compose outputs
+  - Added type guards for configuration objects
+  - Added proper HTTP types (IncomingMessage, ServerResponse)
+  - Priority: P2 (Medium - type safety)
+  - Status: ✅ Completed (38 warnings → 26 warnings, -32% improvement)
+  - Commit: `refactor(workspace): reduce any type usage from 38 to 26 warnings`
+
+### Phase 7: Remaining Improvements (Discovered)
+
+- [ ] **Task 17: Further reduce any type usage in external data parsers**
+  - Create proper type definitions for ESLint output format
+  - Create proper type definitions for PHPStan output format
+  - Create proper type definitions for Gitleaks output format
+  - Create proper type definitions for PHPCS output format
+  - Create proper type definitions for Snyk output format
+  - Priority: P2 (Medium - type safety)
+  - Expected outcome: Reduce remaining 26 warnings to ~10
+  - Effort: Medium (requires research into each tool's output format)
+  - Commit: `refactor(static-analyzer): add type definitions for external tool outputs`
+
+- [ ] **Task 18: Add test coverage reporting**
+  - Install @vitest/coverage-v8
+  - Configure vitest.config.ts with coverage thresholds
+  - Add coverage script to package.json
+  - Set minimum coverage targets (80% lines, 70% branches)
+  - Priority: P2 (Medium - code quality visibility)
+  - Expected outcome: Coverage report generated on each test run
+  - Effort: Low (configuration task)
+  - Commit: `chore(workspace): add test coverage reporting with vitest`
+
+- [ ] **Task 19: Document public APIs with JSDoc**
+  - Add JSDoc comments to all exported classes in sandbox-builder
+  - Add JSDoc comments to all exported classes in repo-analyzer
+  - Add JSDoc comments to all exported classes in static-analyzer
+  - Add JSDoc comments to all exported classes in report-generator
+  - Priority: P3 (Low - documentation)
+  - Expected outcome: All public APIs have proper documentation
+  - Effort: Medium (documentation task)
+  - Commit: `docs(workspace): add JSDoc documentation to public APIs`
+
+- [ ] **Task 20: Fix skipped tests**
+  - Investigate and fix 11 skipped tests
+  - Ensure all test cases are meaningful and passing
+  - Priority: P2 (Medium - test completeness)
+  - Expected outcome: 0 skipped tests, all 219 tests passing
+  - Effort: Low-Medium (depends on why tests were skipped)
+  - Commit: `test(workspace): fix skipped tests`
+
 ---
 
 ## Investigation Log
