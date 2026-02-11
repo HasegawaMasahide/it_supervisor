@@ -551,7 +551,7 @@ export class StaticAnalyzer {
 
     if (!result.files) return issues;
 
-    for (const [filePath, fileData] of Object.entries(result.files as Record<string, any>)) {
+    for (const [filePath, fileData] of Object.entries(result.files as Record<string, PHPCSFile>)) {
       if (!fileData.messages) continue;
 
       for (const message of fileData.messages) {
@@ -1102,7 +1102,20 @@ export class StaticAnalyzer {
       [IssueCategory.Documentation]: 0
     };
 
-    const byTool: Record<AnalyzerTool, number> = {} as any;
+    const byTool: Record<AnalyzerTool, number> = {
+      [AnalyzerTool.ESLint]: 0,
+      [AnalyzerTool.TypeScriptCompiler]: 0,
+      [AnalyzerTool.PHPCodeSniffer]: 0,
+      [AnalyzerTool.PHPStan]: 0,
+      [AnalyzerTool.Psalm]: 0,
+      [AnalyzerTool.PHPMessDetector]: 0,
+      [AnalyzerTool.RoslynAnalyzer]: 0,
+      [AnalyzerTool.StyleCop]: 0,
+      [AnalyzerTool.SonarQube]: 0,
+      [AnalyzerTool.Snyk]: 0,
+      [AnalyzerTool.Gitleaks]: 0,
+      [AnalyzerTool.DependencyCheck]: 0
+    };
 
     allIssues.forEach(issue => {
       bySeverity[issue.severity]++;

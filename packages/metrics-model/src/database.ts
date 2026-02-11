@@ -113,16 +113,17 @@ export class MetricsDatabase {
       SELECT * FROM projects WHERE id = ?
     `);
 
-    const row = stmt.get(projectId) as any;
+    const row = stmt.get(projectId) as unknown;
     if (!row) return null;
 
+    const r = row as Record<string, unknown>;
     return {
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+      id: r.id as string,
+      name: r.name as string,
+      description: r.description as string,
+      createdAt: new Date(r.created_at as number),
+      updatedAt: new Date(r.updated_at as number),
+      metadata: r.metadata ? JSON.parse(r.metadata as string) : undefined
     };
   }
 
@@ -134,15 +135,18 @@ export class MetricsDatabase {
       SELECT * FROM projects ORDER BY created_at DESC
     `);
 
-    const rows = stmt.all() as any[];
-    return rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
-    }));
+    const rows = stmt.all() as unknown[];
+    return rows.map(row => {
+      const r = row as Record<string, unknown>;
+      return {
+        id: r.id as string,
+        name: r.name as string,
+        description: r.description as string,
+        createdAt: new Date(r.created_at as number),
+        updatedAt: new Date(r.updated_at as number),
+        metadata: r.metadata ? JSON.parse(r.metadata as string) : undefined
+      };
+    });
   }
 
   /**
@@ -188,7 +192,7 @@ export class MetricsDatabase {
    */
   getMetrics(query: MetricQuery = {}): MetricRecord[] {
     let sql = 'SELECT * FROM metrics WHERE 1=1';
-    const params: any[] = [];
+    const params: (string | number | null)[] = [];
 
     if (query.projectId) {
       sql += ' AND project_id = ?';
@@ -232,7 +236,7 @@ export class MetricsDatabase {
     }
 
     const stmt = this.db.prepare(sql);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as unknown[];
 
     return rows.map(row => this.rowToMetricRecord(row));
   }
@@ -253,7 +257,7 @@ export class MetricsDatabase {
       FROM metrics
       WHERE project_id = ?
     `;
-    const params: any[] = [projectId];
+    const params: (string | number | null)[] = [projectId];
 
     if (category) {
       sql += ' AND category = ?';
@@ -263,17 +267,20 @@ export class MetricsDatabase {
     sql += ' GROUP BY category, name';
 
     const stmt = this.db.prepare(sql);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as unknown[];
 
-    return rows.map(row => ({
-      category: row.category as MetricCategory,
-      name: row.name,
-      count: row.count,
-      min: row.min,
-      max: row.max,
-      avg: row.avg,
-      sum: row.sum
-    }));
+    return rows.map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        category: r.category as MetricCategory,
+        name: r.name as string,
+        count: r.count as number,
+        min: r.min != null ? (r.min as number) : undefined,
+        max: r.max != null ? (r.max as number) : undefined,
+        avg: r.avg != null ? (r.avg as number) : undefined,
+        sum: r.sum != null ? (r.sum as number) : undefined,
+      };
+    });
   }
 
   /**
@@ -499,7 +506,7 @@ export class MetricsDatabase {
     if (!current) return null;
 
     const updateFields: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | null)[] = [];
 
     if (updates.name !== undefined) {
       updateFields.push('name = ?');
@@ -611,31 +618,32 @@ export class MetricsDatabase {
   /**
    * 行をMetricRecordに変換
    */
-  private rowToMetricRecord(row: any): MetricRecord {
+  private rowToMetricRecord(row: unknown): MetricRecord {
+    const r = row as Record<string, unknown>;
     let value: MetricValue;
-    switch (row.value_type) {
+    switch (r.value_type) {
       case 'number':
-        value = Number(row.value);
+        value = Number(r.value);
         break;
       case 'boolean':
-        value = row.value === 'true';
+        value = r.value === 'true';
         break;
       default:
-        value = row.value;
+        value = r.value as string;
     }
 
     return {
-      id: row.id,
-      projectId: row.project_id,
-      timestamp: new Date(row.timestamp),
-      category: row.category as MetricCategory,
-      name: row.name,
+      id: r.id as string,
+      projectId: r.project_id as string,
+      timestamp: new Date(r.timestamp as number),
+      category: r.category as MetricCategory,
+      name: r.name as string,
       value,
-      unit: row.unit,
-      source: row.source,
-      notes: row.notes,
-      tags: row.tags ? JSON.parse(row.tags) : undefined,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+      unit: r.unit as string | undefined,
+      source: r.source as string,
+      notes: r.notes as string | undefined,
+      tags: r.tags ? JSON.parse(r.tags as string) : undefined,
+      metadata: r.metadata ? JSON.parse(r.metadata as string) : undefined
     };
   }
 }

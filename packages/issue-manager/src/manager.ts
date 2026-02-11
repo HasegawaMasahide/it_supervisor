@@ -118,7 +118,7 @@ export class IssueManager {
    */
   getIssue(issueId: string): Issue | null {
     const stmt = this.db.prepare('SELECT * FROM issues WHERE id = ?');
-    const row = stmt.get(issueId) as any;
+    const row = stmt.get(issueId) as unknown;
 
     if (!row) return null;
 
@@ -133,7 +133,7 @@ export class IssueManager {
     if (!current) return null;
 
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | null)[] = [];
 
     if (params.title !== undefined) {
       updates.push('title = ?');
@@ -208,7 +208,7 @@ export class IssueManager {
    */
   searchIssues(query: IssueQuery = {}): Issue[] {
     let sql = 'SELECT * FROM issues WHERE 1=1';
-    const params: any[] = [];
+    const params: (string | number | null)[] = [];
 
     if (query.projectId) {
       sql += ' AND project_id = ?';
@@ -278,7 +278,7 @@ export class IssueManager {
     }
 
     const stmt = this.db.prepare(sql);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as unknown[];
 
     return rows.map(row => this.rowToIssue(row));
   }
@@ -325,16 +325,19 @@ export class IssueManager {
       SELECT * FROM comments WHERE issue_id = ? ORDER BY created_at ASC
     `);
 
-    const rows = stmt.all(issueId) as any[];
+    const rows = stmt.all(issueId) as unknown[];
 
-    return rows.map(row => ({
-      id: row.id,
-      issueId: row.issue_id,
-      author: row.author,
-      content: row.content,
-      createdAt: new Date(row.created_at),
-      attachments: row.attachments ? JSON.parse(row.attachments) : undefined
-    }));
+    return rows.map(row => {
+      const r = row as Record<string, unknown>;
+      return {
+        id: r.id as string,
+        issueId: r.issue_id as string,
+        author: r.author as string,
+        content: r.content as string,
+        createdAt: new Date(r.created_at as number),
+        attachments: r.attachments ? JSON.parse(r.attachments as string) : undefined,
+      };
+    });
   }
 
   /**
@@ -342,7 +345,7 @@ export class IssueManager {
    */
   getStatistics(projectId?: string): IssueStatistics {
     let sql = 'SELECT * FROM issues';
-    const params: any[] = [];
+    const params: (string | number | null)[] = [];
 
     if (projectId) {
       sql += ' WHERE project_id = ?';
@@ -350,7 +353,7 @@ export class IssueManager {
     }
 
     const stmt = this.db.prepare(sql);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as unknown[];
 
     const bySeverity: Record<IssueSeverity, number> = {
       [IssueSeverity.Critical]: 0,
@@ -378,9 +381,10 @@ export class IssueManager {
     };
 
     rows.forEach(row => {
-      bySeverity[row.severity as IssueSeverity]++;
-      byStatus[row.status as IssueStatus]++;
-      byCategory[row.category as IssueCategory]++;
+      const r = row as Record<string, unknown>;
+      bySeverity[r.severity as IssueSeverity]++;
+      byStatus[r.status as IssueStatus]++;
+      byCategory[r.category as IssueCategory]++;
     });
 
     return {
@@ -607,25 +611,26 @@ export class IssueManager {
   /**
    * 行をIssueに変換
    */
-  private rowToIssue(row: any): Issue {
+  private rowToIssue(row: unknown): Issue {
+    const r = row as Record<string, unknown>;
     return {
-      id: row.id,
-      projectId: row.project_id,
-      title: row.title,
-      description: row.description,
-      category: row.category as IssueCategory,
-      severity: row.severity as IssueSeverity,
-      status: row.status as IssueStatus,
-      location: row.location ? JSON.parse(row.location) : undefined,
-      evidence: row.evidence ? JSON.parse(row.evidence) : undefined,
-      tags: row.tags ? JSON.parse(row.tags) : undefined,
-      assignee: row.assignee,
-      dueDate: row.due_date ? new Date(row.due_date) : undefined,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
-      createdBy: row.created_by,
-      relatedIssues: row.related_issues ? JSON.parse(row.related_issues) : undefined,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+      id: r.id as string,
+      projectId: r.project_id as string,
+      title: r.title as string,
+      description: r.description as string,
+      category: r.category as IssueCategory,
+      severity: r.severity as IssueSeverity,
+      status: r.status as IssueStatus,
+      location: r.location ? JSON.parse(r.location as string) : undefined,
+      evidence: r.evidence ? JSON.parse(r.evidence as string) : undefined,
+      tags: r.tags ? JSON.parse(r.tags as string) : undefined,
+      assignee: r.assignee as string | undefined,
+      dueDate: r.due_date ? new Date(r.due_date as number) : undefined,
+      createdAt: new Date(r.created_at as number),
+      updatedAt: new Date(r.updated_at as number),
+      createdBy: r.created_by as string,
+      relatedIssues: r.related_issues ? JSON.parse(r.related_issues as string) : undefined,
+      metadata: r.metadata ? JSON.parse(r.metadata as string) : undefined
     };
   }
 }
