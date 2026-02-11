@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Release documentation** (docs/RELEASE_CHECKLIST.md, 400+ lines) - Comprehensive pre-release verification, release execution guide, and rollback procedures for v0.1.0
+- **Repository setup guide** (docs/REPOSITORY_SETUP.md, 400+ lines) - Instructions for updating GitHub repository URL placeholders (18 files) with automated and manual methods
 - **Quality metrics dashboard** (scripts/quality-dashboard.ts) for comprehensive project health monitoring with JSON/Markdown reports, health score calculation (0-100), and actionable recommendations
 - **Architecture Decision Records (ADRs)** (docs/adr/, 4 ADRs) documenting key design decisions:
   - ADR-001: モノレポ構造の採用 (Monorepo structure with npm workspaces)
