@@ -51,7 +51,10 @@
     "complexity:json": "eslintcc --format json --output .tmp/complexity-report.json packages/**/*.ts",
     "complexity:html": "eslintcc --format html --output .tmp/complexity-report.html packages/**/*.ts",
     "deps": "tsx scripts/dependency-graph.ts",
-    "deps:graph": "tsx scripts/dependency-graph.ts && cat .tmp/dependency-graph.md"
+    "deps:graph": "tsx scripts/dependency-graph.ts && cat .tmp/dependency-graph.md",
+    "quality": "tsx scripts/quality-dashboard.ts",
+    "quality:json": "tsx scripts/quality-dashboard.ts && cat .tmp/quality-dashboard.json",
+    "quality:md": "tsx scripts/quality-dashboard.ts && cat .tmp/quality-dashboard.md"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",

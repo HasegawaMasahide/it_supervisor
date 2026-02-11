@@ -1113,3 +1113,35 @@ Record any discoveries that need further investigation:
   - Calculated Priority Score: 50 (Impact: 5, TechDebt: 6, Effort: 5)
   - Effort: High (requires careful refactoring to avoid breaking changes)
 
+### Phase 28: Quality Metrics and Monitoring (Discovered 2026-02-11)
+
+- [x] **Task 95: Add workspace-wide quality metrics dashboard script**
+  - ✅ Created scripts/quality-dashboard.ts (690+ lines) with comprehensive metrics aggregation
+  - ✅ Aggregates 6 metric categories: project info, testing, coverage, complexity, dependencies, codebase
+  - ✅ Calculates health score (0-100) based on weighted metrics
+  - ✅ Generates actionable recommendations automatically
+  - ✅ Outputs JSON (.tmp/quality-dashboard.json) and Markdown (.tmp/quality-dashboard.md) reports
+  - ✅ Added npm scripts: `quality`, `quality:json`, `quality:md`
+  - ✅ Current health score: 80.0/100 🟡 (Good)
+  - Priority: P2 (Medium - project visibility and monitoring)
+  - Calculated Priority Score: 58 (Impact: 6, TechDebt: 6, Effort: 3)
+  - Status: ✅ Completed
+  - Commit: `feat(workspace): add quality metrics dashboard script`
+
+- [ ] **Task 96: Add Git hooks documentation to CONTRIBUTING.md**
+  - Document pre-commit hooks (ESLint, tests, type-check)
+  - Explain how to bypass hooks in emergency (--no-verify)
+  - Document how to debug hook failures
+  - Add troubleshooting section for common hook issues
+  - Priority: P2 (Medium - developer experience)
+  - Calculated Priority Score: 48 (Impact: 5, TechDebt: 5, Effort: 2)
+  - Effort: Low (documentation task)
+
+- [ ] **Task 97: Create architecture decision records (ADRs)**
+  - Document key architectural decisions made during development
+  - Create docs/adr/ directory with ADR template
+  - Document: monorepo structure, logger package, test strategy, CI/CD approach
+  - Priority: P3 (Low - documentation)
+  - Calculated Priority Score: 42 (Impact: 5, TechDebt: 4, Effort: 3)
+  - Effort: Medium (requires understanding past decisions)
+
