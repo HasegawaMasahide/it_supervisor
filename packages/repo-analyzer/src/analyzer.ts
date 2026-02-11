@@ -66,6 +66,9 @@ export class RepositoryAnalyzer {
       this.analyzeMetadata(absolutePath)
     ]);
 
+    // Clear fileCache to prevent memory leak
+    this.fileCache.clear();
+
     return {
       path: absolutePath,
       analyzedAt: new Date(),
@@ -697,7 +700,14 @@ export class RepositoryAnalyzer {
       // package.json の main/bin フィールドをチェック
       const packageJsonPath = path.join(repoPath, 'package.json');
       if (await this.fileExists(packageJsonPath)) {
-        const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
+        const content = await fs.readFile(packageJsonPath, 'utf-8');
+        let packageJson;
+        try {
+          packageJson = JSON.parse(content);
+        } catch (parseError) {
+          console.error(`Failed to parse package.json at ${packageJsonPath}:`, parseError);
+          return entryPoints;
+        }
 
         if (packageJson.main) {
           entryPoints.push(path.join(repoPath, packageJson.main));
@@ -737,7 +747,14 @@ export class RepositoryAnalyzer {
       // Composerのautoload（PHP）
       const composerJsonPath = path.join(repoPath, 'composer.json');
       if (await this.fileExists(composerJsonPath)) {
-        const composerJson = JSON.parse(await fs.readFile(composerJsonPath, 'utf-8'));
+        const content = await fs.readFile(composerJsonPath, 'utf-8');
+        let composerJson;
+        try {
+          composerJson = JSON.parse(content);
+        } catch (parseError) {
+          console.error(`Failed to parse composer.json at ${composerJsonPath}:`, parseError);
+          return entryPoints;
+        }
         if (composerJson.autoload?.files) {
           composerJson.autoload.files.forEach((file: string) => {
             entryPoints.push(path.join(repoPath, file));
@@ -792,6 +809,18 @@ export class RepositoryAnalyzer {
       return dependencies;
     } catch {
       return dependencies;
+    }
+  }
+
+  /**
+   * ファイルが存在するかチェック
+   */
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
     }
   }
 

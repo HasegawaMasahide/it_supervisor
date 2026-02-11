@@ -57,7 +57,7 @@
   - Add tests for error cases
   - Commit: `fix(sandbox-builder): add error handling for JSON parsing and input validation`
 
-- [ ] **Task 8: Fix error handling in repo-analyzer**
+- [x] **Task 8: Fix error handling in repo-analyzer**
   - Add try-catch around file read operations in `analyzeFile()`
   - Clear `fileCache` map after analysis to prevent memory leak
   - Handle binary file detection gracefully
@@ -80,6 +80,7 @@
 - **Task 5: Unit tests for repo-analyzer (tech stack detection)** ✓
 - **Task 6: Unit tests for static-analyzer** ✓
 - **Task 7: Fix error handling in sandbox-builder** ✓
+- **Task 8: Fix error handling in repo-analyzer** ✓
 
 ## Notes
 

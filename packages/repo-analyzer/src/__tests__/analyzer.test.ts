@@ -787,6 +787,139 @@ body {
     });
   });
 
+  describe('Error Handling', () => {
+    it('should handle invalid JSON in package.json for detectEntryPoints', async () => {
+      // Mock fileExists to return true for package.json
+      vi.spyOn(analyzer as any, 'fileExists').mockResolvedValue(true);
+
+      // Mock readFile to return invalid JSON
+      vi.mocked(fs.readFile).mockResolvedValue('{ invalid json' as any);
+
+      const result = await analyzer.detectEntryPoints('/test/bad-json');
+
+      // Should return empty array instead of throwing
+      expect(result).toEqual([]);
+    });
+
+    it('should handle file read errors in analyzeFile', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('Permission denied'));
+
+      const result = await (analyzer as any).analyzeFile('/test/forbidden.js');
+
+      // Should return zero stats instead of throwing
+      expect(result.files).toBe(1);
+      expect(result.lines).toBe(0);
+      expect(result.codeLines).toBe(0);
+    });
+
+    it('should handle file read errors in detectLanguages', async () => {
+      const mockFiles = ['/test/file1.js', '/test/file2.js'];
+      vi.spyOn(analyzer as any, 'getAllFiles').mockResolvedValue(mockFiles);
+
+      // First file succeeds, second fails
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (path.includes('file1')) return 'console.log("ok");\n';
+        throw new Error('Read error');
+      });
+
+      const result = await (analyzer as any).detectLanguages('/test/project');
+
+      // Should handle errors gracefully and continue processing
+      expect(result).toHaveLength(1);
+      const jsLang = result.find((l: any) => l.name === 'JavaScript');
+      expect(jsLang).toBeDefined();
+      expect(jsLang.files).toBe(2); // Both files counted
+      expect(jsLang.lines).toBeGreaterThan(0); // Only file1 contributes lines
+    });
+
+    it('should handle invalid JSON in composer.json for detectEntryPoints', async () => {
+      // Mock fileExists
+      vi.spyOn(analyzer as any, 'fileExists').mockImplementation(async (path: string) => {
+        return path.includes('composer.json');
+      });
+
+      // Mock readFile to return invalid JSON for composer.json
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (path.includes('composer.json')) return '{ broken: json }';
+        throw new Error('Not found');
+      });
+
+      const result = await analyzer.detectEntryPoints('/test/bad-composer');
+
+      // Should return empty array instead of throwing
+      expect(result).toEqual([]);
+    });
+
+    it('should clear fileCache after analysis to prevent memory leak', async () => {
+      vi.spyOn(analyzer as any, 'getAllFiles').mockResolvedValue([]);
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.spyOn(analyzer as any, 'checkGitRepository').mockResolvedValue(false);
+
+      // Mock all required methods
+      vi.spyOn(analyzer as any, 'analyzeFileStats').mockResolvedValue({
+        totalFiles: 0,
+        totalLines: 0,
+        totalCodeLines: 0,
+        totalBlankLines: 0,
+        totalCommentLines: 0,
+        byLanguage: {},
+        byExtension: {}
+      });
+      vi.spyOn(analyzer as any, 'analyzeStructure').mockResolvedValue({
+        name: 'test',
+        path: '/test',
+        type: 'directory',
+        children: []
+      });
+      vi.spyOn(analyzer as any, 'analyzeTechStack').mockResolvedValue({
+        languages: [],
+        frameworks: [],
+        dependencies: []
+      });
+      vi.spyOn(analyzer as any, 'analyzeMetadata').mockResolvedValue({
+        hasGit: false,
+        hasReadme: false,
+        hasLicense: false,
+        hasDockerfile: false,
+        hasCI: false,
+        packageManagers: []
+      });
+
+      const fileCache = (analyzer as any).fileCache;
+
+      // Add some items to cache before analysis
+      fileCache.set('test1', 'content1');
+      fileCache.set('test2', 'content2');
+      expect(fileCache.size).toBe(2);
+
+      await analyzer.analyzeLocal('/test/project');
+
+      // fileCache should be cleared after analysis
+      expect(fileCache.size).toBe(0);
+    });
+
+    it('should handle missing files gracefully in analyzeDependencyGraph', async () => {
+      vi.mocked(fs.readFile).mockRejectedValue(new Error('File not found'));
+
+      const result = await analyzer.analyzeDependencyGraph('/test/missing.js');
+
+      // Should return empty array instead of throwing
+      expect(result).toEqual([]);
+    });
+
+    it('should handle malformed package.json in detectFrameworks', async () => {
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (path.endsWith('package.json')) return '{ "name": "test" }'; // Valid but no frameworks
+        throw new Error('Not found');
+      });
+
+      const result = await (analyzer as any).detectFrameworks('/test/project');
+
+      // Should return empty array, not throw
+      expect(result).toEqual([]);
+    });
+  });
+
   // Note: calculateComplexity tests are skipped due to persistent mocking issues with vi.mock('fs').
   // The method works correctly in production code, and the core functionality (detectLanguages, analyzeFile)
   // is thoroughly tested above. calculateComplexity uses the same fs.readFile pattern as analyzeFile.
