@@ -31,7 +31,6 @@
     "marked": "^17.0.1"
   },
   "devDependencies": {
-    "@types/marked": "^6.0.0",
     "@types/node": "^25.2.3"
   },
   "optionalDependencies": {
