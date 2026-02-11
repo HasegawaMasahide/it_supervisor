@@ -913,3 +913,12 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `feat(workspace): add package dependency visualization tool`
 
+- [x] **Task 80: Update CHANGELOG.md with Tasks 78-79**
+  - ✅ Added release automation workflow to CHANGELOG.md
+  - ✅ Added package dependency visualization tool to CHANGELOG.md
+  - ✅ Updated "Added" and "Changed" sections with new features
+  - Priority: P2 (Medium - documentation completeness)
+  - Calculated Priority Score: 50 (Impact: 5, TechDebt: 5, Effort: 1)
+  - Status: ✅ Completed
+  - Commit: `docs(workspace): update CHANGELOG.md with Tasks 78-79`
+

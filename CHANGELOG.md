@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Release automation workflow** (.github/workflows/release.yml) with automated npm publishing and GitHub Releases
+- **Package dependency visualization tool** (scripts/dependency-graph.ts) generating JSON/Mermaid/DOT graphs
+- **Release script** (scripts/release.sh) for automated version bumping and tag creation
+- **Release documentation** (docs/RELEASE.md, 300+ lines) with release process and rollback procedures
 - Integration tests for logger package exports (10 tests verifying all exports)
 - Comprehensive API documentation for all 6 packages (4,675+ lines)
 - `@it-supervisor/logger` package for structured logging with configurable log levels
@@ -22,8 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSDoc documentation for all public APIs
 - `files` field to all package.json for optimized npm publishing
 - `type-check` script to package.json for TypeScript validation
+- npm scripts: `release`, `release:patch`, `release:minor`, `release:major`, `deps`, `deps:graph`
 
 ### Changed
+- **README.md architecture section** now includes Mermaid dependency diagram
 - Updated coverage thresholds to 80% (statements, lines, functions) and 70% (branches)
 - Replaced all console.log/error statements with structured logger (42 instances)
 - Updated puppeteer from ^21.6.0 to ^24.37.2 (fixes 5 high-severity vulnerabilities)
