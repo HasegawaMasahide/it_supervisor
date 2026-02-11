@@ -163,15 +163,16 @@
 
 ### Phase 7: Remaining Improvements (Discovered)
 
-- [ ] **Task 17: Further reduce any type usage in external data parsers**
-  - Create proper type definitions for ESLint output format
-  - Create proper type definitions for PHPStan output format
-  - Create proper type definitions for Gitleaks output format
-  - Create proper type definitions for PHPCS output format
-  - Create proper type definitions for Snyk output format
+- [x] **Task 17: Further reduce any type usage in external data parsers**
+  - ✅ Created type definitions for ESLint output format (ESLintResult, ESLintMessage)
+  - ✅ Created type definitions for PHPStan output format (PHPStanResult, PHPStanError, PHPStanFileData)
+  - ✅ Created type definitions for Gitleaks output format (GitleaksFinding)
+  - ✅ Created type definitions for PHPCS output format (PHPCSResult, PHPCSFile)
+  - ✅ Created type definitions for Snyk output format (SnykResult, SnykVulnerability)
+  - ✅ Updated all parser functions to use proper types instead of any
+  - ✅ Fixed type-safety issues with optional properties (using ?? null, type guards)
   - Priority: P2 (Medium - type safety)
-  - Expected outcome: Reduce remaining 26 warnings to ~10
-  - Effort: Medium (requires research into each tool's output format)
+  - Status: ✅ Completed (eliminated 6 any usages in parser functions)
   - Commit: `refactor(static-analyzer): add type definitions for external tool outputs`
 
 - [x] **Task 18: Add test coverage reporting**

@@ -20,6 +20,130 @@ const execFileAsync = promisify(execFile);
 // デフォルトのタイムアウト（ミリ秒）
 const DEFAULT_TIMEOUT = 300000; // 5分
 
+// 外部ツール出力の型定義
+
+interface ESLintMessage {
+  ruleId?: string;
+  severity: number;
+  message: string;
+  line: number;
+  column: number;
+  endLine?: number;
+  endColumn?: number;
+  fix?: {
+    text: string;
+    range: [number, number];
+  };
+}
+
+interface ESLintResult {
+  filePath: string;
+  messages: ESLintMessage[];
+  errorCount?: number;
+  warningCount?: number;
+}
+
+interface PHPStanError {
+  message: string;
+  line: number;
+  identifier?: string;
+  tip?: string;
+  ignorable?: boolean;
+}
+
+interface PHPStanFileData {
+  errors: PHPStanError[];
+  messages?: string[];
+}
+
+interface PHPStanResult {
+  totals?: {
+    errors: number;
+    file_errors: number;
+  };
+  files?: Record<string, PHPStanFileData>;
+  errors?: (string | { message: string })[];
+}
+
+interface PHPCSFile {
+  errors: number;
+  warnings: number;
+  messages: Array<{
+    message: string;
+    source: string;
+    severity: number;
+    type: 'ERROR' | 'WARNING';
+    line: number;
+    column: number;
+    fixable?: boolean;
+  }>;
+}
+
+interface PHPCSResult {
+  totals?: {
+    errors: number;
+    warnings: number;
+    fixable: number;
+  };
+  files?: Record<string, PHPCSFile>;
+}
+
+interface SnykVulnerability {
+  id: string;
+  title: string;
+  severity: string;
+  packageName?: string;
+  version?: string;
+  from?: string[];
+  upgradePath?: unknown[];
+  isUpgradable?: boolean;
+  isPatchable?: boolean;
+  CVSSv3?: string;
+  credit?: string[];
+  description?: string;
+  fixedIn?: string[];
+  identifiers?: {
+    CVE?: string[];
+    CWE?: string[];
+  };
+  url?: string;
+}
+
+interface SnykResult {
+  vulnerabilities?: SnykVulnerability[];
+  error?: string;
+  ok?: boolean;
+}
+
+interface GitleaksMatch {
+  StartLine?: number;
+  StartColumn?: number;
+  EndLine?: number;
+  EndColumn?: number;
+}
+
+interface GitleaksFinding {
+  Description?: string;
+  RuleID?: string;
+  Match?: string;
+  Secret?: string;
+  File?: string;
+  SymlinkFile?: string;
+  Commit?: string;
+  Entropy?: number;
+  Author?: string;
+  Email?: string;
+  Date?: string;
+  Message?: string;
+  Tags?: string[];
+  Line?: string;
+  Fingerprint?: string;
+  StartLine?: number;
+  StartColumn?: number;
+  EndLine?: number;
+  EndColumn?: number;
+}
+
 /**
  * 静的解析オーケストレータークラス
  */
@@ -236,9 +360,9 @@ export class StaticAnalyzer {
       });
 
       // 結果をパース
-      let result;
+      let result: PHPStanResult;
       try {
-        result = JSON.parse(stdout || '{"files":{},"errors":[]}');
+        result = JSON.parse(stdout || '{"files":{},"errors":[]}') as PHPStanResult;
       } catch (parseError) {
         console.error('Failed to parse PHPStan output:', parseError);
         return [];
@@ -254,12 +378,12 @@ export class StaticAnalyzer {
   /**
    * PHPStan結果をパース
    */
-  private parsePHPStanResults(result: any, __repoPath: string): AnalysisIssue[] {
+  private parsePHPStanResults(result: PHPStanResult, __repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
     // エラー形式: { files: { "path/file.php": { errors: [{ message, line, ... }] } } }
     if (result.files) {
-      for (const [filePath, fileData] of Object.entries(result.files as Record<string, any>)) {
+      for (const [filePath, fileData] of Object.entries(result.files)) {
         if (!fileData.errors) continue;
 
         for (const error of fileData.errors) {
@@ -306,7 +430,7 @@ export class StaticAnalyzer {
   /**
    * PHPStanの重要度をマッピング
    */
-  private mapPHPStanSeverity(error: any): Severity {
+  private mapPHPStanSeverity(error: PHPStanError): Severity {
     const message = error.message?.toLowerCase() || '';
 
     // セキュリティ関連は高優先度
@@ -396,9 +520,9 @@ export class StaticAnalyzer {
       });
 
       // 結果をパース
-      let result;
+      let result: PHPCSResult;
       try {
-        result = JSON.parse(stdout || '{"files":{},"totals":{}}');
+        result = JSON.parse(stdout || '{"files":{},"totals":{}}') as PHPCSResult;
       } catch (parseError) {
         console.error('Failed to parse PHPCS output:', parseError);
         return [];
@@ -414,7 +538,7 @@ export class StaticAnalyzer {
   /**
    * PHPCS結果をパース
    */
-  private parsePHPCSResults(result: any, _repoPath: string): AnalysisIssue[] {
+  private parsePHPCSResults(result: PHPCSResult, _repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
     if (!result.files) return issues;
@@ -521,9 +645,9 @@ export class StaticAnalyzer {
       });
 
       // 結果をパース
-      let results;
+      let results: ESLintResult[];
       try {
-        results = JSON.parse(stdout || '[]');
+        results = JSON.parse(stdout || '[]') as ESLintResult[];
       } catch (parseError) {
         console.error('Failed to parse ESLint output:', parseError);
         return [];
@@ -539,7 +663,7 @@ export class StaticAnalyzer {
   /**
    * ESLint結果をパース
    */
-  private parseESLintResults(results: any[], _repoPath: string): AnalysisIssue[] {
+  private parseESLintResults(results: ESLintResult[], _repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
     for (const result of results) {
@@ -547,7 +671,7 @@ export class StaticAnalyzer {
 
       for (const message of result.messages) {
         const severity = this.mapESLintSeverity(message.severity);
-        const category = this.categorizeESLintRule(message.ruleId);
+        const category = this.categorizeESLintRule(message.ruleId ?? null);
 
         issues.push({
           id: randomUUID(),
@@ -645,9 +769,9 @@ export class StaticAnalyzer {
       });
 
       // 結果をパース
-      let result;
+      let result: SnykResult;
       try {
-        result = JSON.parse(stdout || '{}');
+        result = JSON.parse(stdout || '{}') as SnykResult;
       } catch (parseError) {
         console.error('Failed to parse Snyk output:', parseError);
         return [];
@@ -663,7 +787,7 @@ export class StaticAnalyzer {
   /**
    * Snyk結果をパース
    */
-  private parseSnykResults(result: any, _repoPath: string): AnalysisIssue[] {
+  private parseSnykResults(result: SnykResult, _repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
     if (!result.vulnerabilities) return issues;
@@ -680,7 +804,7 @@ export class StaticAnalyzer {
         message: `${vuln.title} in ${vuln.packageName}@${vuln.version}`,
         file: 'package.json',
         cve: vuln.identifiers?.CVE || [],
-        references: [vuln.url].filter(Boolean),
+        references: [vuln.url].filter((url): url is string => Boolean(url)),
         fix: vuln.fixedIn && vuln.fixedIn.length > 0 ? {
           available: true,
           description: `Upgrade to ${vuln.packageName}@${vuln.fixedIn[0]}`
@@ -742,9 +866,9 @@ export class StaticAnalyzer {
       // 結果ファイルを読み込み
       const reportContent = await fs.readFile(reportPath, 'utf-8').catch(() => '[]');
 
-      let results;
+      let results: GitleaksFinding[];
       try {
-        results = JSON.parse(reportContent);
+        results = JSON.parse(reportContent) as GitleaksFinding[];
       } catch (parseError) {
         console.error('Failed to parse Gitleaks output:', parseError);
         return [];
@@ -765,7 +889,7 @@ export class StaticAnalyzer {
   /**
    * Gitleaks結果をパース
    */
-  private parseGitleaksResults(results: any[], _repoPath: string): AnalysisIssue[] {
+  private parseGitleaksResults(results: GitleaksFinding[], _repoPath: string): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
     for (const finding of results) {
@@ -776,7 +900,7 @@ export class StaticAnalyzer {
         category: IssueCategory.Security,
         rule: finding.RuleID || 'secret-detected',
         message: `${finding.Description || 'Secret detected'}: ${finding.Match}`,
-        file: finding.File,
+        file: finding.File ?? 'unknown',
         line: finding.StartLine,
         snippet: finding.Secret,
         references: finding.Tags ? finding.Tags.map((tag: string) => `Tag: ${tag}`) : undefined
