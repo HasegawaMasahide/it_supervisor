@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Quality metrics dashboard** (scripts/quality-dashboard.ts) for comprehensive project health monitoring with JSON/Markdown reports, health score calculation (0-100), and actionable recommendations
 - **Architecture Decision Records (ADRs)** (docs/adr/, 4 ADRs) documenting key design decisions:
   - ADR-001: モノレポ構造の採用 (Monorepo structure with npm workspaces)
   - ADR-002: 専用ログパッケージの作成 (Dedicated logger package creation)
   - ADR-003: テスト戦略とカバレッジ目標 (Test strategy and coverage goals)
   - ADR-004: CI/CDアプローチ (CI/CD approach with GitHub Actions)
 - **Git hooks documentation** in CONTRIBUTING.md with pre-commit workflow, troubleshooting, and emergency bypass instructions
+- **Autonomous agent session summary** (docs/AUTONOMOUS_SESSION_2026-02-11.md) documenting self-directed improvement tasks and outcomes
 - **API Integration Guide** (docs/API_INTEGRATION_GUIDE.md, 1,200+ lines) with 5 complete E2E workflow examples
   - Full repository audit pipeline (repo-analyzer → static-analyzer → issue-manager → metrics-model → report-generator)
   - Security audit workflow with CI/CD integration
@@ -38,9 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSDoc documentation for all public APIs
 - `files` field to all package.json for optimized npm publishing
 - `type-check` script to package.json for TypeScript validation
-- npm scripts: `release`, `release:patch`, `release:minor`, `release:major`, `deps`, `deps:graph`
+- npm scripts: `release`, `release:patch`, `release:minor`, `release:major`, `deps`, `deps:graph`, `quality`, `quality:json`, `quality:md`
 
 ### Changed
+- **Progress tracking** - Updated progress.md with Tasks 96-99 completion status (Git hooks documentation, ADRs creation, quality dashboard, autonomous session summary)
 - **Logging consistency** - Replaced 310 console.* calls with structured logger across examples/, benchmarks/, and tests/ (Task 91)
 - **Package scripts** - Removed obsolete `"test": "node --test"` from 6 individual packages (tests now exclusively run from workspace root using vitest)
 - **GitHub Actions CI workflow** - Created reusable Composite Action for Puppeteer setup (`.github/actions/setup-puppeteer/action.yml`), reduced duplication by ~40 lines
