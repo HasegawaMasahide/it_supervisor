@@ -4,3 +4,4 @@ coverage
 *.config.ts
 *.config.js
 examples
+benchmarks

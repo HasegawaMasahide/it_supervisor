@@ -38,7 +38,11 @@
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
     "clean": "npm run clean --workspaces",
-    "prepare": "husky"
+    "prepare": "husky",
+    "benchmark": "npm run benchmark:repo && npm run benchmark:analyzer && npm run benchmark:report",
+    "benchmark:repo": "tsx benchmarks/repo-analyzer.bench.ts",
+    "benchmark:analyzer": "tsx benchmarks/static-analyzer.bench.ts",
+    "benchmark:report": "tsx benchmarks/report-generator.bench.ts"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",
@@ -48,6 +52,7 @@
     "eslint": "^8.55.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3",
     "vitest": "^4.0.18"
   },

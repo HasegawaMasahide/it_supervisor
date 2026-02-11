@@ -1,0 +1,137 @@
+import { StaticAnalyzer, AnalyzerTool } from '../packages/static-analyzer/src/analyzer.js';
+import { performance } from 'perf_hooks';
+import { promises as fs } from 'fs';
+import * as path from 'path';
+
+interface BenchmarkResult {
+  name: string;
+  duration: number;
+  iterations: number;
+  avgDuration: number;
+}
+
+async function createTestProject(complexity: 'simple' | 'complex'): Promise<string> {
+  const tmpDir = path.join(__dirname, '../.tmp/benchmark-project');
+  await fs.mkdir(tmpDir, { recursive: true });
+
+  const fileCount = complexity === 'simple' ? 5 : 50;
+
+  // Create package.json
+  await fs.writeFile(
+    path.join(tmpDir, 'package.json'),
+    JSON.stringify({
+      name: 'benchmark-project',
+      version: '1.0.0',
+      dependencies: {},
+    }, null, 2)
+  );
+
+  // Create .eslintrc.json
+  await fs.writeFile(
+    path.join(tmpDir, '.eslintrc.json'),
+    JSON.stringify({
+      extends: ['eslint:recommended'],
+      parserOptions: {
+        ecmaVersion: 2020,
+        sourceType: 'module',
+      },
+      env: {
+        node: true,
+        es6: true,
+      },
+    }, null, 2)
+  );
+
+  // Create test files with intentional ESLint issues
+  for (let i = 0; i < fileCount; i++) {
+    const content = `
+// Intentional ESLint issues for benchmarking
+var unused = ${i}; // no-unused-vars
+const x = ${i}
+const y = x * 2; // missing semicolon
+if (x == y) { // eqeqeq
+  console.log('test')
+}
+`;
+    await fs.writeFile(path.join(tmpDir, `file${i}.js`), content);
+  }
+
+  return tmpDir;
+}
+
+async function benchmark(
+  name: string,
+  fn: () => Promise<void>,
+  iterations: number = 3
+): Promise<BenchmarkResult> {
+  const durations: number[] = [];
+
+  // Warm-up
+  await fn();
+
+  for (let i = 0; i < iterations; i++) {
+    const start = performance.now();
+    await fn();
+    const end = performance.now();
+    durations.push(end - start);
+  }
+
+  const totalDuration = durations.reduce((a, b) => a + b, 0);
+  const avgDuration = totalDuration / iterations;
+
+  return {
+    name,
+    duration: totalDuration,
+    iterations,
+    avgDuration,
+  };
+}
+
+async function runBenchmarks() {
+  console.log('=== Static Analyzer Benchmarks ===\n');
+
+  const analyzer = new StaticAnalyzer();
+  const results: BenchmarkResult[] = [];
+
+  // Benchmark 1: Simple project with ESLint
+  const simpleProject = await createTestProject('simple');
+  const simpleResult = await benchmark(
+    'Analyze simple project (5 files, ESLint only)',
+    async () => {
+      await analyzer.analyze(simpleProject, {
+        tools: [AnalyzerTool.ESLint],
+        excludePatterns: ['**/node_modules/**'],
+      });
+    },
+    3
+  );
+  results.push(simpleResult);
+
+  // Benchmark 2: Complex project with ESLint
+  const complexProject = await createTestProject('complex');
+  const complexResult = await benchmark(
+    'Analyze complex project (50 files, ESLint only)',
+    async () => {
+      await analyzer.analyze(complexProject, {
+        tools: [AnalyzerTool.ESLint],
+        excludePatterns: ['**/node_modules/**'],
+      });
+    },
+    2
+  );
+  results.push(complexResult);
+
+  // Display results
+  console.log('Results:\n');
+  results.forEach((result) => {
+    console.log(`${result.name}`);
+    console.log(`  Iterations: ${result.iterations}`);
+    console.log(`  Total: ${result.duration.toFixed(2)}ms`);
+    console.log(`  Average: ${result.avgDuration.toFixed(2)}ms\n`);
+  });
+
+  // Cleanup
+  await fs.rm(path.join(__dirname, '../.tmp'), { recursive: true, force: true });
+}
+
+runBenchmarks().catch(console.error);
