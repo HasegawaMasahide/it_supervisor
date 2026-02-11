@@ -900,3 +900,16 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `ci: add release automation workflow and scripts`
 
+- [x] **Task 79: Add package dependency visualization**
+  - ✅ Created scripts/dependency-graph.ts for analyzing monorepo dependencies
+  - ✅ Generates dependency graphs in 3 formats: JSON, Mermaid, DOT (GraphViz)
+  - ✅ Detects circular dependencies using DFS algorithm
+  - ✅ Added npm scripts: deps, deps:graph
+  - ✅ Updated README.md with Mermaid dependency diagram
+  - ✅ No circular dependencies detected in current codebase
+  - ✅ Dependency statistics: 7 packages, 10 runtime dependencies, 0 dev dependencies
+  - Priority: P2 (Medium - architecture visibility)
+  - Calculated Priority Score: 54 (Impact: 6, TechDebt: 5, Effort: 2)
+  - Status: ✅ Completed
+  - Commit: `feat(workspace): add package dependency visualization tool`
+

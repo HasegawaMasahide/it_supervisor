@@ -180,15 +180,29 @@ console.log('Healthy:', health.healthy);
 
 ### パッケージ依存関係
 
+```mermaid
+graph TD
+  _it_supervisor_issue_manager["issue-manager<br/>0.1.0"]
+  _it_supervisor_logger["logger<br/>0.1.0"]
+  _it_supervisor_metrics_model["metrics-model<br/>0.1.0"]
+  _it_supervisor_repo_analyzer["repo-analyzer<br/>0.1.0"]
+  _it_supervisor_report_generator["report-generator<br/>0.1.0"]
+  _it_supervisor_sandbox_builder["sandbox-builder<br/>0.1.0"]
+  _it_supervisor_static_analyzer["static-analyzer<br/>0.1.0"]
+
+  _it_supervisor_issue_manager --> _it_supervisor_metrics_model
+  _it_supervisor_metrics_model --> _it_supervisor_logger
+  _it_supervisor_repo_analyzer --> _it_supervisor_logger
+  _it_supervisor_repo_analyzer --> _it_supervisor_metrics_model
+  _it_supervisor_report_generator --> _it_supervisor_issue_manager
+  _it_supervisor_report_generator --> _it_supervisor_logger
+  _it_supervisor_report_generator --> _it_supervisor_metrics_model
+  _it_supervisor_sandbox_builder --> _it_supervisor_logger
+  _it_supervisor_static_analyzer --> _it_supervisor_logger
+  _it_supervisor_static_analyzer --> _it_supervisor_metrics_model
 ```
-metrics-model (基盤レイヤー)
-    ↓
-issue-manager ← report-generator
-    ↓               ↓
-repo-analyzer   static-analyzer
-                    ↓
-            sandbox-builder (独立)
-```
+
+> 💡 **依存関係を生成**: `npm run deps` を実行すると、最新の依存関係グラフを生成できます。
 
 ### 設計原則
 
