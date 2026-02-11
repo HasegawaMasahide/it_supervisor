@@ -287,6 +287,36 @@
   - Tests: 58 → 73 (+15 tests, 62 passed, 11 skipped)
   - Commit: `test(repo-analyzer): improve test coverage to 65% (+11%)`
 
+### Phase 9: Further Test Coverage Improvements (Discovered)
+
+- [ ] **Task 29: Improve test coverage for SandboxController**
+  - Current coverage: 72.87% statements (builder.ts includes both SandboxBuilder and SandboxController)
+  - Expand controller.test.ts to cover more methods (up, down, health, logs, metrics, snapshot operations)
+  - Target coverage: >80% statements
+  - Priority: P2 (Medium - test coverage)
+  - Calculated Priority Score: 62
+  - Effort: Medium
+  - Commit: `test(sandbox-builder): improve test coverage for SandboxController`
+
+## Summary
+
+### Test Coverage Overview (as of 2026-02-11)
+
+| Package | Statements | Branches | Functions | Status |
+|---------|-----------|----------|-----------|--------|
+| **issue-manager** | 95.06% | 89.7% | 97.22% | ✅ Excellent |
+| **metrics-model** | 96.29% | 82.11% | 92.85% | ✅ Excellent |
+| **report-generator** | 89.03% | 83.72% | 86.11% | ✅ Good |
+| **sandbox-builder** | 72.87% | 75% | 67.56% | ⚠️ Acceptable |
+| **static-analyzer** | 69.28% | 58.53% | 76.92% | ⚠️ Acceptable |
+| **repo-analyzer** | 65.5% | 68.08% | 67.39% | ⚠️ Acceptable |
+| **Overall** | **78.52%** | **73.58%** | **80.72%** | ✅ Good |
+
+### Tests Count
+- **Total tests**: 341 passed, 11 skipped (352 total)
+- **Test files**: 7
+- **New tests added**: 104 (56 issue-manager + 48 metrics-model)
+
 ---
 
 ## Investigation Log
