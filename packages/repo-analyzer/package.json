@@ -24,6 +24,7 @@
   "author": "IT Supervisor Team",
   "license": "MIT",
   "dependencies": {
+    "@it-supervisor/logger": "^0.1.0",
     "@it-supervisor/metrics-model": "^0.1.0",
     "simple-git": "^3.21.0"
   },

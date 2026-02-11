@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
+import { createLogger, LogLevel } from '@it-supervisor/logger';
 import {
   AnalysisResult,
   AnalysisOptions,
@@ -16,6 +17,9 @@ import {
 } from './types.js';
 
 const execFileAsync = promisify(execFile);
+const logger = createLogger('static-analyzer', {
+  level: process.env.LOG_LEVEL === 'debug' ? LogLevel.DEBUG : LogLevel.WARN,
+});
 
 // デフォルトのタイムアウト（ミリ秒）
 const DEFAULT_TIMEOUT = 300000; // 5分
@@ -372,13 +376,13 @@ export class StaticAnalyzer {
       try {
         result = JSON.parse(stdout || '{"files":{},"errors":[]}') as PHPStanResult;
       } catch (parseError) {
-        console.error('Failed to parse PHPStan output:', parseError);
+        logger.error('Failed to parse PHPStan output:', parseError);
         return [];
       }
 
       return this.parsePHPStanResults(result, repoPath);
     } catch (error) {
-      console.error('PHPStan execution failed:', error);
+      logger.error('PHPStan execution failed:', error);
       return [];
     }
   }
@@ -532,13 +536,13 @@ export class StaticAnalyzer {
       try {
         result = JSON.parse(stdout || '{"files":{},"totals":{}}') as PHPCSResult;
       } catch (parseError) {
-        console.error('Failed to parse PHPCS output:', parseError);
+        logger.error('Failed to parse PHPCS output:', parseError);
         return [];
       }
 
       return this.parsePHPCSResults(result, repoPath);
     } catch (error) {
-      console.error('PHP_CodeSniffer execution failed:', error);
+      logger.error('PHP_CodeSniffer execution failed:', error);
       return [];
     }
   }
@@ -657,13 +661,13 @@ export class StaticAnalyzer {
       try {
         results = JSON.parse(stdout || '[]') as ESLintResult[];
       } catch (parseError) {
-        console.error('Failed to parse ESLint output:', parseError);
+        logger.error('Failed to parse ESLint output:', parseError);
         return [];
       }
 
       return this.parseESLintResults(results, repoPath);
     } catch (error) {
-      console.error('ESLint execution failed:', error);
+      logger.error('ESLint execution failed:', error);
       return [];
     }
   }
@@ -781,13 +785,13 @@ export class StaticAnalyzer {
       try {
         result = JSON.parse(stdout || '{}') as SnykResult;
       } catch (parseError) {
-        console.error('Failed to parse Snyk output:', parseError);
+        logger.error('Failed to parse Snyk output:', parseError);
         return [];
       }
 
       return this.parseSnykResults(result, repoPath);
     } catch (error) {
-      console.error('Snyk execution failed:', error);
+      logger.error('Snyk execution failed:', error);
       return [];
     }
   }
@@ -878,13 +882,13 @@ export class StaticAnalyzer {
       try {
         results = JSON.parse(reportContent) as GitleaksFinding[];
       } catch (parseError) {
-        console.error('Failed to parse Gitleaks output:', parseError);
+        logger.error('Failed to parse Gitleaks output:', parseError);
         return [];
       }
 
       return this.parseGitleaksResults(results, repoPath);
     } catch (error) {
-      console.error('Gitleaks execution failed:', error);
+      logger.error('Gitleaks execution failed:', error);
       return [];
     } finally {
       // レポートファイルを確実に削除

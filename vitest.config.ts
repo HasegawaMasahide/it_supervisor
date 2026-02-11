@@ -31,6 +31,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@it-supervisor/logger': '/workspace/packages/logger/src/index.ts',
       '@it-supervisor/metrics-model': '/workspace/packages/metrics-model/src/index.ts',
       '@it-supervisor/repo-analyzer': '/workspace/packages/repo-analyzer/src/index.ts',
       '@it-supervisor/static-analyzer': '/workspace/packages/static-analyzer/src/index.ts',

@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import { writeFileSync } from 'fs';
+import { createLogger, LogLevel } from '@it-supervisor/logger';
 import {
   MetricRecord,
   MetricQuery,
@@ -11,6 +12,10 @@ import {
   MetricCategory,
   MetricValue
 } from './types.js';
+
+const logger = createLogger('metrics-model', {
+  level: process.env.LOG_LEVEL === 'debug' ? LogLevel.DEBUG : LogLevel.INFO,
+});
 
 /**
  * メトリクスデータベースクラス
@@ -492,7 +497,7 @@ export class MetricsDatabase {
    */
   backup(backupPath: string): void {
     this.db.backup(backupPath).then(() => {
-      console.log(`Backup created at ${backupPath}`);
+      logger.info(`Backup created at ${backupPath}`);
     }).catch(error => {
       throw new Error(`Backup failed: ${error.message}`);
     });

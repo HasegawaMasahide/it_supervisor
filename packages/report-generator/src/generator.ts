@@ -3,6 +3,7 @@ import * as path from 'path';
 import { marked } from 'marked';
 import * as http from 'http';
 import type { IncomingMessage, ServerResponse } from 'http';
+import { createLogger, LogLevel } from '@it-supervisor/logger';
 import {
   Report,
   ReportType,
@@ -11,6 +12,10 @@ import {
   TableOfContents,
   TemplateVariables
 } from './types.js';
+
+const logger = createLogger('report-generator', {
+  level: process.env.LOG_LEVEL === 'debug' ? LogLevel.DEBUG : LogLevel.INFO,
+});
 
 /**
  * レポートジェネレータークラス
@@ -182,13 +187,13 @@ export class ReportGenerator {
       });
 
       await browser.close();
-      console.log(`PDF generated: ${outputPath}`);
+      logger.info(`PDF generated: ${outputPath}`);
     } catch (error) {
-      console.error('PDF generation failed:', error);
+      logger.error('PDF generation failed:', error);
       // フォールバック: HTMLを生成
       const html = this.generateHTML(report);
       await fs.writeFile(outputPath.replace('.pdf', '.html'), html, 'utf-8');
-      console.log(`Note: PDF generation failed. HTML saved to ${outputPath.replace('.pdf', '.html')}`);
+      logger.info(`Note: PDF generation failed. HTML saved to ${outputPath.replace('.pdf', '.html')}`);
     }
   }
 
@@ -689,8 +694,8 @@ export class ReportGenerator {
     });
 
     server.listen(port, () => {
-      console.log(`レポートプレビューサーバー起動: http://localhost:${port}`);
-      console.log('Ctrl+Cで停止します');
+      logger.info(`レポートプレビューサーバー起動: http://localhost:${port}`);
+      logger.info('Ctrl+Cで停止します');
     });
   }
 }

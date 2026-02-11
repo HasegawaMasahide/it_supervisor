@@ -27,6 +27,7 @@
   "author": "IT Supervisor Team",
   "license": "MIT",
   "dependencies": {
+    "@it-supervisor/logger": "^0.1.0",
     "js-yaml": "^4.1.1"
   },
   "devDependencies": {

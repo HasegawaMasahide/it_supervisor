@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { simpleGit, SimpleGit } from 'simple-git';
+import { createLogger, LogLevel } from '@it-supervisor/logger';
 import {
   RepositoryAnalysisResult,
   AnalysisOptions,
@@ -14,6 +15,10 @@ import {
   Contributor,
   LanguageStats
 } from './types.js';
+
+const logger = createLogger('repo-analyzer', {
+  level: process.env.LOG_LEVEL === 'debug' ? LogLevel.DEBUG : LogLevel.WARN,
+});
 
 /**
  * リポジトリ解析クラス
@@ -456,7 +461,7 @@ export class RepositoryAnalyzer {
         tags: tags.all
       };
     } catch (error) {
-      console.error('Failed to analyze git history:', error);
+      logger.error('Failed to analyze git history:', error);
       return undefined;
     }
   }
@@ -747,7 +752,7 @@ export class RepositoryAnalyzer {
         try {
           packageJson = JSON.parse(content);
         } catch (parseError) {
-          console.error(`Failed to parse package.json at ${packageJsonPath}:`, parseError);
+          logger.error(`Failed to parse package.json at ${packageJsonPath}:`, parseError);
           return entryPoints;
         }
 
@@ -796,7 +801,7 @@ export class RepositoryAnalyzer {
         try {
           composerJson = JSON.parse(content);
         } catch (parseError) {
-          console.error(`Failed to parse composer.json at ${composerJsonPath}:`, parseError);
+          logger.error(`Failed to parse composer.json at ${composerJsonPath}:`, parseError);
           return entryPoints;
         }
         if (composerJson.autoload?.files) {

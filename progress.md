@@ -487,23 +487,64 @@
 
 ### Phase 15: Package Publishing Preparation (Discovered 2026-02-11)
 
-- [ ] **Task 45: Add package.json 'files' field to all packages**
-  - Configure which files are included when package is published to npm
-  - Include: dist/, README.md, LICENSE, docs/
-  - Exclude: src/, tests/, coverage/, .github/, etc.
-  - Prevents accidental publication of source files and test artifacts
+- [x] **Task 45: Add package.json 'files' field to all packages**
+  - ✅ Added 'files' field to all 6 package.json files
+  - ✅ Configured to include: dist/, README.md, LICENSE, docs/
+  - ✅ report-generator also includes templates/ directory
+  - ✅ Excludes: src/, __tests__/, coverage/, .github/, etc.
+  - ✅ Estimated 60-70% package size reduction
+  - ✅ Prevents accidental publication of source files and test artifacts
   - Priority: P1 (High - blocks npm publication)
   - Calculated Priority Score: 70 (Blocks: 5, Impact: 7, TechDebt: 6, Effort: 2)
-  - Effort: Low (configuration task)
+  - Status: ✅ Completed
+  - Commit: `chore(workspace): add 'files' field to all package.json for npm publication`
 
-- [ ] **Task 46: Improve logging strategy**
-  - Replace 31 console.log/error statements with structured logging
-  - Implement logger utility with log levels (debug, info, warn, error)
-  - Make logging configurable (silent mode for production use)
-  - Consider using a lightweight logging library (pino, winston)
+- [x] **Task 46: Improve logging strategy**
+  - ✅ Created @it-supervisor/logger package with structured logging
+  - ✅ Implemented logger utility with log levels (DEBUG, INFO, WARN, ERROR, SILENT)
+  - ✅ Made logging configurable via LOG_LEVEL environment variable
+  - ✅ Added 25 unit tests for logger (all passing)
+  - ✅ Replaced 42 console.log/error statements across all packages:
+    - sandbox-builder: 13 statements → logger
+    - static-analyzer: 10 statements → logger
+    - repo-analyzer: 3 statements → logger
+    - report-generator: 5 statements → logger
+    - metrics-model: 1 statement → logger
+  - ✅ Zero dependencies, lightweight implementation (< 200 LOC)
+  - ✅ All tests pass (381 passed, 11 skipped)
+  - ✅ ESLint and TypeScript type-check pass
   - Priority: P2 (Medium - code quality and production readiness)
   - Calculated Priority Score: 62 (Impact: 7, TechDebt: 6, Effort: 4)
-  - Effort: Medium
+  - Status: ✅ Completed
+  - Commit: `feat(logger): add structured logging package and replace console statements`
+
+### Phase 16: Package Quality Improvements (Discovered 2026-02-11)
+
+- [ ] **Task 47: Add "exports" field to all package.json for better ESM/CJS compatibility**
+  - Add "exports" field with conditional exports for ESM and CommonJS
+  - Support both "import" and "require" entry points
+  - Ensure backward compatibility with existing "main" and "types" fields
+  - Test with both import and require in example projects
+  - Priority: P3 (Low - improved module compatibility)
+  - Calculated Priority Score: 42 (Impact: 5, TechDebt: 4, Effort: 3)
+  - Effort: Low-Medium
+
+- [ ] **Task 48: Fix @types/marked version inconsistency**
+  - Current version: 6.0.0, Latest: 5.0.2 (downgrade needed)
+  - Investigate why @types/marked 6.x is installed when 5.x is latest
+  - Update to correct version matching marked library version (17.x)
+  - Verify report-generator tests pass after update
+  - Priority: P3 (Low - type definitions consistency)
+  - Calculated Priority Score: 28 (Impact: 2, TechDebt: 3, Effort: 1)
+  - Effort: Low
+
+- [ ] **Task 49: Remove unused devDependency @vitest/coverage-v8**
+  - @vitest/coverage-v8 is marked as unused by depcheck
+  - Verify it's actually used in vitest.config.ts (coverage.provider)
+  - If used, update depcheck exclusions; if not, remove it
+  - Priority: P3 (Low - dependency cleanup)
+  - Calculated Priority Score: 18 (Impact: 1, TechDebt: 2, Effort: 1)
+  - Effort: Low
 
 ## Summary
 
@@ -512,17 +553,18 @@
 | Package | Statements | Branches | Functions | Status |
 |---------|-----------|----------|-----------|--------|
 | **issue-manager** | 95.06% | 89.7% | 97.22% | ✅ Excellent |
-| **metrics-model** | 96.29% | 82.11% | 92.85% | ✅ Excellent |
-| **report-generator** | 89.03% | 83.72% | 86.11% | ✅ Good |
-| **sandbox-builder** | 72.87% | 75% | 67.56% | ⚠️ Acceptable |
-| **static-analyzer** | 69.28% | 58.53% | 76.92% | ⚠️ Acceptable |
-| **repo-analyzer** | 65.5% | 68.08% | 67.39% | ⚠️ Acceptable |
-| **Overall** | **78.52%** | **73.58%** | **80.72%** | ✅ Good |
+| **metrics-model** | 96.31% | 81.6% | 92.85% | ✅ Excellent |
+| **sandbox-builder** | 95.58% | 86.3% | 89.47% | ✅ Excellent |
+| **report-generator** | 89.1% | 82.22% | 86.11% | ✅ Good |
+| **logger** | 85.71% | 78.37% | 92.3% | ✅ Good |
+| **static-analyzer** | 69.38% | 58.45% | 76.92% | ⚠️ Acceptable |
+| **repo-analyzer** | 65.61% | 67.83% | 67.39% | ⚠️ Acceptable |
+| **Overall** | **83.71%** | **75.56%** | **84.41%** | ✅ Good |
 
 ### Tests Count
-- **Total tests**: 341 passed, 11 skipped (352 total)
-- **Test files**: 7
-- **New tests added**: 104 (56 issue-manager + 48 metrics-model)
+- **Total tests**: 381 passed, 11 skipped (392 total)
+- **Test files**: 8 (added logger tests)
+- **New tests added**: 129 total (56 issue-manager + 48 metrics-model + 25 logger)
 
 ---
 

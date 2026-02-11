@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as yaml from 'js-yaml';
+import { createLogger, LogLevel } from '@it-supervisor/logger';
 import {
   DetectionResult,
   EnvironmentType,
@@ -16,6 +17,11 @@ import {
   Snapshot,
   ServiceHealth
 } from './types.js';
+
+// Create logger instance
+const logger = createLogger('sandbox-builder', {
+  level: process.env.LOG_LEVEL === 'debug' ? LogLevel.DEBUG : LogLevel.INFO,
+});
 
 /**
  * サンドボックスビルダークラス
@@ -672,7 +678,7 @@ export class SandboxController {
    */
   async up(): Promise<void> {
     try {
-      console.log('Starting sandbox environment...');
+      logger.info('Starting sandbox environment...');
       const command = 'docker-compose up -d';
       await this.execAsync(command, { cwd: this.sandboxPath });
 
@@ -681,7 +687,7 @@ export class SandboxController {
         await this.save();
       }
 
-      console.log('Sandbox environment started successfully');
+      logger.info('Sandbox environment started successfully');
     } catch (error) {
       throw new Error(`Failed to start sandbox: ${error}`);
     }
@@ -692,7 +698,7 @@ export class SandboxController {
    */
   async down(): Promise<void> {
     try {
-      console.log('Stopping sandbox environment...');
+      logger.info('Stopping sandbox environment...');
       const command = 'docker-compose down';
       await this.execAsync(command, { cwd: this.sandboxPath });
 
@@ -701,7 +707,7 @@ export class SandboxController {
         await this.save();
       }
 
-      console.log('Sandbox environment stopped successfully');
+      logger.info('Sandbox environment stopped successfully');
     } catch (error) {
       throw new Error(`Failed to stop sandbox: ${error}`);
     }
@@ -936,7 +942,7 @@ export class SandboxController {
    */
   async restoreSnapshot(name: string): Promise<void> {
     try {
-      console.log(`Restoring snapshot: ${name}`);
+      logger.info(`Restoring snapshot: ${name}`);
 
       // スナップショットディレクトリを検索
       const snapshotsBaseDir = path.join(this.sandboxPath, 'snapshots');
@@ -967,7 +973,7 @@ export class SandboxController {
       const snapshotMetaContent = await fs.readFile(snapshotMetaPath, 'utf-8');
       const snapshotMeta = JSON.parse(snapshotMetaContent) as Snapshot;
 
-      console.log(`Found snapshot: ${snapshotMeta.name} (${snapshotMeta.description})`);
+      logger.info(`Found snapshot: ${snapshotMeta.name} (${snapshotMeta.description})`);
 
       // docker-compose.ymlをパースしてボリューム名を取得
       const composeFilePath = path.join(this.sandboxPath, 'docker-compose.yml');
@@ -981,11 +987,11 @@ export class SandboxController {
       }
 
       // 環境を停止
-      console.log('Stopping environment...');
+      logger.info('Stopping environment...');
       await this.down();
 
       // 各ボリュームを復元
-      console.log('Restoring volumes...');
+      logger.info('Restoring volumes...');
       for (const volumeName of volumes) {
         const backupFile = path.join(snapshotDir, `${volumeName}.tar.gz`);
 
@@ -1004,17 +1010,17 @@ export class SandboxController {
           const restoreCmd = `docker run --rm -v ${volumeName}:/target -v ${snapshotDir}:/backup alpine tar xzf /backup/${volumeName}.tar.gz -C /target`;
           await this.execAsync(restoreCmd);
 
-          console.log(`Restored volume: ${volumeName}`);
+          logger.info(`Restored volume: ${volumeName}`);
         } catch (error) {
-          console.warn(`Failed to restore volume ${volumeName}: ${error}`);
+          logger.warn(`Failed to restore volume ${volumeName}: ${error}`);
         }
       }
 
       // 環境を再起動
-      console.log('Starting environment...');
+      logger.info('Starting environment...');
       await this.up();
 
-      console.log('Snapshot restored successfully');
+      logger.info('Snapshot restored successfully');
     } catch (error) {
       throw new Error(`Failed to restore snapshot: ${error}`);
     }

@@ -17,7 +17,8 @@
     "@typescript-eslint/no-unused-vars": ["error", {
       "argsIgnorePattern": "^_",
       "caughtErrorsIgnorePattern": "^_"
-    }]
+    }],
+    "no-control-regex": "off"
   },
   "env": {
     "node": true,

@@ -26,6 +26,7 @@
   "license": "MIT",
   "dependencies": {
     "@it-supervisor/issue-manager": "^0.1.0",
+    "@it-supervisor/logger": "^0.1.0",
     "@it-supervisor/metrics-model": "^0.1.0",
     "marked": "^17.0.1"
   },

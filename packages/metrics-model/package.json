@@ -23,6 +23,7 @@
   "author": "IT Supervisor Team",
   "license": "MIT",
   "dependencies": {
+    "@it-supervisor/logger": "^0.1.0",
     "better-sqlite3": "^12.6.2"
   },
   "devDependencies": {

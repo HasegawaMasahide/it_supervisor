@@ -1,0 +1,35 @@
+{
+  "name": "@it-supervisor/logger",
+  "version": "0.1.0",
+  "description": "Lightweight structured logging utility for IT Supervisor Tools",
+  "license": "MIT",
+  "author": "IT Supervisor Tools Team",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/it-supervisor-tools.git",
+    "directory": "packages/logger"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/it-supervisor-tools/issues"
+  },
+  "homepage": "https://github.com/your-org/it-supervisor-tools#readme",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "echo \"Tests run from workspace root\" && exit 0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
