@@ -238,6 +238,33 @@
   - Effort: Medium
   - Commit: `feat(sandbox-builder): implement snapshot versioning and restoration`
 
+- [x] **Task 27: Add unit tests for issue-manager**
+  - Created `packages/issue-manager/src/__tests__/manager.test.ts` with 56 tests
+  - ✅ Tested CRUD operations (create, read, update, delete)
+  - ✅ Tested search and filter functionality (projectId, category, severity, status, assignee, keyword, date range)
+  - ✅ Tested comments (add, retrieve)
+  - ✅ Tested statistics and aggregation methods
+  - ✅ Tested priority calculation and related issues detection
+  - ✅ Tested label management (add, remove, getAllLabels)
+  - ✅ Tested CSV export and bulk operations
+  - **Coverage achieved: 95.06% statements, 89.7% branches** (far exceeds 70% target!)
+  - Priority: P1 (High - missing core tests)
+  - Calculated Priority Score: 74
+  - Status: ✅ Completed (56 tests, all passing)
+  - Commit: `test(issue-manager): add comprehensive unit tests for IssueManager`
+
+- [ ] **Task 28: Add unit tests for metrics-model**
+  - Create `packages/metrics-model/src/__tests__/database.test.ts`
+  - Test MetricsDatabase initialization and connection
+  - Test saveMetric, getMetric, and deleteMetric operations
+  - Test query and aggregation methods
+  - Mock better-sqlite3 database operations
+  - Target coverage: >70% statements
+  - Priority: P1 (High - missing core tests)
+  - Calculated Priority Score: 74
+  - Effort: Medium
+  - Commit: `test(metrics-model): add comprehensive unit tests for MetricsDatabase`
+
 - [x] **Task 22: Improve test coverage for static-analyzer**
   - Previous coverage: 45.75% (statements), 31.21% (branches)
   - Current coverage: 69.28% (statements), 58.53% (branches) - **+24% improvement**

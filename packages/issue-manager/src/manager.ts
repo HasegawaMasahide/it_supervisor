@@ -262,7 +262,12 @@ export class IssueManager {
     }
 
     // 並び順
-    const orderBy = query.orderBy || 'created_at';
+    const orderByMap: Record<string, string> = {
+      severity: 'severity',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    };
+    const orderBy = query.orderBy ? (orderByMap[query.orderBy] || 'created_at') : 'created_at';
     const order = query.order || 'desc';
     sql += ` ORDER BY ${orderBy} ${order}`;
 
