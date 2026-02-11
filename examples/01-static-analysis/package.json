@@ -1,0 +1,24 @@
+{
+  "name": "example-static-analysis",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Example demonstrating @it-supervisor/static-analyzer usage",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@it-supervisor/static-analyzer": "file:../../packages/static-analyzer",
+    "@it-supervisor/logger": "file:../../packages/logger"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
