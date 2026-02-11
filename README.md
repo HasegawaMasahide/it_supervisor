@@ -227,6 +227,7 @@ npm run test:coverage
 - **[CONTRIBUTING.md](./CONTRIBUTING.md)**: 開発ガイドライン・コントリビューション方法
 - **[SECURITY.md](./SECURITY.md)**: セキュリティポリシー・脆弱性報告手順
 - **[progress.md](./progress.md)**: タスク進捗とプロジェクト履歴
+- **[docs/RELEASE.md](./docs/RELEASE.md)**: リリースプロセス・バージョン管理
 
 ### 追加ドキュメント
 
