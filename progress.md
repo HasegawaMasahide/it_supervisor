@@ -771,7 +771,7 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `docs(workspace): add logger package to CONTRIBUTING.md`
 
-### Phase 20: Advanced Improvements (Discovered 2026-02-11)
+### Phase 20: Code Quality & Maintenance (Discovered 2026-02-11)
 
 - [x] **Task 68: Add VSCode workspace settings for consistent development**
   - ✅ Created `.vscode/settings.json` with TypeScript, ESLint, and editor settings
@@ -810,4 +810,55 @@ Record any discoveries that need further investigation:
   - Calculated Priority Score: 38 (Impact: 4, TechDebt: 5, Effort: 3)
   - Status: ✅ Completed
   - Commit: `feat(workspace): add code complexity analysis with eslintcc`
+
+### Phase 21: Continuous Improvement (Discovered 2026-02-11)
+
+- [x] **Task 71: Add integration tests for logger package exports**
+  - ✅ Created packages/logger/src/__tests__/index.test.ts with 10 tests
+  - ✅ Verified all exports are accessible: Logger, LogLevel, LogEntry, createLogger
+  - ✅ Tested LogLevel enum values (DEBUG=0, INFO=1, WARN=2, ERROR=3, SILENT=4)
+  - ✅ Tested createLogger helper function with options
+  - ✅ Integration test combining all exports together
+  - ✅ All 10 tests pass successfully
+  - ℹ️ Note: index.ts still shows 0% coverage (Vitest limitation for re-export files)
+  - Priority: P2 (Medium - test completeness)
+  - Calculated Priority Score: 52 (Impact: 5, TechDebt: 6, Effort: 2)
+  - Status: ✅ Completed
+  - Commit: `test(logger): add integration tests for package exports`
+
+- [ ] **Task 72: Update marked dependency from 17.0.1 to 17.0.2**
+  - Patch update available for marked package
+  - Update in report-generator package.json
+  - Run tests to verify no breaking changes
+  - Priority: P3 (Low - dependency maintenance)
+  - Calculated Priority Score: 28 (Impact: 2, TechDebt: 3, Effort: 1)
+  - Effort: Low (patch update, low risk)
+
+- [ ] **Task 73: Refactor high-complexity functions**
+  - 🔴 sandbox-builder.ts:detect() - complexity 23 (target: ≤15)
+  - 🟡 sandbox-builder.ts:dockerComposeToYaml() - complexity 17 (target: ≤15)
+  - 🟡 issue-manager.ts:searchIssues() - complexity 16 (target: ≤15)
+  - Extract helper methods to reduce cyclomatic complexity
+  - Maintain 100% test coverage during refactoring
+  - Priority: P2 (Medium - code maintainability)
+  - Calculated Priority Score: 54 (Impact: 5, TechDebt: 7, Effort: 4)
+  - Effort: Medium (requires careful refactoring with tests)
+
+- [ ] **Task 74: Add performance optimization for large repositories**
+  - repo-analyzer currently reads all files into memory
+  - Implement streaming for large file analysis
+  - Add caching for repeated file access
+  - Benchmark performance improvements
+  - Priority: P2 (Medium - performance, addresses Roadmap Phase 5)
+  - Calculated Priority Score: 58 (Impact: 7, TechDebt: 5, Effort: 5)
+  - Effort: High (requires algorithm changes and benchmarking)
+
+- [ ] **Task 75: Add plugin system foundation**
+  - Design plugin interface for extensibility
+  - Implement plugin loader for static-analyzer
+  - Add example plugin for custom linting rules
+  - Addresses Roadmap Phase 6 (Plugin System)
+  - Priority: P3 (Low - new feature, not blocking)
+  - Calculated Priority Score: 42 (Impact: 6, TechDebt: 4, Effort: 6)
+  - Effort: High (new architecture, requires design work)
 
