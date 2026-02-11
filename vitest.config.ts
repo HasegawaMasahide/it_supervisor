@@ -16,17 +16,17 @@ export default defineConfig({
         '**/types.ts',
       ],
       thresholds: {
-        lines: 60,
-        branches: 50,
-        functions: 65,
-        statements: 60,
+        lines: 80,
+        branches: 70,
+        functions: 80,
+        statements: 80,
       },
-      // Note: Current coverage baseline
-      // - Lines: 61.85% ✓
-      // - Branches: 53.38% ✓
-      // - Functions: 66.47% ✓
-      // - Statements: 62.29% ✓
-      // Goal: Incrementally improve to 80%+ over time
+      // Note: Current coverage baseline (as of 2026-02-11)
+      // - Lines: 83.84% ✓
+      // - Branches: 75.56% ✓
+      // - Functions: 84.41% ✓
+      // - Statements: 83.71% ✓
+      // Goal: Maintain 80%+ coverage and incrementally improve to 90%+
     },
   },
   resolve: {
