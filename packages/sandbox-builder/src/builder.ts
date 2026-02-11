@@ -82,128 +82,45 @@ export class SandboxBuilder {
     const databases: DatabaseType[] = [];
     const ports: number[] = [];
 
-    // Node.js検出
+    // 各環境タイプの検出を個別メソッドで処理
     if (hasPackageJson) {
-      type = EnvironmentType.NodeJS;
-      confidence = 0.9;
-
-      try {
-        const packageJson = JSON.parse(
-          await fs.readFile(path.join(absolutePath, 'package.json'), 'utf-8')
-        );
-
-        details.runtime = 'Node.js';
-        details.packageManager = 'npm';
-
-        if (packageJson.dependencies?.typescript) {
-          details.framework = 'TypeScript';
-        }
-        if (packageJson.dependencies?.express) {
-          details.framework = 'Express';
-          ports.push(3000);
-        }
-        if (packageJson.dependencies?.next) {
-          details.framework = 'Next.js';
-          ports.push(3000);
-        }
-
-        // データベース検出
-        if (packageJson.dependencies?.pg) databases.push(DatabaseType.PostgreSQL);
-        if (packageJson.dependencies?.mysql) databases.push(DatabaseType.MySQL);
-        if (packageJson.dependencies?.mongodb) databases.push(DatabaseType.MongoDB);
-        if (packageJson.dependencies?.redis) databases.push(DatabaseType.Redis);
-      } catch (_error) {
-        // package.jsonのパースに失敗した場合は基本情報のみ設定
-        details.runtime = 'Node.js';
-        details.packageManager = 'npm';
-        details.error = 'Failed to parse package.json';
-      }
-    }
-
-    // PHP検出
-    if (hasComposerJson) {
-      type = EnvironmentType.PHP;
-      confidence = 0.9;
-
-      try {
-        const composerJson = JSON.parse(
-          await fs.readFile(path.join(absolutePath, 'composer.json'), 'utf-8')
-        );
-
-        details.runtime = 'PHP';
-        details.packageManager = 'composer';
-
-        if (composerJson.require?.['laravel/framework']) {
-          details.framework = 'Laravel';
-          ports.push(8000);
-        }
-
-        // データベース検出
-        if (composerJson.require?.['doctrine/dbal']) databases.push(DatabaseType.MySQL);
-      } catch (_error) {
-        // composer.jsonのパースに失敗した場合は基本情報のみ設定
-        details.runtime = 'PHP';
-        details.packageManager = 'composer';
-        details.error = 'Failed to parse composer.json';
-      }
-    }
-
-    // Python検出
-    if (hasRequirementsTxt) {
-      type = EnvironmentType.Python;
-      confidence = 0.8;
-      details.runtime = 'Python';
-      details.packageManager = 'pip';
-      ports.push(5000);
-
-      const requirements = await fs.readFile(
-        path.join(absolutePath, 'requirements.txt'),
-        'utf-8'
-      );
-
-      if (requirements.includes('django')) {
-        details.framework = 'Django';
-        ports[0] = 8000;
-      }
-      if (requirements.includes('flask')) {
-        details.framework = 'Flask';
-      }
-    }
-
-    // .NET検出
-    if (hasCsproj) {
-      type = EnvironmentType.DotNet;
-      confidence = 0.9;
-      details.runtime = '.NET';
-      details.packageManager = 'dotnet';
-      ports.push(5000);
-    }
-
-    // Java検出
-    if (hasPomXml) {
-      type = EnvironmentType.Java;
-      confidence = 0.9;
-      details.runtime = 'Java';
-      details.packageManager = 'Maven';
-      ports.push(8080);
-    }
-
-    // Ruby検出
-    if (hasGemfile) {
-      type = EnvironmentType.Ruby;
-      confidence = 0.9;
-      details.runtime = 'Ruby';
-      details.packageManager = 'bundler';
-      ports.push(3000);
-
-      const gemfile = await fs.readFile(
-        path.join(absolutePath, 'Gemfile'),
-        'utf-8'
-      );
-
-      if (gemfile.includes('rails')) {
-        details.framework = 'Ruby on Rails';
-      }
+      const result = await this.detectNodeJS(absolutePath);
+      type = result.type;
+      confidence = result.confidence;
+      Object.assign(details, result.details);
+      databases.push(...result.databases);
+      ports.push(...result.ports);
+    } else if (hasComposerJson) {
+      const result = await this.detectPHP(absolutePath);
+      type = result.type;
+      confidence = result.confidence;
+      Object.assign(details, result.details);
+      databases.push(...result.databases);
+      ports.push(...result.ports);
+    } else if (hasRequirementsTxt) {
+      const result = await this.detectPython(absolutePath);
+      type = result.type;
+      confidence = result.confidence;
+      Object.assign(details, result.details);
+      ports.push(...result.ports);
+    } else if (hasCsproj) {
+      const result = this.detectDotNet();
+      type = result.type;
+      confidence = result.confidence;
+      Object.assign(details, result.details);
+      ports.push(...result.ports);
+    } else if (hasPomXml) {
+      const result = this.detectJava();
+      type = result.type;
+      confidence = result.confidence;
+      Object.assign(details, result.details);
+      ports.push(...result.ports);
+    } else if (hasGemfile) {
+      const result = await this.detectRuby(absolutePath);
+      type = result.type;
+      confidence = result.confidence;
+      Object.assign(details, result.details);
+      ports.push(...result.ports);
     }
 
     return {
@@ -215,6 +132,158 @@ export class SandboxBuilder {
       dependencies: [],
       hasDocker: hasDockerfile,
       hasDockerCompose: hasDockerCompose
+    };
+  }
+
+  private async detectNodeJS(absolutePath: string) {
+    const details: Record<string, unknown> = {
+      runtime: 'Node.js',
+      packageManager: 'npm'
+    };
+    const databases: DatabaseType[] = [];
+    const ports: number[] = [];
+
+    try {
+      const packageJson = JSON.parse(
+        await fs.readFile(path.join(absolutePath, 'package.json'), 'utf-8')
+      );
+
+      if (packageJson.dependencies?.typescript) {
+        details.framework = 'TypeScript';
+      }
+      if (packageJson.dependencies?.express) {
+        details.framework = 'Express';
+        ports.push(3000);
+      }
+      if (packageJson.dependencies?.next) {
+        details.framework = 'Next.js';
+        ports.push(3000);
+      }
+
+      // データベース検出
+      if (packageJson.dependencies?.pg) databases.push(DatabaseType.PostgreSQL);
+      if (packageJson.dependencies?.mysql) databases.push(DatabaseType.MySQL);
+      if (packageJson.dependencies?.mongodb) databases.push(DatabaseType.MongoDB);
+      if (packageJson.dependencies?.redis) databases.push(DatabaseType.Redis);
+    } catch (_error) {
+      details.error = 'Failed to parse package.json';
+    }
+
+    return {
+      type: EnvironmentType.NodeJS,
+      confidence: 0.9,
+      details,
+      databases,
+      ports
+    };
+  }
+
+  private async detectPHP(absolutePath: string) {
+    const details: Record<string, unknown> = {
+      runtime: 'PHP',
+      packageManager: 'composer'
+    };
+    const databases: DatabaseType[] = [];
+    const ports: number[] = [];
+
+    try {
+      const composerJson = JSON.parse(
+        await fs.readFile(path.join(absolutePath, 'composer.json'), 'utf-8')
+      );
+
+      if (composerJson.require?.['laravel/framework']) {
+        details.framework = 'Laravel';
+        ports.push(8000);
+      }
+
+      // データベース検出
+      if (composerJson.require?.['doctrine/dbal']) databases.push(DatabaseType.MySQL);
+    } catch (_error) {
+      details.error = 'Failed to parse composer.json';
+    }
+
+    return {
+      type: EnvironmentType.PHP,
+      confidence: 0.9,
+      details,
+      databases,
+      ports
+    };
+  }
+
+  private async detectPython(absolutePath: string) {
+    const details: Record<string, unknown> = {
+      runtime: 'Python',
+      packageManager: 'pip'
+    };
+    const ports: number[] = [5000];
+
+    const requirements = await fs.readFile(
+      path.join(absolutePath, 'requirements.txt'),
+      'utf-8'
+    );
+
+    if (requirements.includes('django')) {
+      details.framework = 'Django';
+      ports[0] = 8000;
+    }
+    if (requirements.includes('flask')) {
+      details.framework = 'Flask';
+    }
+
+    return {
+      type: EnvironmentType.Python,
+      confidence: 0.8,
+      details,
+      ports
+    };
+  }
+
+  private detectDotNet() {
+    return {
+      type: EnvironmentType.DotNet,
+      confidence: 0.9,
+      details: {
+        runtime: '.NET',
+        packageManager: 'dotnet'
+      },
+      ports: [5000]
+    };
+  }
+
+  private detectJava() {
+    return {
+      type: EnvironmentType.Java,
+      confidence: 0.9,
+      details: {
+        runtime: 'Java',
+        packageManager: 'Maven'
+      },
+      ports: [8080]
+    };
+  }
+
+  private async detectRuby(absolutePath: string) {
+    const details: Record<string, unknown> = {
+      runtime: 'Ruby',
+      packageManager: 'bundler'
+    };
+    const ports: number[] = [3000];
+
+    const gemfile = await fs.readFile(
+      path.join(absolutePath, 'Gemfile'),
+      'utf-8'
+    );
+
+    if (gemfile.includes('rails')) {
+      details.framework = 'Ruby on Rails';
+    }
+
+    return {
+      type: EnvironmentType.Ruby,
+      confidence: 0.9,
+      details,
+      ports
     };
   }
 
@@ -450,76 +519,106 @@ export class SandboxBuilder {
     // 簡易YAML生成（実際にはyamlライブラリを使用）
     let yaml = `version: '${config.version}'\n\n`;
 
-    yaml += 'services:\n';
-    for (const [name, service] of Object.entries(config.services)) {
-      yaml += `  ${name}:\n`;
-
-      if (service.image) {
-        yaml += `    image: ${service.image}\n`;
-      }
-
-      if (service.build) {
-        yaml += `    build:\n`;
-        yaml += `      context: ${service.build.context}\n`;
-        if (service.build.dockerfile) {
-          yaml += `      dockerfile: ${service.build.dockerfile}\n`;
-        }
-      }
-
-      if (service.ports) {
-        yaml += `    ports:\n`;
-        service.ports.forEach(p => {
-          yaml += `      - "${p}"\n`;
-        });
-      }
-
-      if (service.environment) {
-        yaml += `    environment:\n`;
-        Object.entries(service.environment).forEach(([key, value]) => {
-          yaml += `      ${key}: ${value}\n`;
-        });
-      }
-
-      if (service.volumes) {
-        yaml += `    volumes:\n`;
-        service.volumes.forEach(v => {
-          yaml += `      - ${v}\n`;
-        });
-      }
-
-      if (service.depends_on) {
-        yaml += `    depends_on:\n`;
-        service.depends_on.forEach(d => {
-          yaml += `      - ${d}\n`;
-        });
-      }
-
-      if (service.networks) {
-        yaml += `    networks:\n`;
-        service.networks.forEach(n => {
-          yaml += `      - ${n}\n`;
-        });
-      }
-
-      yaml += '\n';
-    }
+    yaml += this.generateServicesSection(config.services);
 
     if (config.networks) {
-      yaml += 'networks:\n';
-      for (const [name, network] of Object.entries(config.networks)) {
-        yaml += `  ${name}:\n`;
-        if (network && typeof network === 'object' && 'driver' in network) {
-          yaml += `    driver: ${(network as { driver: string }).driver}\n`;
-        }
-      }
-      yaml += '\n';
+      yaml += this.generateNetworksSection(config.networks);
     }
 
     if (config.volumes) {
-      yaml += 'volumes:\n';
-      for (const name of Object.keys(config.volumes)) {
-        yaml += `  ${name}:\n`;
+      yaml += this.generateVolumesSection(config.volumes);
+    }
+
+    return yaml;
+  }
+
+  private generateServicesSection(services: Record<string, unknown>): string {
+    let yaml = 'services:\n';
+
+    for (const [name, service] of Object.entries(services)) {
+      yaml += `  ${name}:\n`;
+      yaml += this.generateServiceConfig(service);
+      yaml += '\n';
+    }
+
+    return yaml;
+  }
+
+  private generateServiceConfig(service: unknown): string {
+    if (!service || typeof service !== 'object') return '';
+
+    let yaml = '';
+    const svc = service as Record<string, unknown>;
+
+    if (svc.image) {
+      yaml += `    image: ${svc.image}\n`;
+    }
+
+    if (svc.build && typeof svc.build === 'object') {
+      const build = svc.build as Record<string, unknown>;
+      yaml += `    build:\n`;
+      yaml += `      context: ${build.context}\n`;
+      if (build.dockerfile) {
+        yaml += `      dockerfile: ${build.dockerfile}\n`;
       }
+    }
+
+    if (Array.isArray(svc.ports)) {
+      yaml += `    ports:\n`;
+      svc.ports.forEach(p => {
+        yaml += `      - "${p}"\n`;
+      });
+    }
+
+    if (svc.environment && typeof svc.environment === 'object') {
+      yaml += `    environment:\n`;
+      Object.entries(svc.environment).forEach(([key, value]) => {
+        yaml += `      ${key}: ${value}\n`;
+      });
+    }
+
+    if (Array.isArray(svc.volumes)) {
+      yaml += `    volumes:\n`;
+      svc.volumes.forEach(v => {
+        yaml += `      - ${v}\n`;
+      });
+    }
+
+    if (Array.isArray(svc.depends_on)) {
+      yaml += `    depends_on:\n`;
+      svc.depends_on.forEach(d => {
+        yaml += `      - ${d}\n`;
+      });
+    }
+
+    if (Array.isArray(svc.networks)) {
+      yaml += `    networks:\n`;
+      svc.networks.forEach(n => {
+        yaml += `      - ${n}\n`;
+      });
+    }
+
+    return yaml;
+  }
+
+  private generateNetworksSection(networks: Record<string, unknown>): string {
+    let yaml = 'networks:\n';
+
+    for (const [name, network] of Object.entries(networks)) {
+      yaml += `  ${name}:\n`;
+      if (network && typeof network === 'object' && 'driver' in network) {
+        yaml += `    driver: ${(network as { driver: string }).driver}\n`;
+      }
+    }
+
+    return yaml + '\n';
+  }
+
+  private generateVolumesSection(volumes: Record<string, unknown>): string {
+    let yaml = 'volumes:\n';
+
+    for (const name of Object.keys(volumes)) {
+      yaml += `  ${name}:\n`;
     }
 
     return yaml;

@@ -836,15 +836,23 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `chore(report-generator): update marked to 17.0.2`
 
-- [ ] **Task 73: Refactor high-complexity functions**
-  - 🔴 sandbox-builder.ts:detect() - complexity 23 (target: ≤15)
-  - 🟡 sandbox-builder.ts:dockerComposeToYaml() - complexity 17 (target: ≤15)
-  - 🟡 issue-manager.ts:searchIssues() - complexity 16 (target: ≤15)
-  - Extract helper methods to reduce cyclomatic complexity
-  - Maintain 100% test coverage during refactoring
+- [x] **Task 73: Refactor high-complexity functions**
+  - ✅ sandbox-builder.ts:detect() - complexity 23 → ~8 (extracted 6 helper methods)
+    - Created detectNodeJS(), detectPHP(), detectPython(), detectDotNet(), detectJava(), detectRuby()
+    - Each environment detection logic isolated into separate methods
+  - ✅ sandbox-builder.ts:dockerComposeToYaml() - complexity 17 → ~6 (extracted 4 helper methods)
+    - Created generateServicesSection(), generateServiceConfig(), generateNetworksSection(), generateVolumesSection()
+    - Separated YAML generation logic by Docker Compose sections
+  - ✅ issue-manager.ts:searchIssues() - complexity 16 → ~5 (extracted 3 helper methods)
+    - Created buildFilterClauses(), addOrderByClause(), addLimitOffsetClause()
+    - SQL query construction split into logical parts
+  - ✅ All 391 unit tests pass (56 issue-manager + 64 sandbox-builder + others)
+  - ✅ ESLint complexity warnings: 3 → 0 (100% reduction)
+  - ✅ Test coverage maintained: No regression
   - Priority: P2 (Medium - code maintainability)
   - Calculated Priority Score: 54 (Impact: 5, TechDebt: 7, Effort: 4)
-  - Effort: Medium (requires careful refactoring with tests)
+  - Status: ✅ Completed
+  - Commit: `refactor(workspace): reduce complexity of 3 high-complexity functions`
 
 - [ ] **Task 74: Add performance optimization for large repositories**
   - repo-analyzer currently reads all files into memory

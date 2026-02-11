@@ -210,6 +210,27 @@ export class IssueManager {
     let sql = 'SELECT * FROM issues WHERE 1=1';
     const params: (string | number | null)[] = [];
 
+    // フィルター条件の構築
+    sql = this.buildFilterClauses(query, sql, params);
+
+    // 並び順の追加
+    sql = this.addOrderByClause(sql, query);
+
+    // 制限の追加
+    sql = this.addLimitOffsetClause(sql, query, params);
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...params) as unknown[];
+
+    return rows.map(row => this.rowToIssue(row));
+  }
+
+  private buildFilterClauses(
+    query: IssueQuery,
+    baseSql: string,
+    params: (string | number | null)[]
+  ): string {
+    let sql = baseSql;
     if (query.projectId) {
       sql += ' AND project_id = ?';
       params.push(query.projectId);
@@ -261,7 +282,10 @@ export class IssueManager {
       params.push(query.createdBefore.getTime());
     }
 
-    // 並び順
+    return sql;
+  }
+
+  private addOrderByClause(sql: string, query: IssueQuery): string {
     const orderByMap: Record<string, string> = {
       severity: 'severity',
       createdAt: 'created_at',
@@ -269,9 +293,14 @@ export class IssueManager {
     };
     const orderBy = query.orderBy ? (orderByMap[query.orderBy] || 'created_at') : 'created_at';
     const order = query.order || 'desc';
-    sql += ` ORDER BY ${orderBy} ${order}`;
+    return `${sql} ORDER BY ${orderBy} ${order}`;
+  }
 
-    // 制限
+  private addLimitOffsetClause(
+    sql: string,
+    query: IssueQuery,
+    params: (string | number | null)[]
+  ): string {
     if (query.limit) {
       sql += ' LIMIT ?';
       params.push(query.limit);
@@ -282,10 +311,7 @@ export class IssueManager {
       params.push(query.offset);
     }
 
-    const stmt = this.db.prepare(sql);
-    const rows = stmt.all(...params) as unknown[];
-
-    return rows.map(row => this.rowToIssue(row));
+    return sql;
   }
 
   /**
