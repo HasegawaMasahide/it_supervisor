@@ -689,4 +689,292 @@ describe('StaticAnalyzer', () => {
       expect(mockExecFile).toHaveBeenCalled();
     });
   });
+
+  describe('ESLint result parsing with fix suggestions', () => {
+    it('should parse ESLint results with fix suggestions', async () => {
+      const eslintResults = [
+        {
+          filePath: '/test/file.js',
+          messages: [
+            {
+              ruleId: 'no-unused-vars',
+              severity: 2,
+              message: 'Unused variable',
+              line: 10,
+              column: 5,
+              endLine: 10,
+              endColumn: 15,
+              fix: {
+                range: [100, 110],
+                text: ''
+              }
+            }
+          ]
+        }
+      ];
+
+      const issues = (analyzer as any).parseESLintResults(eslintResults, '/test');
+
+      expect(issues).toHaveLength(1);
+      expect(issues[0]).toMatchObject({
+        tool: AnalyzerTool.ESLint,
+        severity: Severity.High,
+        rule: 'no-unused-vars',
+        message: 'Unused variable',
+        file: '/test/file.js',
+        line: 10,
+        column: 5,
+        endLine: 10,
+        endColumn: 15
+      });
+      expect(issues[0].fix).toBeDefined();
+      expect(issues[0].fix?.available).toBe(true);
+      expect(issues[0].fix?.description).toBe('Auto-fixable');
+      expect(issues[0].fix?.code).toBe('');
+    });
+
+    it('should parse ESLint results without fix suggestions', async () => {
+      const eslintResults = [
+        {
+          filePath: '/test/file.js',
+          messages: [
+            {
+              ruleId: 'complexity',
+              severity: 1,
+              message: 'Function is too complex',
+              line: 20,
+              column: 1
+            }
+          ]
+        }
+      ];
+
+      const issues = (analyzer as any).parseESLintResults(eslintResults, '/test');
+
+      expect(issues).toHaveLength(1);
+      expect(issues[0].fix).toBeUndefined();
+    });
+  });
+
+  describe('Category classification', () => {
+    it('should categorize security-related rules', () => {
+      expect((analyzer as any).categorizeESLintRule('security/detect-unsafe-regex')).toBe(IssueCategory.Security);
+      expect((analyzer as any).categorizeESLintRule('no-eval')).toBe(IssueCategory.Security);
+      expect((analyzer as any).categorizeESLintRule('no-unsafe-finally')).toBe(IssueCategory.Security);
+    });
+
+    it('should categorize complexity-related rules', () => {
+      expect((analyzer as any).categorizeESLintRule('complexity')).toBe(IssueCategory.Complexity);
+      expect((analyzer as any).categorizeESLintRule('max-depth')).toBe(IssueCategory.Complexity);
+      expect((analyzer as any).categorizeESLintRule('max-lines')).toBe(IssueCategory.Complexity);
+    });
+
+    it('should categorize performance-related rules', () => {
+      expect((analyzer as any).categorizeESLintRule('performance/no-unnecessary-bind')).toBe(IssueCategory.Performance);
+    });
+
+    it('should categorize as CodeQuality by default', () => {
+      expect((analyzer as any).categorizeESLintRule('no-console')).toBe(IssueCategory.CodeQuality);
+      expect((analyzer as any).categorizeESLintRule(null)).toBe(IssueCategory.CodeQuality);
+    });
+
+    it('should categorize PHPCS rules by source string', () => {
+      expect((analyzer as any).categorizePHPCSRule('security-audit')).toBe(IssueCategory.Security);
+      expect((analyzer as any).categorizePHPCSRule('performance-check')).toBe(IssueCategory.Performance);
+      expect((analyzer as any).categorizePHPCSRule('complexity-analysis')).toBe(IssueCategory.Complexity);
+      expect((analyzer as any).categorizePHPCSRule('documentation-needed')).toBe(IssueCategory.Documentation);
+      expect((analyzer as any).categorizePHPCSRule('code-comment-required')).toBe(IssueCategory.Documentation);
+      expect((analyzer as any).categorizePHPCSRule(null)).toBe(IssueCategory.CodeQuality);
+    });
+  });
+
+  describe('analyzeWithProgress', () => {
+    it('should call progress callback during analysis', async () => {
+      vi.mocked(fs.access).mockRejectedValue(new Error('File not found'));
+      vi.mocked(fs.readdir).mockResolvedValue([]);
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        callback(null, '', '');
+        return {} as any;
+      });
+      vi.mocked(fs.readFile).mockResolvedValue('[]');
+      vi.mocked(fs.unlink).mockResolvedValue();
+
+      const progressCalls: Array<{ current: number; total: number; tool: string }> = [];
+      const onProgress = vi.fn((progress) => {
+        progressCalls.push(progress);
+      });
+
+      await analyzer.analyzeWithProgress(
+        '/test/repo',
+        { tools: [AnalyzerTool.ESLint, AnalyzerTool.Gitleaks] },
+        onProgress
+      );
+
+      expect(onProgress).toHaveBeenCalledTimes(2);
+      expect(progressCalls[0]).toEqual({ current: 1, total: 2, tool: AnalyzerTool.ESLint });
+      expect(progressCalls[1]).toEqual({ current: 2, total: 2, tool: AnalyzerTool.Gitleaks });
+    });
+
+    it('should work without progress callback', async () => {
+      vi.mocked(fs.access).mockRejectedValue(new Error('File not found'));
+      vi.mocked(fs.readdir).mockResolvedValue([]);
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        callback(null, '', '');
+        return {} as any;
+      });
+      vi.mocked(fs.readFile).mockResolvedValue('[]');
+      vi.mocked(fs.unlink).mockResolvedValue();
+
+      const result = await analyzer.analyzeWithProgress(
+        '/test/repo',
+        { tools: [AnalyzerTool.Gitleaks] }
+      );
+
+      expect(result).toBeDefined();
+      expect(result.toolResults).toHaveLength(1);
+    });
+
+    it('should auto-detect tools when not specified', async () => {
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) {
+          return Promise.resolve();
+        }
+        return Promise.reject(new Error('File not found'));
+      });
+      vi.mocked(fs.readdir).mockResolvedValue([]);
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        callback(null, '[]', '');
+        return {} as any;
+      });
+      vi.mocked(fs.readFile).mockResolvedValue('[]');
+      vi.mocked(fs.unlink).mockResolvedValue();
+
+      const progressCalls: string[] = [];
+      await analyzer.analyzeWithProgress(
+        '/test/repo',
+        {},
+        ({ tool }) => { progressCalls.push(tool); }
+      );
+
+      // package.json があるので ESLint, Snyk, Gitleaks が選択される
+      expect(progressCalls).toContain(AnalyzerTool.ESLint);
+      expect(progressCalls).toContain(AnalyzerTool.Snyk);
+      expect(progressCalls).toContain(AnalyzerTool.Gitleaks);
+    });
+  });
+
+  describe('Snyk with multiple package managers', () => {
+    it('should run Snyk for composer.json projects', async () => {
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('composer.json')) {
+          return Promise.resolve();
+        }
+        return Promise.reject(new Error('File not found'));
+      });
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        callback(null, '{"vulnerabilities":[]}', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runSnyk('/test/repo', {});
+
+      expect(result).toEqual([]);
+      expect(execFile).toHaveBeenCalledWith(
+        'snyk',
+        ['test', '--json'],
+        expect.objectContaining({
+          cwd: '/test/repo',
+          timeout: 300000
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('should run Snyk for package.json projects', async () => {
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) {
+          return Promise.resolve();
+        }
+        return Promise.reject(new Error('File not found'));
+      });
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        callback(null, '{"vulnerabilities":[]}', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runSnyk('/test/repo', {});
+
+      expect(result).toEqual([]);
+      expect(execFile).toHaveBeenCalledWith(
+        'snyk',
+        ['test', '--json'],
+        expect.objectContaining({
+          cwd: '/test/repo'
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('should skip Snyk if no package manager files found', async () => {
+      vi.mocked(fs.access).mockRejectedValue(new Error('File not found'));
+
+      const result = await (analyzer as any).runSnyk('/test/repo', {});
+
+      expect(result).toEqual([]);
+      expect(execFile).not.toHaveBeenCalled();
+    });
+
+    it('should parse Snyk vulnerabilities with severity mapping', async () => {
+      const snykResult = {
+        vulnerabilities: [
+          {
+            id: 'SNYK-JS-LODASH-1234',
+            title: 'Prototype Pollution',
+            packageName: 'lodash',
+            version: '4.17.15',
+            severity: 'critical',
+            url: 'https://snyk.io/vuln/SNYK-JS-LODASH-1234',
+            identifiers: {
+              CVE: ['CVE-2020-1234']
+            },
+            fixedIn: ['4.17.21']
+          },
+          {
+            id: 'SNYK-JS-AXIOS-5678',
+            title: 'SSRF',
+            packageName: 'axios',
+            version: '0.19.0',
+            severity: 'high',
+            url: 'https://snyk.io/vuln/SNYK-JS-AXIOS-5678',
+            fixedIn: []
+          }
+        ]
+      };
+
+      const issues = (analyzer as any).parseSnykResults(snykResult, '/test');
+
+      expect(issues).toHaveLength(2);
+      expect(issues[0]).toMatchObject({
+        tool: AnalyzerTool.Snyk,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        rule: 'SNYK-JS-LODASH-1234',
+        message: 'Prototype Pollution in lodash@4.17.15',
+        file: 'package.json',
+        cve: ['CVE-2020-1234']
+      });
+      expect(issues[0].fix).toBeDefined();
+      expect(issues[0].fix?.description).toBe('Upgrade to lodash@4.17.21');
+      expect(issues[0].references).toContain('https://snyk.io/vuln/SNYK-JS-LODASH-1234');
+
+      expect(issues[1]).toMatchObject({
+        severity: Severity.High,
+        rule: 'SNYK-JS-AXIOS-5678'
+      });
+      expect(issues[1].fix).toBeUndefined();
+    });
+  });
 });
