@@ -229,12 +229,15 @@
   - All tests pass (208 passed, 11 skipped)
   - Commit: `chore(report-generator): update puppeteer to fix security vulnerabilities`
 
-- [ ] **Task 21: Implement TODOs in sandbox-builder**
-  - Implement snapshot versioning with timestamps (line 873)
-  - Parse docker-compose.yml to get actual volume names (line 877)
-  - Complete snapshot restoration logic (line 914)
+- [x] **Task 21: Implement TODOs in sandbox-builder**
+  - ✅ Implemented snapshot versioning with timestamps
+  - ✅ Added js-yaml dependency for docker-compose.yml parsing
+  - ✅ Implemented volume name extraction from docker-compose.yml
+  - ✅ Implemented volume backup using docker run and tar
+  - ✅ Completed snapshot restoration logic with automatic discovery
+  - ✅ Added 4 new unit tests (53 total tests passing)
   - Priority: P2 (Medium - feature completion)
-  - Expected outcome: Snapshot feature fully functional
+  - Status: ✅ Completed
   - Effort: Medium
   - Commit: `feat(sandbox-builder): implement snapshot versioning and restoration`
 
