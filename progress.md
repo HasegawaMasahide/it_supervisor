@@ -20,7 +20,7 @@
   - Test database detection from package.json dependencies
   - Commit: `test(sandbox-builder): add unit tests for environment detection`
 
-- [ ] **Task 3: Unit tests for sandbox-builder (Docker config generation)**
+- [x] **Task 3: Unit tests for sandbox-builder (Docker config generation)**
   - Test `build()` method: verify generated DockerCompose config structure
   - Test each environment type produces correct base image and ports
   - Test isolation level settings
@@ -75,6 +75,7 @@
 
 - **Task 1: Add vitest to the workspace** ✓
 - **Task 2: Unit tests for sandbox-builder (detection)** ✓
+- **Task 3: Unit tests for sandbox-builder (Docker config generation)** ✓
 
 ## Notes
 

@@ -691,3 +691,524 @@ describe('SandboxBuilder - detect()', () => {
     });
   });
 });
+
+describe('SandboxBuilder - build()', () => {
+  let builder: SandboxBuilder;
+
+  beforeEach(() => {
+    builder = new SandboxBuilder();
+    vi.clearAllMocks();
+  });
+
+  describe('Docker設定の生成', () => {
+    it('Node.jsプロジェクトの基本的なDocker設定を生成できる', async () => {
+      // Arrange
+      const targetPath = '/test/nodejs-project';
+      const outputDir = '/test/output';
+      const packageJson = {
+        name: 'test-app',
+        version: '1.0.0',
+        dependencies: {}
+      };
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('package.json')) {
+          return JSON.stringify(packageJson);
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      // Act
+      const result = await builder.build(targetPath, { outputDir });
+
+      // Assert
+      expect(result.type).toBe(EnvironmentType.NodeJS);
+      expect(result.status).toBe('stopped');
+      expect(result.services).toContain('app');
+      expect(vi.mocked(fs.mkdir)).toHaveBeenCalledWith(outputDir, { recursive: true });
+
+      // Dockerfileが生成されたことを確認
+      const dockerfileCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('Dockerfile')
+      );
+      expect(dockerfileCalls.length).toBeGreaterThan(0);
+
+      const dockerfileContent = dockerfileCalls[0][1];
+      expect(dockerfileContent).toContain('FROM node:18-alpine');
+      expect(dockerfileContent).toContain('WORKDIR /app');
+      expect(dockerfileContent).toContain('npm install');
+    });
+
+    it('PHPプロジェクトの基本的なDocker設定を生成できる', async () => {
+      const targetPath = '/test/php-project';
+      const outputDir = '/test/output';
+      const composerJson = {
+        name: 'test/php-app',
+        require: {}
+      };
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('composer.json')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('composer.json')) {
+          return JSON.stringify(composerJson);
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const result = await builder.build(targetPath, { outputDir });
+
+      expect(result.type).toBe(EnvironmentType.PHP);
+
+      const dockerfileCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('Dockerfile')
+      );
+      const dockerfileContent = dockerfileCalls[0][1];
+      expect(dockerfileContent).toContain('FROM php:8.2-fpm');
+      expect(dockerfileContent).toContain('composer install');
+    });
+
+    it('Pythonプロジェクトの基本的なDocker設定を生成できる', async () => {
+      const targetPath = '/test/python-project';
+      const outputDir = '/test/output';
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('requirements.txt')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('requirements.txt')) {
+          return 'flask==2.3.0';
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const result = await builder.build(targetPath, { outputDir });
+
+      expect(result.type).toBe(EnvironmentType.Python);
+
+      const dockerfileCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('Dockerfile')
+      );
+      const dockerfileContent = dockerfileCalls[0][1];
+      expect(dockerfileContent).toContain('FROM python:3.11-slim');
+      expect(dockerfileContent).toContain('pip install --no-cache-dir -r requirements.txt');
+    });
+  });
+
+  describe('データベース設定', () => {
+    it('PostgreSQLデータベースサービスを追加できる', async () => {
+      const targetPath = '/test/nodejs-pg';
+      const outputDir = '/test/output';
+      const packageJson = {
+        name: 'test-app',
+        dependencies: {
+          pg: '^8.11.0'
+        }
+      };
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('package.json')) {
+          return JSON.stringify(packageJson);
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const result = await builder.build(targetPath, {
+        outputDir,
+        includeDatabase: true
+      });
+
+      expect(result.services).toContain('app');
+      expect(result.services).toContain('db');
+
+      // Docker Composeファイルにdb設定が含まれることを確認
+      const composeCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('docker-compose.yml')
+      );
+      const composeContent = composeCalls[0][1];
+      expect(composeContent).toContain('postgres:15-alpine');
+      expect(composeContent).toContain('POSTGRES_DB');
+      expect(composeContent).toContain('db-data');
+    });
+
+    it('MySQLデータベースサービスを追加できる', async () => {
+      const targetPath = '/test/php-mysql';
+      const outputDir = '/test/output';
+      const composerJson = {
+        name: 'test/php-app',
+        require: {
+          'doctrine/dbal': '^3.6'
+        }
+      };
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('composer.json')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('composer.json')) {
+          return JSON.stringify(composerJson);
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const result = await builder.build(targetPath, {
+        outputDir,
+        includeDatabase: true
+      });
+
+      expect(result.services).toContain('db');
+
+      const composeCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('docker-compose.yml')
+      );
+      const composeContent = composeCalls[0][1];
+      expect(composeContent).toContain('mysql:8.0');
+      expect(composeContent).toContain('MYSQL_DATABASE');
+    });
+
+    it('includeDatabase=falseの場合、データベースを追加しない', async () => {
+      const targetPath = '/test/nodejs-pg';
+      const outputDir = '/test/output';
+      const packageJson = {
+        name: 'test-app',
+        dependencies: {
+          pg: '^8.11.0'
+        }
+      };
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('package.json')) {
+          return JSON.stringify(packageJson);
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const result = await builder.build(targetPath, {
+        outputDir,
+        includeDatabase: false
+      });
+
+      expect(result.services).not.toContain('db');
+      expect(result.services).toEqual(['app']);
+    });
+  });
+
+  describe('環境変数とポート設定', () => {
+    it('カスタム環境変数を設定できる', async () => {
+      const targetPath = '/test/nodejs-project';
+      const outputDir = '/test/output';
+      const packageJson = {
+        name: 'test-app',
+        dependencies: {}
+      };
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('package.json')) {
+          return JSON.stringify(packageJson);
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      await builder.build(targetPath, {
+        outputDir,
+        environment: {
+          NODE_ENV: 'production',
+          API_KEY: 'test-key'
+        }
+      });
+
+      const composeCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('docker-compose.yml')
+      );
+      const composeContent = composeCalls[0][1];
+      expect(composeContent).toContain('NODE_ENV: production');
+      expect(composeContent).toContain('API_KEY: test-key');
+    });
+
+    it('検出されたポートがDocker Composeに反映される', async () => {
+      const targetPath = '/test/express-project';
+      const outputDir = '/test/output';
+      const packageJson = {
+        name: 'test-app',
+        dependencies: {
+          express: '^4.18.0'
+        }
+      };
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('package.json')) {
+          return JSON.stringify(packageJson);
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      await builder.build(targetPath, { outputDir });
+
+      const composeCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('docker-compose.yml')
+      );
+      const composeContent = composeCalls[0][1];
+      expect(composeContent).toContain('3000:3000');
+    });
+  });
+
+  describe('既存のDockerファイル利用', () => {
+    it('useExistingDocker=trueかつdocker-compose.ymlが存在する場合、既存ファイルをコピーする', async () => {
+      const targetPath = '/test/docker-project';
+      const outputDir = '/test/output';
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('docker-compose.yml')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.copyFile).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      await builder.build(targetPath, {
+        outputDir,
+        useExistingDocker: true
+      });
+
+      expect(vi.mocked(fs.copyFile)).toHaveBeenCalledWith(
+        expect.stringContaining('docker-compose.yml'),
+        expect.stringContaining('docker-compose.yml')
+      );
+    });
+
+    it('useExistingDocker=falseの場合、新しいDocker設定を生成する', async () => {
+      const targetPath = '/test/docker-project';
+      const outputDir = '/test/output';
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('docker-compose.yml')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.copyFile).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      await builder.build(targetPath, {
+        outputDir,
+        useExistingDocker: false
+      });
+
+      // copyFileではなくwriteFileが呼ばれるべき
+      const composeCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('docker-compose.yml')
+      );
+      expect(composeCalls.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('ファイル生成の検証', () => {
+    it('sandbox.jsonメタデータが正しく生成される', async () => {
+      const targetPath = '/test/nodejs-project';
+      const outputDir = '/test/output';
+      const packageJson = {
+        name: 'test-app',
+        dependencies: {}
+      };
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('package.json')) {
+          return JSON.stringify(packageJson);
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      await builder.build(targetPath, { outputDir });
+
+      const sandboxCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('sandbox.json')
+      );
+      expect(sandboxCalls.length).toBe(1);
+
+      const sandboxContent = JSON.parse(sandboxCalls[0][1]);
+      expect(sandboxContent).toHaveProperty('id');
+      expect(sandboxContent).toHaveProperty('type', EnvironmentType.NodeJS);
+      expect(sandboxContent).toHaveProperty('status', 'stopped');
+      expect(sandboxContent).toHaveProperty('createdAt');
+      expect(sandboxContent).toHaveProperty('services');
+    });
+
+    it('README.mdが生成される', async () => {
+      const targetPath = '/test/nodejs-project';
+      const outputDir = '/test/output';
+      const packageJson = {
+        name: 'test-app',
+        dependencies: {}
+      };
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('package.json')) {
+          return JSON.stringify(packageJson);
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      await builder.build(targetPath, { outputDir });
+
+      const readmeCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('README.md')
+      );
+      expect(readmeCalls.length).toBe(1);
+
+      const readmeContent = readmeCalls[0][1];
+      expect(readmeContent).toContain('Sandbox Environment');
+      expect(readmeContent).toContain('docker-compose up');
+    });
+  });
+
+  describe('環境タイプの上書き', () => {
+    it('type指定がある場合、検出結果を上書きする', async () => {
+      const targetPath = '/test/nodejs-project';
+      const outputDir = '/test/output';
+      const packageJson = {
+        name: 'test-app',
+        dependencies: {}
+      };
+
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('package.json')) return;
+        if (pathStr === targetPath) return;
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+        if (String(path).includes('package.json')) {
+          return JSON.stringify(packageJson);
+        }
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+      const result = await builder.build(targetPath, {
+        outputDir,
+        type: EnvironmentType.Python
+      });
+
+      expect(result.type).toBe(EnvironmentType.Python);
+
+      const dockerfileCalls = (vi.mocked(fs.writeFile).mock.calls as any[]).filter(
+        call => String(call[0]).includes('Dockerfile')
+      );
+      const dockerfileContent = dockerfileCalls[0][1];
+      expect(dockerfileContent).toContain('FROM python:3.11-slim');
+    });
+  });
+});
