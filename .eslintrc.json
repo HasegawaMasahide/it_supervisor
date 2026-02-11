@@ -5,6 +5,7 @@
     "sourceType": "module",
     "project": "./tsconfig.json"
   },
+  "ignorePatterns": ["vitest.config.ts"],
   "plugins": ["@typescript-eslint"],
   "extends": [
     "eslint:recommended",

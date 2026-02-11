@@ -115,13 +115,6 @@ interface SnykResult {
   ok?: boolean;
 }
 
-interface GitleaksMatch {
-  StartLine?: number;
-  StartColumn?: number;
-  EndLine?: number;
-  EndColumn?: number;
-}
-
 interface GitleaksFinding {
   Description?: string;
   RuleID?: string;

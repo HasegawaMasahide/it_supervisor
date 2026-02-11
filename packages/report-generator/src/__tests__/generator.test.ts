@@ -1374,7 +1374,6 @@ Custom content here`;
       const jaTemplate = `# {{projectName}} 日本語レポート`;
       const enTemplate = `# {{projectName}} English Report`;
 
-      let callCount = 0;
       vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
         if (path.includes('analysis_ja.md')) {
           return jaTemplate;
