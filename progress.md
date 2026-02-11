@@ -1023,3 +1023,28 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `docs(workspace): update CHANGELOG.md with Task 84`
 
+### Phase 25: CI/CD Validation (Discovered 2026-02-11)
+
+- [x] **Task 87: Validate GitHub Actions workflows**
+  - ✅ Verified .github/workflows/ci.yml (all 7 jobs configured correctly)
+  - ✅ Verified .github/workflows/release.yml (3 jobs, npm publishing flow)
+  - ✅ All referenced npm scripts exist: lint, type-check, test, test:coverage, benchmark, build
+  - ✅ Node.js versions consistent (18.x, 20.x) across workflows
+  - ✅ Job dependencies correctly configured (build depends on [lint, type-check, complexity, test])
+  - ⚠️ Found deprecation: actions/create-release@v1 should be updated to softprops/action-gh-release@v1
+  - Priority: P2 (Medium - CI/CD reliability)
+  - Calculated Priority Score: 54 (Impact: 6, TechDebt: 5, Effort: 2)
+  - Status: ✅ Completed (validation done, deprecation noted)
+  - Commit: `ci: validate GitHub Actions workflows`
+
+- [x] **Task 88: Update release workflow to use modern GitHub Release action**
+  - ✅ Replaced deprecated actions/create-release@v1 with softprops/action-gh-release@v2
+  - ✅ Updated release.yml to use modern action syntax
+  - ✅ Removed unnecessary GITHUB_TOKEN environment variable (action uses it automatically)
+  - ✅ Maintained all existing functionality (package list, changelog, prerelease detection)
+  - Benefits: Future-proof, better features, active maintenance
+  - Priority: P2 (Medium - CI/CD modernization)
+  - Calculated Priority Score: 46 (Impact: 5, TechDebt: 5, Effort: 3)
+  - Status: ✅ Completed
+  - Commit: `ci: migrate to softprops/action-gh-release@v2`
+
