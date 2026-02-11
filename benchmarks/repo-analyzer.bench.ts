@@ -1,3 +1,6 @@
+import { createLogger, LogLevel } from '@it-supervisor/logger';
+const logger = createLogger({ name: 'benchmark', level: LogLevel.INFO });
+
 import { RepositoryAnalyzer } from '../packages/repo-analyzer/src/analyzer.js';
 import { performance } from 'perf_hooks';
 import { promises as fs } from 'fs';
@@ -66,7 +69,7 @@ async function benchmark(
 }
 
 async function runBenchmarks() {
-  console.log('=== Repository Analyzer Benchmarks ===\n');
+  logger.info('=== Repository Analyzer Benchmarks ===\n');
 
   const analyzer = new RepositoryAnalyzer();
   const results: BenchmarkResult[] = [];
@@ -105,13 +108,13 @@ async function runBenchmarks() {
   results.push(largeResult);
 
   // Display results
-  console.log('Results:\n');
+  logger.info('Results:\n');
   results.forEach((result) => {
-    console.log(`${result.name}`);
-    console.log(`  Iterations: ${result.iterations}`);
-    console.log(`  Total: ${result.duration.toFixed(2)}ms`);
-    console.log(`  Average: ${result.avgDuration.toFixed(2)}ms`);
-    console.log(`  Per file: ${(result.avgDuration / parseInt(result.name.match(/\d+/)?.[0] || '1')).toFixed(2)}ms\n`);
+    logger.info(`${result.name}`);
+    logger.info(`  Iterations: ${result.iterations}`);
+    logger.info(`  Total: ${result.duration.toFixed(2)}ms`);
+    logger.info(`  Average: ${result.avgDuration.toFixed(2)}ms`);
+    logger.info(`  Per file: ${(result.avgDuration / parseInt(result.name.match(/\d+/)?.[0] || '1')).toFixed(2)}ms\n`);
   });
 
   // Save JSON results for CI comparison
@@ -135,10 +138,10 @@ async function runBenchmarks() {
     JSON.stringify(jsonOutput, null, 2)
   );
 
-  console.log(`\nJSON results saved to: ${path.join(outputDir, 'repo-analyzer.json')}`);
+  logger.info(`\nJSON results saved to: ${path.join(outputDir, 'repo-analyzer.json')}`);
 
   // Cleanup test files (but keep .tmp/benchmarks/ for CI)
   await fs.rm(path.join(__dirname, '../.tmp/benchmark-repo'), { recursive: true, force: true });
 }
 
-runBenchmarks().catch(console.error);
+runBenchmarks().catch((err) => logger.error(err));

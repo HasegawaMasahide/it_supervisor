@@ -6,8 +6,10 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const logger = createLogger({ name: 'example', level: LogLevel.INFO });
+
 async function main() {
-  console.log('=== Metrics Collection Example ===\n');
+  logger.info('=== Metrics Collection Example ===\n');
 
   // 1. Initialize the metrics database
   const dbPath = path.join(__dirname, '../metrics.db');
@@ -15,7 +17,7 @@ async function main() {
 
   try {
     // 2. Create a project
-    console.log('Step 1: Creating project...\n');
+    logger.info('Step 1: Creating project...\n');
 
     const project = db.createProject({
       name: 'example-web-app',
@@ -23,10 +25,10 @@ async function main() {
       repository: 'https://github.com/example/web-app',
     });
 
-    console.log(`✓ Created project: ${project.name} (ID: ${project.id})`);
+    logger.info(`✓ Created project: ${project.name} (ID: ${project.id})`);
 
     // 3. Record initial metrics
-    console.log('\nStep 2: Recording initial metrics...\n');
+    logger.info('\nStep 2: Recording initial metrics...\n');
 
     const beforeDate = new Date('2024-01-01');
 
@@ -63,10 +65,10 @@ async function main() {
       timestamp: beforeDate,
     });
 
-    console.log('✓ Recorded 4 initial metrics');
+    logger.info('✓ Recorded 4 initial metrics');
 
     // 4. Record improved metrics (after refactoring)
-    console.log('\nStep 3: Recording improved metrics (after refactoring)...\n');
+    logger.info('\nStep 3: Recording improved metrics (after refactoring)...\n');
 
     const afterDate = new Date('2024-02-01');
 
@@ -103,10 +105,10 @@ async function main() {
       timestamp: afterDate,
     });
 
-    console.log('✓ Recorded 4 improved metrics');
+    logger.info('✓ Recorded 4 improved metrics');
 
     // 5. Batch recording for performance metrics
-    console.log('\nStep 4: Batch recording performance metrics...\n');
+    logger.info('\nStep 4: Batch recording performance metrics...\n');
 
     db.batchRecordMetrics([
       {
@@ -135,10 +137,10 @@ async function main() {
       },
     ]);
 
-    console.log('✓ Batch recorded 3 performance metrics');
+    logger.info('✓ Batch recorded 3 performance metrics');
 
     // 6. Query metrics
-    console.log('\nStep 5: Querying metrics...\n');
+    logger.info('\nStep 5: Querying metrics...\n');
 
     const codeMetrics = db.getMetrics({
       projectId: project.id!,
@@ -147,32 +149,32 @@ async function main() {
       order: 'ASC',
     });
 
-    console.log(`Code Metrics (${codeMetrics.length} records):`);
+    logger.info(`Code Metrics (${codeMetrics.length} records):`);
     codeMetrics.forEach(metric => {
       const date = new Date(metric.timestamp!).toISOString().split('T')[0];
-      console.log(`  ${metric.name}: ${metric.value}${metric.unit || ''} (${date})`);
+      logger.info(`  ${metric.name}: ${metric.value}${metric.unit || ''} (${date})`);
     });
 
     // 7. Aggregate metrics
-    console.log('\nStep 6: Aggregating metrics...\n');
+    logger.info('\nStep 6: Aggregating metrics...\n');
 
     const aggregated = db.aggregateMetrics({
       projectId: project.id!,
       category: 'code',
     });
 
-    console.log('Aggregated Code Metrics:');
+    logger.info('Aggregated Code Metrics:');
     aggregated.forEach(agg => {
-      console.log(`  ${agg.name}:`);
-      console.log(`    Count: ${agg.count}`);
-      console.log(`    Min: ${agg.min}`);
-      console.log(`    Max: ${agg.max}`);
-      console.log(`    Avg: ${agg.avg.toFixed(2)}`);
-      console.log(`    Sum: ${agg.sum}`);
+      logger.info(`  ${agg.name}:`);
+      logger.info(`    Count: ${agg.count}`);
+      logger.info(`    Min: ${agg.min}`);
+      logger.info(`    Max: ${agg.max}`);
+      logger.info(`    Avg: ${agg.avg.toFixed(2)}`);
+      logger.info(`    Sum: ${agg.sum}`);
     });
 
     // 8. Compare metrics before and after
-    console.log('\nStep 7: Comparing metrics (before vs after)...\n');
+    logger.info('\nStep 7: Comparing metrics (before vs after)...\n');
 
     const comparison = db.compareMetrics({
       projectId: project.id!,
@@ -180,7 +182,7 @@ async function main() {
       afterDate,
     });
 
-    console.log('Improvements:');
+    logger.info('Improvements:');
     comparison.forEach(comp => {
       const change = comp.change || 0;
       const percentChange = comp.percentChange || 0;
@@ -196,38 +198,38 @@ async function main() {
 
       const status = isImprovement ? '✓' : '⚠';
 
-      console.log(
+      logger.info(
         `  ${status} ${comp.name}: ${comp.before} → ${comp.after} ` +
         `(${arrow} ${sign}${change}, ${sign}${percentChange.toFixed(1)}%)`
       );
     });
 
     // 9. Export metrics
-    console.log('\nStep 8: Exporting metrics...\n');
+    logger.info('\nStep 8: Exporting metrics...\n');
 
     const exportData = db.exportMetrics({
       projectIds: [project.id!],
     });
 
-    console.log(`Exported ${exportData.metrics.length} metrics for ${exportData.projects.length} project(s)`);
+    logger.info(`Exported ${exportData.metrics.length} metrics for ${exportData.projects.length} project(s)`);
 
     // 10. Export to CSV
     const csv = db.exportToCSV({
       projectId: project.id!,
     });
 
-    console.log('\nCSV Export (first 300 characters):');
-    console.log(csv.substring(0, 300) + '...\n');
+    logger.info('\nCSV Export (first 300 characters):');
+    logger.info(csv.substring(0, 300) + '...\n');
 
-    console.log('✓ Metrics collection example completed successfully');
-    console.log(`\nDatabase stored at: ${dbPath}`);
-    console.log('Run "npm run clean" to remove the database file.');
+    logger.info('✓ Metrics collection example completed successfully');
+    logger.info(`\nDatabase stored at: ${dbPath}`);
+    logger.info('Run "npm run clean" to remove the database file.');
 
   } catch (error) {
-    console.error('\n✗ Metrics collection failed:', error instanceof Error ? error.message : error);
+    logger.error('\n✗ Metrics collection failed:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
 
 // Run the example
-main().catch(console.error);
+main().catch((err) => logger.error(err));

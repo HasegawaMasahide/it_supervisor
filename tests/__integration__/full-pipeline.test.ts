@@ -1,3 +1,6 @@
+import { createLogger, LogLevel } from '@it-supervisor/logger';
+const logger = createLogger({ name: 'e2e-test', level: LogLevel.INFO });
+
 /**
  * E2E Integration Test: Full Audit Pipeline
  *
@@ -88,7 +91,7 @@ export function subtract(a: number, b: number): number {
 
   it('should execute complete audit pipeline', async () => {
     // Step 1: Analyze repository structure
-    console.log('Step 1: Analyzing repository...');
+    logger.info('Step 1: Analyzing repository...');
     const repoAnalyzer = new RepositoryAnalyzer();
     const repoAnalysis = await repoAnalyzer.analyzeLocal(TEST_REPO);
 
@@ -97,7 +100,7 @@ export function subtract(a: number, b: number): number {
     expect(repoAnalysis.techStack.languages.some(l => l.name === 'TypeScript')).toBe(true);
 
     // Step 2: Store repository metrics
-    console.log('Step 2: Storing repository metrics...');
+    logger.info('Step 2: Storing repository metrics...');
     const project = metricsDb.createProject({
       name: 'test-project',
       description: 'Integration test project',
@@ -125,7 +128,7 @@ export function subtract(a: number, b: number): number {
     expect(metrics).toHaveLength(2);
 
     // Step 3: Run static analysis (with error handling for missing tools)
-    console.log('Step 3: Running static analysis...');
+    logger.info('Step 3: Running static analysis...');
     let analysisResults;
     try {
       const staticAnalyzer = new StaticAnalyzer();
@@ -135,7 +138,7 @@ export function subtract(a: number, b: number): number {
       });
     } catch (_error) {
       // If ESLint is not available, use mock data
-      console.log('Static analysis skipped - tools not available');
+      logger.info('Static analysis skipped - tools not available');
       analysisResults = {
         summary: {
           totalIssues: 0,
@@ -154,7 +157,7 @@ export function subtract(a: number, b: number): number {
     expect(analysisResults.summary).toBeDefined();
 
     // Step 4: Create issues from analysis results
-    console.log('Step 4: Creating issues...');
+    logger.info('Step 4: Creating issues...');
     const createdIssues = [];
 
     // Create at least one test issue
@@ -194,13 +197,13 @@ export function subtract(a: number, b: number): number {
     expect(createdIssues.length).toBeGreaterThan(0);
 
     // Step 5: Generate statistics
-    console.log('Step 5: Generating statistics...');
+    logger.info('Step 5: Generating statistics...');
     const stats = issueManager.getStatistics(project.id);
     expect(stats).toBeDefined();
     expect(stats.total).toBe(createdIssues.length);
 
     // Step 6: Generate report
-    console.log('Step 6: Generating report...');
+    logger.info('Step 6: Generating report...');
     const reportGenerator = new ReportGenerator({
       title: 'Integration Test Report',
       project: {
@@ -237,7 +240,7 @@ export function subtract(a: number, b: number): number {
     expect(reportContent).toContain('Integration Test Report');
     expect(reportContent).toContain('test-project');
 
-    console.log('✅ Full pipeline completed successfully!');
+    logger.info('✅ Full pipeline completed successfully!');
   }, 30000); // 30 second timeout for E2E test
 
   it('should handle errors gracefully', async () => {

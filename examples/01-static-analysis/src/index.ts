@@ -1,9 +1,11 @@
 import { StaticAnalyzer, AnalyzerTool } from '@it-supervisor/static-analyzer';
-import { LogLevel } from '@it-supervisor/logger';
+import { createLogger, LogLevel } from '@it-supervisor/logger';
 import * as path from 'path';
 
+const logger = createLogger({ name: 'static-analysis-example', level: LogLevel.INFO });
+
 async function main() {
-  console.log('=== Static Analysis Example ===\n');
+  logger.info('=== Static Analysis Example ===\n');
 
   // 1. Initialize the analyzer
   const analyzer = new StaticAnalyzer();
@@ -12,7 +14,7 @@ async function main() {
 
   try {
     // 2. Run analysis with progress tracking
-    console.log('Starting analysis...\n');
+    logger.info('Starting analysis...\n');
 
     const result = await analyzer.analyzeWithProgress(
       projectPath,
@@ -21,7 +23,7 @@ async function main() {
         excludePatterns: ['**/node_modules/**', '**/dist/**'],
       },
       (progress) => {
-        console.log(
+        logger.info(
           `Progress: ${progress.tool} ` +
           `(${progress.current}/${progress.total} tools completed)`
         );
@@ -29,50 +31,50 @@ async function main() {
     );
 
     // 3. Display results
-    console.log('\n=== Analysis Results ===\n');
-    console.log(`Total issues found: ${result.summary.totalIssues}`);
-    console.log(`Analysis completed in: ${result.summary.executionTime}ms`);
-    console.log(`Files analyzed: ${result.summary.filesAnalyzed}\n`);
+    logger.info('\n=== Analysis Results ===\n');
+    logger.info(`Total issues found: ${result.summary.totalIssues}`);
+    logger.info(`Analysis completed in: ${result.summary.executionTime}ms`);
+    logger.info(`Files analyzed: ${result.summary.filesAnalyzed}\n`);
 
     // Group by severity
-    console.log('By Severity:');
+    logger.info('By Severity:');
     Object.entries(result.summary.bySeverity)
       .sort(([, a], [, b]) => b - a)
       .forEach(([severity, count]) => {
-        console.log(`  ${severity}: ${count}`);
+        logger.info(`  ${severity}: ${count}`);
       });
 
     // Group by category
-    console.log('\nBy Category:');
+    logger.info('\nBy Category:');
     Object.entries(result.summary.byCategory)
       .sort(([, a], [, b]) => b - a)
       .forEach(([category, count]) => {
-        console.log(`  ${category}: ${count}`);
+        logger.info(`  ${category}: ${count}`);
       });
 
     // Show sample issues (first 5)
     if (result.allIssues.length > 0) {
-      console.log('\nSample Issues:');
+      logger.info('\nSample Issues:');
       result.allIssues.slice(0, 5).forEach((issue, index) => {
-        console.log(`  ${index + 1}. [${issue.severity}] ${issue.message}`);
-        console.log(`     File: ${issue.file}:${issue.line || '?'}`);
-        console.log(`     Category: ${issue.category}`);
+        logger.info(`  ${index + 1}. [${issue.severity}] ${issue.message}`);
+        logger.info(`     File: ${issue.file}:${issue.line || '?'}`);
+        logger.info(`     Category: ${issue.category}`);
       });
     }
 
     // 4. Show fix suggestions
     const issuesWithFixes = result.allIssues.filter(i => i.fix?.available);
     if (issuesWithFixes.length > 0) {
-      console.log(`\n${issuesWithFixes.length} issues have automated fix suggestions`);
+      logger.info(`\n${issuesWithFixes.length} issues have automated fix suggestions`);
     }
 
-    console.log('\n✓ Analysis completed successfully');
+    logger.info('\n✓ Analysis completed successfully');
 
   } catch (error) {
-    console.error('\n✗ Analysis failed:', error instanceof Error ? error.message : error);
+    logger.error('\n✗ Analysis failed:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
 
 // Run the example
-main().catch(console.error);
+main().catch((err) => logger.error(err));

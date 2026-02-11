@@ -6,11 +6,13 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const logger = createLogger({ name: 'example', level: LogLevel.INFO });
+
 async function main() {
-  console.log('=== Docker Sandbox Example ===\n');
+  logger.info('=== Docker Sandbox Example ===\n');
 
   // Note: This example requires Docker to be installed and running
-  console.log('Prerequisites: Docker must be installed and running\n');
+  logger.info('Prerequisites: Docker must be installed and running\n');
 
   // 1. Initialize the builder
   const builder = new SandboxBuilder();
@@ -20,22 +22,22 @@ async function main() {
 
   try {
     // 2. Detect project environment
-    console.log('Step 1: Detecting project environment...\n');
+    logger.info('Step 1: Detecting project environment...\n');
 
     const detection = await builder.detect(projectPath);
 
-    console.log('Detection Results:');
-    console.log(`  Primary Language: ${detection.language}`);
-    console.log(`  Runtime: ${detection.runtime || 'Unknown'}`);
-    console.log(`  Package Manager: ${detection.packageManager || 'Unknown'}`);
-    console.log(`  Databases Detected: ${detection.databases.join(', ') || 'None'}`);
+    logger.info('Detection Results:');
+    logger.info(`  Primary Language: ${detection.language}`);
+    logger.info(`  Runtime: ${detection.runtime || 'Unknown'}`);
+    logger.info(`  Package Manager: ${detection.packageManager || 'Unknown'}`);
+    logger.info(`  Databases Detected: ${detection.databases.join(', ') || 'None'}`);
 
     if (detection.frameworks.length > 0) {
-      console.log(`  Frameworks: ${detection.frameworks.join(', ')}`);
+      logger.info(`  Frameworks: ${detection.frameworks.join(', ')}`);
     }
 
     // 3. Build Docker configuration
-    console.log('\nStep 2: Building Docker configuration...\n');
+    logger.info('\nStep 2: Building Docker configuration...\n');
 
     const dockerConfig = await builder.build({
       projectPath,
@@ -44,99 +46,99 @@ async function main() {
       customPorts: [8080, 3000],
     });
 
-    console.log('Docker Configuration Generated:');
-    console.log(`  Services: ${Object.keys(dockerConfig.services).length}`);
+    logger.info('Docker Configuration Generated:');
+    logger.info(`  Services: ${Object.keys(dockerConfig.services).length}`);
 
     // Display main service configuration
     const mainService = dockerConfig.services[Object.keys(dockerConfig.services)[0]];
     if (mainService) {
-      console.log(`\nMain Service Configuration:`);
-      console.log(`  Image: ${mainService.image}`);
-      console.log(`  Working Directory: ${mainService.working_dir || '/app'}`);
+      logger.info(`\nMain Service Configuration:`);
+      logger.info(`  Image: ${mainService.image}`);
+      logger.info(`  Working Directory: ${mainService.working_dir || '/app'}`);
 
       if (mainService.ports && mainService.ports.length > 0) {
-        console.log(`  Exposed Ports: ${mainService.ports.join(', ')}`);
+        logger.info(`  Exposed Ports: ${mainService.ports.join(', ')}`);
       }
 
       if (mainService.environment) {
-        console.log(`  Environment Variables: ${Object.keys(mainService.environment).length}`);
+        logger.info(`  Environment Variables: ${Object.keys(mainService.environment).length}`);
       }
 
       if (mainService.volumes && mainService.volumes.length > 0) {
-        console.log(`  Volumes: ${mainService.volumes.length}`);
+        logger.info(`  Volumes: ${mainService.volumes.length}`);
       }
     }
 
     // 4. Display docker-compose.yml preview
-    console.log('\n=== docker-compose.yml Preview ===\n');
-    console.log('```yaml');
-    console.log(`version: '${dockerConfig.version}'`);
-    console.log('services:');
+    logger.info('\n=== docker-compose.yml Preview ===\n');
+    logger.info('```yaml');
+    logger.info(`version: '${dockerConfig.version}'`);
+    logger.info('services:');
 
     for (const [serviceName, service] of Object.entries(dockerConfig.services)) {
-      console.log(`  ${serviceName}:`);
-      console.log(`    image: ${service.image}`);
+      logger.info(`  ${serviceName}:`);
+      logger.info(`    image: ${service.image}`);
 
       if (service.container_name) {
-        console.log(`    container_name: ${service.container_name}`);
+        logger.info(`    container_name: ${service.container_name}`);
       }
 
       if (service.ports && service.ports.length > 0) {
-        console.log(`    ports:`);
+        logger.info(`    ports:`);
         service.ports.forEach(port => {
-          console.log(`      - "${port}"`);
+          logger.info(`      - "${port}"`);
         });
       }
 
       if (service.networks && service.networks.length > 0) {
-        console.log(`    networks:`);
+        logger.info(`    networks:`);
         service.networks.forEach(network => {
-          console.log(`      - ${network}`);
+          logger.info(`      - ${network}`);
         });
       }
 
-      console.log('');
+      logger.info('');
     }
 
     if (dockerConfig.networks) {
-      console.log('networks:');
+      logger.info('networks:');
       for (const [networkName, network] of Object.entries(dockerConfig.networks)) {
-        console.log(`  ${networkName}:`);
-        console.log(`    driver: ${network.driver || 'bridge'}`);
+        logger.info(`  ${networkName}:`);
+        logger.info(`    driver: ${network.driver || 'bridge'}`);
       }
     }
 
-    console.log('```\n');
+    logger.info('```\n');
 
     // 5. Usage instructions
-    console.log('=== Usage Instructions ===\n');
-    console.log('To use this configuration:');
-    console.log('  1. Save the configuration to docker-compose.yml');
-    console.log('  2. Run: docker-compose up -d');
-    console.log('  3. Check status: docker-compose ps');
-    console.log('  4. View logs: docker-compose logs -f');
-    console.log('  5. Stop: docker-compose down\n');
+    logger.info('=== Usage Instructions ===\n');
+    logger.info('To use this configuration:');
+    logger.info('  1. Save the configuration to docker-compose.yml');
+    logger.info('  2. Run: docker-compose up -d');
+    logger.info('  3. Check status: docker-compose ps');
+    logger.info('  4. View logs: docker-compose logs -f');
+    logger.info('  5. Stop: docker-compose down\n');
 
     // 6. Advanced features
-    console.log('=== Advanced Features ===\n');
-    console.log('Available sandbox operations:');
-    console.log('  - Environment detection (detect)');
-    console.log('  - Docker config generation (build)');
-    console.log('  - Container lifecycle management (start, stop, restart)');
-    console.log('  - Log streaming (streamLogs)');
-    console.log('  - Command execution (exec)');
-    console.log('  - Health checks (healthCheck)');
-    console.log('  - Snapshot management (snapshot, restore)');
+    logger.info('=== Advanced Features ===\n');
+    logger.info('Available sandbox operations:');
+    logger.info('  - Environment detection (detect)');
+    logger.info('  - Docker config generation (build)');
+    logger.info('  - Container lifecycle management (start, stop, restart)');
+    logger.info('  - Log streaming (streamLogs)');
+    logger.info('  - Command execution (exec)');
+    logger.info('  - Health checks (healthCheck)');
+    logger.info('  - Snapshot management (snapshot, restore)');
 
-    console.log('\n✓ Sandbox configuration completed successfully');
-    console.log('\nNote: To actually create and run the sandbox, use SandboxController');
-    console.log('      See the sandbox-builder API documentation for details.');
+    logger.info('\n✓ Sandbox configuration completed successfully');
+    logger.info('\nNote: To actually create and run the sandbox, use SandboxController');
+    logger.info('      See the sandbox-builder API documentation for details.');
 
   } catch (error) {
-    console.error('\n✗ Sandbox creation failed:', error instanceof Error ? error.message : error);
+    logger.error('\n✗ Sandbox creation failed:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
 
 // Run the example
-main().catch(console.error);
+main().catch((err) => logger.error(err));

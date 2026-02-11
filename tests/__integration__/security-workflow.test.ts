@@ -1,3 +1,6 @@
+import { createLogger, LogLevel } from '@it-supervisor/logger';
+const logger = createLogger({ name: 'e2e-test', level: LogLevel.INFO });
+
 /**
  * E2E Integration Test: Security Audit Workflow
  *
@@ -80,7 +83,7 @@ export function getUserById(id: string): string {
 
   it('should detect and report security issues', async () => {
     // Step 1: Simulate security scan results
-    console.log('Step 1: Simulating security scan...');
+    logger.info('Step 1: Simulating security scan...');
 
     // Mock security findings (in real scenario, these would come from static-analyzer)
     const securityFindings = [
@@ -118,7 +121,7 @@ export function getUserById(id: string): string {
     expect(securityFindings.filter(f => f.severity === 'high')).toHaveLength(2);
 
     // Step 2: Store security metrics
-    console.log('Step 2: Storing security metrics...');
+    logger.info('Step 2: Storing security metrics...');
     const project = metricsDb.createProject({
       name: 'vulnerable-app',
       description: 'Security audit test project',
@@ -150,7 +153,7 @@ export function getUserById(id: string): string {
     expect(metrics).toHaveLength(3);
 
     // Step 3: Generate security report
-    console.log('Step 3: Generating security report...');
+    logger.info('Step 3: Generating security report...');
     const reportGenerator = new ReportGenerator({
       title: 'Security Audit Report',
       project: {
@@ -188,7 +191,7 @@ export function getUserById(id: string): string {
     expect(reportContent).toContain('Hardcoded API Key');
     expect(reportContent).toContain('SQL Injection Risk');
 
-    console.log('✅ Security workflow completed successfully!');
+    logger.info('✅ Security workflow completed successfully!');
   }, 20000); // 20 second timeout
 
   it('should track security improvements over time', async () => {

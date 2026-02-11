@@ -1,3 +1,6 @@
+import { createLogger, LogLevel } from '@it-supervisor/logger';
+const logger = createLogger({ name: 'benchmark', level: LogLevel.INFO });
+
 import { StaticAnalyzer } from '../packages/static-analyzer/src/analyzer.js';
 
 // Import AnalyzerTool enum directly
@@ -59,7 +62,7 @@ var unused = ${i}; // no-unused-vars
 const x = ${i}
 const y = x * 2; // missing semicolon
 if (x == y) { // eqeqeq
-  console.log('test')
+  logger.info('test')
 }
 `;
     await fs.writeFile(path.join(tmpDir, `file${i}.js`), content);
@@ -97,7 +100,7 @@ async function benchmark(
 }
 
 async function runBenchmarks() {
-  console.log('=== Static Analyzer Benchmarks ===\n');
+  logger.info('=== Static Analyzer Benchmarks ===\n');
 
   const analyzer = new StaticAnalyzer();
   const results: BenchmarkResult[] = [];
@@ -131,12 +134,12 @@ async function runBenchmarks() {
   results.push(complexResult);
 
   // Display results
-  console.log('Results:\n');
+  logger.info('Results:\n');
   results.forEach((result) => {
-    console.log(`${result.name}`);
-    console.log(`  Iterations: ${result.iterations}`);
-    console.log(`  Total: ${result.duration.toFixed(2)}ms`);
-    console.log(`  Average: ${result.avgDuration.toFixed(2)}ms\n`);
+    logger.info(`${result.name}`);
+    logger.info(`  Iterations: ${result.iterations}`);
+    logger.info(`  Total: ${result.duration.toFixed(2)}ms`);
+    logger.info(`  Average: ${result.avgDuration.toFixed(2)}ms\n`);
   });
 
   // Save JSON results for CI comparison
@@ -159,10 +162,10 @@ async function runBenchmarks() {
     JSON.stringify(jsonOutput, null, 2)
   );
 
-  console.log(`\nJSON results saved to: ${path.join(outputDir, 'static-analyzer.json')}`);
+  logger.info(`\nJSON results saved to: ${path.join(outputDir, 'static-analyzer.json')}`);
 
   // Cleanup test files (but keep .tmp/benchmarks/ for CI)
   await fs.rm(path.join(__dirname, '../.tmp/benchmark-project'), { recursive: true, force: true });
 }
 
-runBenchmarks().catch(console.error);
+runBenchmarks().catch((err) => logger.error(err));

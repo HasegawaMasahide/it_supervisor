@@ -1,3 +1,6 @@
+import { createLogger, LogLevel } from '@it-supervisor/logger';
+const logger = createLogger({ name: 'benchmark', level: LogLevel.INFO });
+
 import { ReportGenerator } from '../packages/report-generator/src/generator.js';
 import { performance } from 'perf_hooks';
 
@@ -101,7 +104,7 @@ async function benchmark(
 }
 
 async function runBenchmarks() {
-  console.log('=== Report Generator Benchmarks ===\n');
+  logger.info('=== Report Generator Benchmarks ===\n');
 
   const generator = new ReportGenerator();
   const tmpDir = path.join(__dirname, '../.tmp/benchmark-reports');
@@ -157,12 +160,12 @@ async function runBenchmarks() {
   results.push(markdownResult);
 
   // Display results
-  console.log('Results:\n');
+  logger.info('Results:\n');
   results.forEach((result) => {
-    console.log(`${result.name}`);
-    console.log(`  Iterations: ${result.iterations}`);
-    console.log(`  Total: ${result.duration.toFixed(2)}ms`);
-    console.log(`  Average: ${result.avgDuration.toFixed(2)}ms\n`);
+    logger.info(`${result.name}`);
+    logger.info(`  Iterations: ${result.iterations}`);
+    logger.info(`  Total: ${result.duration.toFixed(2)}ms`);
+    logger.info(`  Average: ${result.avgDuration.toFixed(2)}ms\n`);
   });
 
   // Save JSON results for CI comparison
@@ -185,10 +188,10 @@ async function runBenchmarks() {
     JSON.stringify(jsonOutput, null, 2)
   );
 
-  console.log(`\nJSON results saved to: ${path.join(outputDir, 'report-generator.json')}`);
+  logger.info(`\nJSON results saved to: ${path.join(outputDir, 'report-generator.json')}`);
 
   // Cleanup test files (but keep .tmp/benchmarks/ for CI)
   await fs.rm(path.join(__dirname, '../.tmp/benchmark-reports'), { recursive: true, force: true });
 }
 
-runBenchmarks().catch(console.error);
+runBenchmarks().catch((err) => logger.error(err));

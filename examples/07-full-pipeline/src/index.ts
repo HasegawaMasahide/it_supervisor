@@ -3,7 +3,7 @@ import { StaticAnalyzer } from '@it-supervisor/static-analyzer';
 import { IssueManager, IssueCategory, IssueSeverity } from '@it-supervisor/issue-manager';
 import { MetricsDatabase } from '@it-supervisor/metrics-model';
 import { ReportGenerator } from '@it-supervisor/report-generator';
-import { LogLevel } from '@it-supervisor/logger';
+import { createLogger, LogLevel } from '@it-supervisor/logger';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -11,13 +11,15 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const logger = createLogger({ name: 'example', level: LogLevel.INFO });
+
 async function main() {
-  console.log('=== Full IT Audit Pipeline Example ===\n');
-  console.log('This example demonstrates a complete audit workflow:\n');
-  console.log('  1. Analyze repository structure and codebase');
-  console.log('  2. Run static analysis to find issues');
-  console.log('  3. Store issues and metrics in databases');
-  console.log('  4. Generate comprehensive audit report\n');
+  logger.info('=== Full IT Audit Pipeline Example ===\n');
+  logger.info('This example demonstrates a complete audit workflow:\n');
+  logger.info('  1. Analyze repository structure and codebase');
+  logger.info('  2. Run static analysis to find issues');
+  logger.info('  3. Store issues and metrics in databases');
+  logger.info('  4. Generate comprehensive audit report\n');
 
   // Initialize components
   const projectPath = path.resolve(__dirname, '../../..');
@@ -39,9 +41,9 @@ async function main() {
 
   try {
     // Step 1: Repository Analysis
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('Step 1: Analyzing Repository');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    logger.info('Step 1: Analyzing Repository');
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     const repoResult = await repoAnalyzer.analyzeLocal(projectPath, {
       maxFiles: 500,
@@ -49,14 +51,14 @@ async function main() {
       calculateComplexity: true,
     });
 
-    console.log(`✓ Analyzed ${repoResult.fileStats.totalFiles} files`);
-    console.log(`  Languages: ${repoResult.techStack.languages.map(l => l.name).join(', ')}`);
-    console.log(`  Total Lines: ${repoResult.fileStats.totalLines.toLocaleString()}`);
+    logger.info(`✓ Analyzed ${repoResult.fileStats.totalFiles} files`);
+    logger.info(`  Languages: ${repoResult.techStack.languages.map(l => l.name).join(', ')}`);
+    logger.info(`  Total Lines: ${repoResult.fileStats.totalLines.toLocaleString()}`);
 
     // Step 2: Static Analysis
-    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('Step 2: Running Static Analysis');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    logger.info('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    logger.info('Step 2: Running Static Analysis');
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     const staticResult = await staticAnalyzer.analyze(projectPath, {
       tools: ['eslint'], // Use only ESLint for this example
@@ -64,14 +66,14 @@ async function main() {
       excludePatterns: ['**/node_modules/**', '**/dist/**', '**/__tests__/**'],
     });
 
-    console.log(`✓ Analysis completed in ${staticResult.summary.duration}ms`);
-    console.log(`  Tools: ${staticResult.summary.toolsExecuted.join(', ')}`);
-    console.log(`  Issues Found: ${staticResult.summary.totalIssues}`);
+    logger.info(`✓ Analysis completed in ${staticResult.summary.duration}ms`);
+    logger.info(`  Tools: ${staticResult.summary.toolsExecuted.join(', ')}`);
+    logger.info(`  Issues Found: ${staticResult.summary.totalIssues}`);
 
     // Step 3: Store Metrics
-    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('Step 3: Storing Metrics');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    logger.info('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    logger.info('Step 3: Storing Metrics');
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     const project = metricsDb.createProject({
       name: projectId,
@@ -117,12 +119,12 @@ async function main() {
       },
     ]);
 
-    console.log(`✓ Recorded 5 metrics for project "${project.name}"`);
+    logger.info(`✓ Recorded 5 metrics for project "${project.name}"`);
 
     // Step 4: Store Issues
-    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('Step 4: Storing Issues');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    logger.info('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    logger.info('Step 4: Storing Issues');
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     let issueCount = 0;
     const maxIssues = 20; // Limit to first 20 issues for demo
@@ -147,12 +149,12 @@ async function main() {
       issueCount++;
     }
 
-    console.log(`✓ Stored ${issueCount} issues in database`);
+    logger.info(`✓ Stored ${issueCount} issues in database`);
 
     // Step 5: Generate Report
-    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('Step 5: Generating Audit Report');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    logger.info('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    logger.info('Step 5: Generating Audit Report');
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     const stats = issueManager.getStatistics(projectId);
 
@@ -230,43 +232,43 @@ async function main() {
     // Generate HTML report
     const htmlPath = path.join(outputDir, 'pipeline-audit-report.html');
     await reportGenerator.exportToHTML(reportConfig, htmlPath);
-    console.log(`✓ HTML report: ${htmlPath}`);
+    logger.info(`✓ HTML report: ${htmlPath}`);
 
     // Generate Markdown report
     const mdPath = path.join(outputDir, 'pipeline-audit-report.md');
     await reportGenerator.exportToMarkdown(reportConfig, mdPath);
-    console.log(`✓ Markdown report: ${mdPath}`);
+    logger.info(`✓ Markdown report: ${mdPath}`);
 
     // Step 6: Summary
-    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('Pipeline Summary');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    logger.info('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    logger.info('Pipeline Summary');
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    console.log('Repository Analysis:');
-    console.log(`  Files Analyzed: ${repoResult.fileStats.totalFiles}`);
-    console.log(`  Total Lines: ${repoResult.fileStats.totalLines.toLocaleString()}`);
-    console.log(`  Languages: ${repoResult.techStack.languages.length}`);
+    logger.info('Repository Analysis:');
+    logger.info(`  Files Analyzed: ${repoResult.fileStats.totalFiles}`);
+    logger.info(`  Total Lines: ${repoResult.fileStats.totalLines.toLocaleString()}`);
+    logger.info(`  Languages: ${repoResult.techStack.languages.length}`);
 
-    console.log('\nStatic Analysis:');
-    console.log(`  Tools Executed: ${staticResult.summary.toolsExecuted.join(', ')}`);
-    console.log(`  Total Issues: ${staticResult.summary.totalIssues}`);
-    console.log(`  Duration: ${staticResult.summary.duration}ms`);
+    logger.info('\nStatic Analysis:');
+    logger.info(`  Tools Executed: ${staticResult.summary.toolsExecuted.join(', ')}`);
+    logger.info(`  Total Issues: ${staticResult.summary.totalIssues}`);
+    logger.info(`  Duration: ${staticResult.summary.duration}ms`);
 
-    console.log('\nData Storage:');
-    console.log(`  Metrics Recorded: 5`);
-    console.log(`  Issues Stored: ${issueCount}`);
-    console.log(`  Database: ${dbPath}`);
+    logger.info('\nData Storage:');
+    logger.info(`  Metrics Recorded: 5`);
+    logger.info(`  Issues Stored: ${issueCount}`);
+    logger.info(`  Database: ${dbPath}`);
 
-    console.log('\nGenerated Reports:');
-    console.log(`  HTML: ${htmlPath}`);
-    console.log(`  Markdown: ${mdPath}`);
+    logger.info('\nGenerated Reports:');
+    logger.info(`  HTML: ${htmlPath}`);
+    logger.info(`  Markdown: ${mdPath}`);
 
-    console.log('\n✓ Full pipeline completed successfully!');
-    console.log('\nRun "npm run clean" to remove generated files and database.');
+    logger.info('\n✓ Full pipeline completed successfully!');
+    logger.info('\nRun "npm run clean" to remove generated files and database.');
 
   } catch (error) {
-    console.error('\n✗ Pipeline failed:', error instanceof Error ? error.message : error);
-    console.error(error);
+    logger.error('\n✗ Pipeline failed:', error instanceof Error ? error.message : error);
+    logger.error(error);
     process.exit(1);
   }
 }
@@ -344,4 +346,4 @@ function generateRecommendations(
 }
 
 // Run the example
-main().catch(console.error);
+main().catch((err) => logger.error(err));

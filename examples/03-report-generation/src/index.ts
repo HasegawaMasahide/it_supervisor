@@ -7,8 +7,10 @@ import { promises as fs } from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const logger = createLogger({ name: 'example', level: LogLevel.INFO });
+
 async function main() {
-  console.log('=== Report Generation Example ===\n');
+  logger.info('=== Report Generation Example ===\n');
 
   // 1. Initialize the generator
   const generator = new ReportGenerator();
@@ -108,31 +110,31 @@ async function main() {
     };
 
     // 3. Generate HTML report
-    console.log('Generating HTML report...');
+    logger.info('Generating HTML report...');
     const htmlOutput = path.join(outputDir, 'audit-report.html');
     await generator.exportToHTML(reportConfig, htmlOutput);
-    console.log(`✓ HTML report generated: ${htmlOutput}`);
+    logger.info(`✓ HTML report generated: ${htmlOutput}`);
 
     // 4. Generate Markdown report
-    console.log('\nGenerating Markdown report...');
+    logger.info('\nGenerating Markdown report...');
     const mdOutput = path.join(outputDir, 'audit-report.md');
     await generator.exportToMarkdown(reportConfig, mdOutput);
-    console.log(`✓ Markdown report generated: ${mdOutput}`);
+    logger.info(`✓ Markdown report generated: ${mdOutput}`);
 
     // 5. Generate PDF report (with fallback to HTML)
-    console.log('\nGenerating PDF report...');
+    logger.info('\nGenerating PDF report...');
     const pdfOutput = path.join(outputDir, 'audit-report.pdf');
 
     try {
       await generator.exportToPDF(reportConfig, pdfOutput);
-      console.log(`✓ PDF report generated: ${pdfOutput}`);
+      logger.info(`✓ PDF report generated: ${pdfOutput}`);
     } catch (error) {
-      console.log(`⚠ PDF generation failed (Puppeteer not configured), HTML saved instead`);
-      console.log(`  Note: Install system dependencies for PDF generation in production`);
+      logger.info(`⚠ PDF generation failed (Puppeteer not configured), HTML saved instead`);
+      logger.info(`  Note: Install system dependencies for PDF generation in production`);
     }
 
     // 6. Generate report with charts
-    console.log('\nGenerating enhanced report with charts...');
+    logger.info('\nGenerating enhanced report with charts...');
 
     const chartData = generator.generateChartData(reportConfig, {
       includeLanguages: true,
@@ -143,31 +145,31 @@ async function main() {
     const htmlWithCharts = generator.generateHTMLWithCharts(reportConfig, chartData);
     const htmlChartsOutput = path.join(outputDir, 'audit-report-with-charts.html');
     await fs.writeFile(htmlChartsOutput, htmlWithCharts, 'utf-8');
-    console.log(`✓ Enhanced HTML report with charts generated: ${htmlChartsOutput}`);
+    logger.info(`✓ Enhanced HTML report with charts generated: ${htmlChartsOutput}`);
 
     // 7. Display summary
-    console.log('\n=== Report Summary ===\n');
-    console.log(`Title: ${reportConfig.title}`);
-    console.log(`Date: ${reportConfig.date}`);
-    console.log(`Total Issues: ${reportConfig.summary.totalIssues}`);
-    console.log(`  - Critical: ${reportConfig.summary.criticalIssues}`);
-    console.log(`  - High: ${reportConfig.summary.highIssues}`);
-    console.log(`  - Medium: ${reportConfig.summary.mediumIssues}`);
-    console.log(`  - Low: ${reportConfig.summary.lowIssues}`);
+    logger.info('\n=== Report Summary ===\n');
+    logger.info(`Title: ${reportConfig.title}`);
+    logger.info(`Date: ${reportConfig.date}`);
+    logger.info(`Total Issues: ${reportConfig.summary.totalIssues}`);
+    logger.info(`  - Critical: ${reportConfig.summary.criticalIssues}`);
+    logger.info(`  - High: ${reportConfig.summary.highIssues}`);
+    logger.info(`  - Medium: ${reportConfig.summary.mediumIssues}`);
+    logger.info(`  - Low: ${reportConfig.summary.lowIssues}`);
 
-    console.log('\nGenerated Files:');
-    console.log(`  - ${htmlOutput}`);
-    console.log(`  - ${mdOutput}`);
-    console.log(`  - ${htmlChartsOutput}`);
+    logger.info('\nGenerated Files:');
+    logger.info(`  - ${htmlOutput}`);
+    logger.info(`  - ${mdOutput}`);
+    logger.info(`  - ${htmlChartsOutput}`);
 
-    console.log('\n✓ Report generation completed successfully');
-    console.log(`\nOpen the HTML files in your browser to view the reports.`);
+    logger.info('\n✓ Report generation completed successfully');
+    logger.info(`\nOpen the HTML files in your browser to view the reports.`);
 
   } catch (error) {
-    console.error('\n✗ Report generation failed:', error instanceof Error ? error.message : error);
+    logger.error('\n✗ Report generation failed:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
 
 // Run the example
-main().catch(console.error);
+main().catch((err) => logger.error(err));

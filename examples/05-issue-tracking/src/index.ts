@@ -6,8 +6,10 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const logger = createLogger({ name: 'example', level: LogLevel.INFO });
+
 async function main() {
-  console.log('=== Issue Tracking Example ===\n');
+  logger.info('=== Issue Tracking Example ===\n');
 
   // 1. Initialize the issue manager
   const dbPath = path.join(__dirname, '../issues.db');
@@ -17,7 +19,7 @@ async function main() {
 
   try {
     // 2. Create sample issues
-    console.log('Step 1: Creating sample issues...\n');
+    logger.info('Step 1: Creating sample issues...\n');
 
     const issue1 = manager.createIssue({
       projectId,
@@ -33,7 +35,7 @@ async function main() {
       tags: ['security', 'dependency', 'cve'],
     });
 
-    console.log(`✓ Created issue #${issue1.id}: ${issue1.title}`);
+    logger.info(`✓ Created issue #${issue1.id}: ${issue1.title}`);
 
     const issue2 = manager.createIssue({
       projectId,
@@ -48,7 +50,7 @@ async function main() {
       tags: ['security', 'validation', 'api'],
     });
 
-    console.log(`✓ Created issue #${issue2.id}: ${issue2.title}`);
+    logger.info(`✓ Created issue #${issue2.id}: ${issue2.title}`);
 
     const issue3 = manager.createIssue({
       projectId,
@@ -62,10 +64,10 @@ async function main() {
       tags: ['complexity', 'refactoring'],
     });
 
-    console.log(`✓ Created issue #${issue3.id}: ${issue3.title}`);
+    logger.info(`✓ Created issue #${issue3.id}: ${issue3.title}`);
 
     // 3. Add comments to an issue
-    console.log('\nStep 2: Adding comments...\n');
+    logger.info('\nStep 2: Adding comments...\n');
 
     manager.addComment({
       issueId: issue1.id!,
@@ -79,19 +81,19 @@ async function main() {
       content: 'Acknowledged. Will update dependency in the next sprint.',
     });
 
-    console.log(`✓ Added comments to issue #${issue1.id}`);
+    logger.info(`✓ Added comments to issue #${issue1.id}`);
 
     // 4. Search and filter issues
-    console.log('\nStep 3: Searching and filtering issues...\n');
+    logger.info('\nStep 3: Searching and filtering issues...\n');
 
     const criticalIssues = manager.searchIssues({
       projectId,
       severity: [IssueSeverity.Critical],
     });
 
-    console.log(`Found ${criticalIssues.length} critical issue(s):`);
+    logger.info(`Found ${criticalIssues.length} critical issue(s):`);
     criticalIssues.forEach(issue => {
-      console.log(`  - #${issue.id}: ${issue.title}`);
+      logger.info(`  - #${issue.id}: ${issue.title}`);
     });
 
     const securityIssues = manager.searchIssues({
@@ -99,78 +101,78 @@ async function main() {
       keyword: 'security',
     });
 
-    console.log(`\nFound ${securityIssues.length} issue(s) related to security:`);
+    logger.info(`\nFound ${securityIssues.length} issue(s) related to security:`);
     securityIssues.forEach(issue => {
-      console.log(`  - #${issue.id}: ${issue.title} [${issue.severity}]`);
+      logger.info(`  - #${issue.id}: ${issue.title} [${issue.severity}]`);
     });
 
     // 5. Update issue status
-    console.log('\nStep 4: Updating issue status...\n');
+    logger.info('\nStep 4: Updating issue status...\n');
 
     manager.updateIssue(issue3.id!, {
       status: IssueStatus.InProgress,
       assignee: 'john-doe',
     });
 
-    console.log(`✓ Updated issue #${issue3.id} status to: ${IssueStatus.InProgress}`);
+    logger.info(`✓ Updated issue #${issue3.id} status to: ${IssueStatus.InProgress}`);
 
     // 6. Get statistics
-    console.log('\nStep 5: Getting statistics...\n');
+    logger.info('\nStep 5: Getting statistics...\n');
 
     const stats = manager.getStatistics(projectId);
 
-    console.log('Project Statistics:');
-    console.log(`  Total Issues: ${stats.total}`);
-    console.log(`  By Status:`);
-    console.log(`    - Open: ${stats.byStatus[IssueStatus.Open] || 0}`);
-    console.log(`    - In Progress: ${stats.byStatus[IssueStatus.InProgress] || 0}`);
-    console.log(`    - Resolved: ${stats.byStatus[IssueStatus.Resolved] || 0}`);
-    console.log(`  By Severity:`);
-    console.log(`    - Critical: ${stats.bySeverity[IssueSeverity.Critical] || 0}`);
-    console.log(`    - High: ${stats.bySeverity[IssueSeverity.High] || 0}`);
-    console.log(`    - Medium: ${stats.bySeverity[IssueSeverity.Medium] || 0}`);
-    console.log(`    - Low: ${stats.bySeverity[IssueSeverity.Low] || 0}`);
+    logger.info('Project Statistics:');
+    logger.info(`  Total Issues: ${stats.total}`);
+    logger.info(`  By Status:`);
+    logger.info(`    - Open: ${stats.byStatus[IssueStatus.Open] || 0}`);
+    logger.info(`    - In Progress: ${stats.byStatus[IssueStatus.InProgress] || 0}`);
+    logger.info(`    - Resolved: ${stats.byStatus[IssueStatus.Resolved] || 0}`);
+    logger.info(`  By Severity:`);
+    logger.info(`    - Critical: ${stats.bySeverity[IssueSeverity.Critical] || 0}`);
+    logger.info(`    - High: ${stats.bySeverity[IssueSeverity.High] || 0}`);
+    logger.info(`    - Medium: ${stats.bySeverity[IssueSeverity.Medium] || 0}`);
+    logger.info(`    - Low: ${stats.bySeverity[IssueSeverity.Low] || 0}`);
 
     // 7. Get high priority issues
-    console.log('\nStep 6: Getting high priority issues...\n');
+    logger.info('\nStep 6: Getting high priority issues...\n');
 
     const highPriorityIssues = manager.getHighPriorityIssues(projectId, 5);
 
-    console.log('Top Priority Issues:');
+    logger.info('Top Priority Issues:');
     highPriorityIssues.forEach((issue, index) => {
       const priority = manager.calculatePriority(issue);
-      console.log(`  ${index + 1}. [Priority: ${priority}] ${issue.title}`);
-      console.log(`     Severity: ${issue.severity}, Category: ${issue.category}`);
+      logger.info(`  ${index + 1}. [Priority: ${priority}] ${issue.title}`);
+      logger.info(`     Severity: ${issue.severity}, Category: ${issue.category}`);
     });
 
     // 8. Export to CSV
-    console.log('\nStep 7: Exporting issues to CSV...\n');
+    logger.info('\nStep 7: Exporting issues to CSV...\n');
 
     const csv = manager.exportToCSV(projectId);
-    console.log('CSV Export (first 300 characters):');
-    console.log(csv.substring(0, 300) + '...\n');
+    logger.info('CSV Export (first 300 characters):');
+    logger.info(csv.substring(0, 300) + '...\n');
 
     // 9. Get issue with comments
-    console.log('Step 8: Retrieving issue with comments...\n');
+    logger.info('Step 8: Retrieving issue with comments...\n');
 
     const issueWithComments = manager.getIssue(issue1.id!);
     const comments = manager.getComments(issue1.id!);
 
-    console.log(`Issue #${issueWithComments?.id}: ${issueWithComments?.title}`);
-    console.log(`Comments (${comments.length}):`);
+    logger.info(`Issue #${issueWithComments?.id}: ${issueWithComments?.title}`);
+    logger.info(`Comments (${comments.length}):`);
     comments.forEach((comment, index) => {
-      console.log(`  ${index + 1}. [${comment.author}] ${comment.content}`);
+      logger.info(`  ${index + 1}. [${comment.author}] ${comment.content}`);
     });
 
-    console.log('\n✓ Issue tracking example completed successfully');
-    console.log(`\nDatabase stored at: ${dbPath}`);
-    console.log('Run "npm run clean" to remove the database file.');
+    logger.info('\n✓ Issue tracking example completed successfully');
+    logger.info(`\nDatabase stored at: ${dbPath}`);
+    logger.info('Run "npm run clean" to remove the database file.');
 
   } catch (error) {
-    console.error('\n✗ Issue tracking failed:', error instanceof Error ? error.message : error);
+    logger.error('\n✗ Issue tracking failed:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
 
 // Run the example
-main().catch(console.error);
+main().catch((err) => logger.error(err));

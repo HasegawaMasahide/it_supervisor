@@ -1071,3 +1071,45 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `chore(workspace): remove obsolete test scripts from individual packages`
 
+### Phase 27: Code Consistency Improvements (Discovered 2026-02-11)
+
+- [x] **Task 91: Replace console.* calls with logger in examples, benchmarks, and tests**
+  - ✅ Replaced 310 console.* calls with logger.* across 13 files
+  - ✅ Updated examples/ (7 files): 01-07 examples now use structured logging
+  - ✅ Updated benchmarks/ (3 files): repo-analyzer, static-analyzer, report-generator
+  - ✅ Updated tests/ (3 files): E2E integration tests
+  - ✅ Added createLogger imports and instances to all affected files
+  - ✅ Maintained 1 console.log in sample-project/index.ts (test fixture)
+  - ✅ All tests pass (391 passed, 33 skipped)
+  - ✅ ESLint and TypeScript type-check pass
+  - Priority: P1 (High - code quality and consistency)
+  - Calculated Priority Score: 66 (Blocks: 0, Security: 0, Impact: 7, TechDebt: 7, Effort: 3)
+  - Status: ✅ Completed
+  - Commit: `refactor(workspace): replace console.* with logger in examples, benchmarks, and tests`
+
+- [ ] **Task 92: Improve test coverage for repo-analyzer to 80%+**
+  - Current coverage: 65.61% statements (target: 80%)
+  - Focus on uncovered areas: lines 540-553, 619-649, 702-723, 816+
+  - Add tests for: Git operations (cloneRepository, analyzeCommitHistory), complex file analysis edge cases
+  - 11 tests currently skipped due to Vitest fs mocking limitations (documented in Task 20)
+  - Priority: P2 (Medium - test coverage improvement)
+  - Calculated Priority Score: 56 (Impact: 6, TechDebt: 6, Effort: 4)
+  - Effort: Medium (requires understanding uncovered code paths)
+
+- [ ] **Task 93: Improve test coverage for static-analyzer to 80%+**
+  - Current coverage: 69.38% statements (target: 80%)
+  - Focus on uncovered areas: lines 466-493, 619-623, 732-795, 840-844, 918+
+  - Add tests for: Tool execution error paths, complex issue deduplication, suggestion generation edge cases
+  - Priority: P2 (Medium - test coverage improvement)
+  - Calculated Priority Score: 56 (Impact: 6, TechDebt: 6, Effort: 4)
+  - Effort: Medium (requires understanding uncovered code paths)
+
+- [ ] **Task 94: Split large analyzer files into modules**
+  - static-analyzer/analyzer.ts: 1,198 lines (consider splitting into tool runners + core logic)
+  - sandbox-builder/builder.ts: 1,154 lines (consider splitting environment detectors into separate files)
+  - Create separate modules: static-analyzer/tools/, sandbox-builder/detectors/
+  - Improves maintainability and testability
+  - Priority: P2 (Medium - code maintainability)
+  - Calculated Priority Score: 50 (Impact: 5, TechDebt: 6, Effort: 5)
+  - Effort: High (requires careful refactoring to avoid breaking changes)
+

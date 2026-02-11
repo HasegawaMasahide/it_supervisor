@@ -1,3 +1,6 @@
+import { createLogger, LogLevel } from '@it-supervisor/logger';
+const logger = createLogger({ name: 'e2e-test', level: LogLevel.INFO });
+
 /**
  * E2E Integration Test: Performance and Scalability
  *
@@ -34,7 +37,7 @@ describe.skip('E2E: Performance and Scalability', () => {
   });
 
   it('should handle repository with 100 files efficiently', async () => {
-    console.log('Creating test repository with 100 files...');
+    logger.info('Creating test repository with 100 files...');
 
     // Create 100 TypeScript files
     const fileCreationPromises = Array.from({ length: 100 }, async (_, i) => {
@@ -71,7 +74,7 @@ export class Class${i} {
     const repoAnalyzer = new RepositoryAnalyzer(); const analysis = await repoAnalyzer.analyzeLocal(LARGE_REPO);
     const duration = Date.now() - startTime;
 
-    console.log(`Analysis completed in ${duration}ms`);
+    logger.info(`Analysis completed in ${duration}ms`);
 
     expect(analysis.summary.totalFiles).toBe(100);
     expect(duration).toBeLessThan(10000); // Should complete within 10 seconds
@@ -86,7 +89,7 @@ export class Class${i} {
       description: 'Test high volume metric storage'
     });
 
-    console.log('Recording 1000 metrics...');
+    logger.info('Recording 1000 metrics...');
 
     const startTime = Date.now();
 
@@ -107,7 +110,7 @@ export class Class${i} {
     }
 
     const duration = Date.now() - startTime;
-    console.log(`Recorded 1000 metrics in ${duration}ms`);
+    logger.info(`Recorded 1000 metrics in ${duration}ms`);
 
     // Verify all metrics were stored
     const allMetrics = db.getMetrics({ projectId: project.id });
@@ -124,7 +127,7 @@ export class Class${i} {
     const issueManager = new IssueManager(issuesDbPath);
 
     const projectId = 'bulk-test-project';
-    console.log('Creating 500 issues...');
+    logger.info('Creating 500 issues...');
 
     const startTime = Date.now();
 
@@ -141,7 +144,7 @@ export class Class${i} {
     });
 
     const duration = Date.now() - startTime;
-    console.log(`Created 500 issues in ${duration}ms`);
+    logger.info(`Created 500 issues in ${duration}ms`);
 
     expect(issues).toHaveLength(500);
     expect(duration).toBeLessThan(3000); // Should complete within 3 seconds
@@ -151,7 +154,7 @@ export class Class${i} {
     const searchResults = issueManager.searchIssues({ projectId });
     const searchDuration = Date.now() - searchStart;
 
-    console.log(`Search completed in ${searchDuration}ms`);
+    logger.info(`Search completed in ${searchDuration}ms`);
     expect(searchResults).toHaveLength(500);
     expect(searchDuration).toBeLessThan(1000); // Search should be fast
 
@@ -159,7 +162,7 @@ export class Class${i} {
   }, 15000); // 15 second timeout
 
   it('should generate large reports efficiently', async () => {
-    console.log('Generating report with 500 issues...');
+    logger.info('Generating report with 500 issues...');
 
     // Create 500 mock issues
     const issues = Array.from({ length: 500 }, (_, i) => ({
@@ -194,7 +197,7 @@ export class Class${i} {
     await reportGenerator.exportToHTML(outputPath);
     const duration = Date.now() - startTime;
 
-    console.log(`Report generated in ${duration}ms`);
+    logger.info(`Report generated in ${duration}ms`);
 
     // Verify report was created
     const stats = await fs.stat(outputPath);
@@ -244,7 +247,7 @@ export class Class${i} {
     const finalMemory = process.memoryUsage().heapUsed;
     const memoryIncrease = (finalMemory - initialMemory) / 1024 / 1024; // MB
 
-    console.log(`Memory increase: ${memoryIncrease.toFixed(2)} MB`);
+    logger.info(`Memory increase: ${memoryIncrease.toFixed(2)} MB`);
 
     // Memory increase should be reasonable (less than 100 MB)
     expect(memoryIncrease).toBeLessThan(100);
@@ -317,7 +320,7 @@ export class Class${i} {
     await Promise.all(operations);
     const duration = Date.now() - startTime;
 
-    console.log(`50 concurrent operations completed in ${duration}ms`);
+    logger.info(`50 concurrent operations completed in ${duration}ms`);
 
     // All write operations should have succeeded
     const metrics = db.getMetrics({ projectId: project.id });
