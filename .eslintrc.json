@@ -5,7 +5,7 @@
     "sourceType": "module",
     "project": "./tsconfig.json"
   },
-  "ignorePatterns": ["vitest.config.ts"],
+  "ignorePatterns": ["vitest.config.ts", "scripts/**/*.ts"],
   "plugins": ["@typescript-eslint"],
   "extends": [
     "eslint:recommended",
@@ -18,7 +18,13 @@
       "argsIgnorePattern": "^_",
       "caughtErrorsIgnorePattern": "^_"
     }],
-    "no-control-regex": "off"
+    "no-control-regex": "off",
+    "complexity": ["warn", 15],
+    "max-lines-per-function": ["warn", {
+      "max": 150,
+      "skipBlankLines": true,
+      "skipComments": true
+    }]
   },
   "env": {
     "node": true,
@@ -33,7 +39,9 @@
       "rules": {
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/ban-ts-comment": "off",
-        "@typescript-eslint/no-unused-vars": "off"
+        "@typescript-eslint/no-unused-vars": "off",
+        "complexity": "off",
+        "max-lines-per-function": "off"
       }
     }
   ]

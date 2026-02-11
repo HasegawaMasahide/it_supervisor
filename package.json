@@ -42,7 +42,10 @@
     "benchmark": "npm run benchmark:repo && npm run benchmark:analyzer && npm run benchmark:report",
     "benchmark:repo": "tsx benchmarks/repo-analyzer.bench.ts",
     "benchmark:analyzer": "tsx benchmarks/static-analyzer.bench.ts",
-    "benchmark:report": "tsx benchmarks/report-generator.bench.ts"
+    "benchmark:report": "tsx benchmarks/report-generator.bench.ts",
+    "complexity": "tsx scripts/complexity-report.ts",
+    "complexity:json": "eslintcc --format json --output .tmp/complexity-report.json packages/**/*.ts",
+    "complexity:html": "eslintcc --format html --output .tmp/complexity-report.html packages/**/*.ts"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",
@@ -50,6 +53,7 @@
     "@typescript-eslint/parser": "^8.55.0",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^8.55.0",
+    "eslintcc": "^0.8.3",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "tsx": "^4.21.0",

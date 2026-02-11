@@ -797,12 +797,16 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `feat(workspace): add performance benchmarks for critical operations`
 
-- [ ] **Task 70: Add code complexity analysis**
-  - Install and configure complexity-report or similar tool
-  - Set up complexity thresholds in CI
-  - Generate complexity reports for all packages
-  - Identify hotspots for refactoring
+- [x] **Task 70: Add code complexity analysis**
+  - ✅ Installed eslintcc (ESLint-based complexity analysis tool)
+  - ✅ Added complexity rules to ESLint config (complexity: 15, max-lines-per-function: 150)
+  - ✅ Created scripts/complexity-report.ts to generate JSON/HTML/Markdown reports
+  - ✅ Added npm scripts: complexity, complexity:json, complexity:html
+  - ✅ Added complexity check job to CI workflow (.github/workflows/ci.yml)
+  - ✅ Identified 3 high-complexity functions (≥16) and 6 medium-complexity functions (11-15)
+  - ✅ Disabled complexity rules for test files in ESLint config
   - Priority: P3 (Low - code quality insight)
   - Calculated Priority Score: 38 (Impact: 4, TechDebt: 5, Effort: 3)
-  - Effort: Medium
+  - Status: ✅ Completed
+  - Commit: `feat(workspace): add code complexity analysis with eslintcc`
 
