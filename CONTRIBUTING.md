@@ -7,6 +7,7 @@ Thank you for your interest in contributing to IT Supervisor Tools! This documen
 - [Development Setup](#development-setup)
 - [Project Structure](#project-structure)
 - [Development Workflow](#development-workflow)
+  - [Git Hooks](#6-git-hooks)
 - [Testing](#testing)
 - [Code Style](#code-style)
 - [Commit Convention](#commit-convention)
@@ -124,6 +125,83 @@ Follow the [Commit Convention](#commit-convention) when creating commits.
 ```bash
 git add .
 git commit -m "feat(package-name): add new feature"
+```
+
+### 6. Git Hooks
+
+This project uses [husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) to enforce code quality before commits.
+
+#### Pre-commit Hook
+
+When you run `git commit`, the following checks are **automatically executed**:
+
+1. **ESLint Auto-fix**: Automatically fixes linting issues in staged TypeScript files
+2. **Related Tests**: Runs tests related to changed files using `vitest related --run --bail`
+3. **Type-check**: Runs TypeScript compiler check on the entire codebase with `tsc --noEmit`
+
+If any of these checks fail, the commit will be **aborted** and you must fix the issues before committing.
+
+#### Bypassing Hooks (Emergency Only)
+
+**⚠️ Not recommended** - Only use in emergencies when you need to commit broken code temporarily:
+
+```bash
+git commit --no-verify -m "WIP: emergency fix"
+```
+
+**Important**: Never push commits that bypass hooks to the main branch. Fix issues in a follow-up commit as soon as possible.
+
+#### Debugging Hook Failures
+
+If a pre-commit hook fails, you'll see error output from the failed step:
+
+**ESLint Failure Example:**
+```
+✖ eslint --fix:
+  error  'unusedVar' is defined but never used  @typescript-eslint/no-unused-vars
+```
+
+**Solution:** Fix the linting error and re-commit.
+
+**Test Failure Example:**
+```
+✖ vitest related --run --bail:
+  FAIL packages/metrics-model/src/__tests__/database.test.ts
+    ● MetricsDatabase › should create a new project
+```
+
+**Solution:** Fix the failing test and re-commit.
+
+**Type-check Failure Example:**
+```
+error TS2322: Type 'string' is not assignable to type 'number'.
+```
+
+**Solution:** Fix the type error and re-commit.
+
+#### Common Hook Issues
+
+**Issue: "Hooks not installed"**
+
+If hooks aren't running, reinstall them:
+```bash
+npm run prepare
+```
+
+**Issue: "vitest: command not found"**
+
+Install dependencies:
+```bash
+npm install
+```
+
+**Issue: "Hook takes too long"**
+
+If you're changing many files, the hook may take 30+ seconds. Be patient or split your commit into smaller chunks:
+```bash
+# Commit only specific files
+git add packages/metrics-model/src/database.ts
+git commit -m "feat(metrics-model): add new method"
 ```
 
 ## 🧪 Testing

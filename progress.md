@@ -1128,15 +1128,17 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `feat(workspace): add quality metrics dashboard script`
 
-- [ ] **Task 98: Fix quality dashboard test metrics parsing (ANSI color codes)**
-  - **BUG**: Test metrics showing 0 tests (should show 391 passed, 33 skipped)
-  - Issue: Regex pattern doesn't account for ANSI color codes in vitest output
-  - Fix: Strip ANSI codes before regex matching or update regex pattern
-  - Expected output: "Tests  391 passed | 33 skipped (424)"
-  - Actual output includes: [1m[32m, [39m[22m, etc.
+- [x] **Task 98: Fix quality dashboard test metrics parsing (ANSI color codes)**
+  - ✅ Added stripAnsi() helper to remove ANSI color codes from vitest output
+  - ✅ Fixed test metrics parsing (was 0 tests, now 391 passed, 33 skipped)
+  - ✅ Fixed complexity metrics parsing to match ESLintCC JSON structure {"files": [...]}
+  - ✅ Changed complexity extraction to use message.rules.complexity.value
+  - ✅ Health score improved from 80.0 to 98.4/100 with accurate metrics
+  - ✅ Metrics now show: Avg complexity 2.85, Max 15, 0 high-complexity functions
   - Priority: P1 (High - quality dashboard showing incorrect data)
   - Calculated Priority Score: 68 (Blocks: 4, Impact: 7, TechDebt: 6, Effort: 2)
-  - Effort: Low (regex fix)
+  - Status: ✅ Completed
+  - Commit: `fix(workspace): fix quality dashboard metrics parsing (ANSI codes and JSON structure)`
 
 - [ ] **Task 96: Add Git hooks documentation to CONTRIBUTING.md**
   - Document pre-commit hooks (ESLint, tests, type-check)
