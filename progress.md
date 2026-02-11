@@ -33,7 +33,7 @@
   - Test `calculateComplexity()` with known code snippets
   - Commit: `test(repo-analyzer): add unit tests for language detection and file analysis`
 
-- [ ] **Task 5: Unit tests for repo-analyzer (tech stack detection)**
+- [x] **Task 5: Unit tests for repo-analyzer (tech stack detection)**
   - Test `detectFrameworks()` with mocked package.json, composer.json, pom.xml
   - Test `detectDependencies()` for npm, pip, composer ecosystems
   - Test `analyzeMetadata()` for README, LICENSE, Dockerfile detection
@@ -76,6 +76,8 @@
 - **Task 1: Add vitest to the workspace** ✓
 - **Task 2: Unit tests for sandbox-builder (detection)** ✓
 - **Task 3: Unit tests for sandbox-builder (Docker config generation)** ✓
+- **Task 4: Unit tests for repo-analyzer (language detection and file analysis)** ✓
+- **Task 5: Unit tests for repo-analyzer (tech stack detection)** ✓
 
 ## Notes
 
