@@ -826,13 +826,15 @@ Record any discoveries that need further investigation:
   - Status: ✅ Completed
   - Commit: `test(logger): add integration tests for package exports`
 
-- [ ] **Task 72: Update marked dependency from 17.0.1 to 17.0.2**
-  - Patch update available for marked package
-  - Update in report-generator package.json
-  - Run tests to verify no breaking changes
+- [x] **Task 72: Update marked dependency from 17.0.1 to 17.0.2**
+  - ✅ Updated marked from ^17.0.1 to ^17.0.2 in report-generator/package.json
+  - ✅ Ran npm install successfully (2 packages updated)
+  - ✅ All 81 report-generator tests pass
+  - ✅ No breaking changes detected
   - Priority: P3 (Low - dependency maintenance)
   - Calculated Priority Score: 28 (Impact: 2, TechDebt: 3, Effort: 1)
-  - Effort: Low (patch update, low risk)
+  - Status: ✅ Completed
+  - Commit: `chore(report-generator): update marked to 17.0.2`
 
 - [ ] **Task 73: Refactor high-complexity functions**
   - 🔴 sandbox-builder.ts:detect() - complexity 23 (target: ≤15)
