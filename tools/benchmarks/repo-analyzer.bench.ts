@@ -1,0 +1,147 @@
+import { createLogger, LogLevel } from '@it-supervisor/logger';
+const logger = createLogger({ name: 'benchmark', level: LogLevel.INFO });
+
+import { RepositoryAnalyzer } from '../packages/repo-analyzer/src/analyzer.js';
+import { performance } from 'perf_hooks';
+import { promises as fs } from 'fs';
+import * as path from 'path';
+
+interface BenchmarkResult {
+  name: string;
+  duration: number;
+  iterations: number;
+  avgDuration: number;
+}
+
+async function createTestRepo(size: 'small' | 'medium' | 'large'): Promise<string> {
+  const tmpDir = path.join(__dirname, '../.tmp/benchmark-repo');
+  await fs.mkdir(tmpDir, { recursive: true });
+
+  const fileCounts = {
+    small: 10,
+    medium: 100,
+    large: 1000,
+  };
+
+  const fileCount = fileCounts[size];
+
+  for (let i = 0; i < fileCount; i++) {
+    const content = `
+// Test file ${i}
+export function test${i}() {
+  const x = ${i};
+  const y = x * 2;
+  return y;
+}
+`;
+    await fs.writeFile(path.join(tmpDir, `file${i}.ts`), content);
+  }
+
+  return tmpDir;
+}
+
+async function benchmark(
+  name: string,
+  fn: () => Promise<void>,
+  iterations: number = 5
+): Promise<BenchmarkResult> {
+  const durations: number[] = [];
+
+  // Warm-up
+  await fn();
+
+  for (let i = 0; i < iterations; i++) {
+    const start = performance.now();
+    await fn();
+    const end = performance.now();
+    durations.push(end - start);
+  }
+
+  const totalDuration = durations.reduce((a, b) => a + b, 0);
+  const avgDuration = totalDuration / iterations;
+
+  return {
+    name,
+    duration: totalDuration,
+    iterations,
+    avgDuration,
+  };
+}
+
+async function runBenchmarks() {
+  logger.info('=== Repository Analyzer Benchmarks ===\n');
+
+  const analyzer = new RepositoryAnalyzer();
+  const results: BenchmarkResult[] = [];
+
+  // Benchmark 1: Small repository analysis
+  const smallRepo = await createTestRepo('small');
+  const smallResult = await benchmark(
+    'Analyze small repository (10 files)',
+    async () => {
+      await analyzer.analyzeLocal(smallRepo);
+    },
+    5
+  );
+  results.push(smallResult);
+
+  // Benchmark 2: Medium repository analysis
+  const mediumRepo = await createTestRepo('medium');
+  const mediumResult = await benchmark(
+    'Analyze medium repository (100 files)',
+    async () => {
+      await analyzer.analyzeLocal(mediumRepo);
+    },
+    3
+  );
+  results.push(mediumResult);
+
+  // Benchmark 3: Large repository analysis
+  const largeRepo = await createTestRepo('large');
+  const largeResult = await benchmark(
+    'Analyze large repository (1000 files)',
+    async () => {
+      await analyzer.analyzeLocal(largeRepo);
+    },
+    2
+  );
+  results.push(largeResult);
+
+  // Display results
+  logger.info('Results:\n');
+  results.forEach((result) => {
+    logger.info(`${result.name}`);
+    logger.info(`  Iterations: ${result.iterations}`);
+    logger.info(`  Total: ${result.duration.toFixed(2)}ms`);
+    logger.info(`  Average: ${result.avgDuration.toFixed(2)}ms`);
+    logger.info(`  Per file: ${(result.avgDuration / parseInt(result.name.match(/\d+/)?.[0] || '1')).toFixed(2)}ms\n`);
+  });
+
+  // Save JSON results for CI comparison
+  const outputDir = path.join(__dirname, '../.tmp/benchmarks');
+  await fs.mkdir(outputDir, { recursive: true });
+
+  const jsonOutput = {
+    package: 'repo-analyzer',
+    timestamp: new Date().toISOString(),
+    results: results.map(r => ({
+      name: r.name,
+      iterations: r.iterations,
+      totalMs: parseFloat(r.duration.toFixed(2)),
+      avgMs: parseFloat(r.avgDuration.toFixed(2)),
+      perFileMs: parseFloat((r.avgDuration / parseInt(r.name.match(/\d+/)?.[0] || '1')).toFixed(2))
+    }))
+  };
+
+  await fs.writeFile(
+    path.join(outputDir, 'repo-analyzer.json'),
+    JSON.stringify(jsonOutput, null, 2)
+  );
+
+  logger.info(`\nJSON results saved to: ${path.join(outputDir, 'repo-analyzer.json')}`);
+
+  // Cleanup test files (but keep .tmp/benchmarks/ for CI)
+  await fs.rm(path.join(__dirname, '../.tmp/benchmark-repo'), { recursive: true, force: true });
+}
+
+runBenchmarks().catch((err) => logger.error(err));

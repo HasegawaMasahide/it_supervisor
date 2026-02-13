@@ -1,0 +1,23 @@
+{
+  "name": "example-docker-sandbox",
+  "version": "0.1.0",
+  "description": "Example: Docker sandbox creation with @it-supervisor/sandbox-builder",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "dependencies": {
+    "@it-supervisor/sandbox-builder": "^0.1.0",
+    "@it-supervisor/logger": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

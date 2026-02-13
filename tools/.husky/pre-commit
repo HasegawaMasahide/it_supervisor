@@ -1,0 +1,5 @@
+# Run lint-staged to lint and test changed files
+npx lint-staged
+
+# Run type-check on entire codebase
+npm run type-check

@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run type check
+        run: npm run type-check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build packages
+        run: npm run build
+
+  publish-npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        package:
+          - logger
+          - metrics-model
+          - repo-analyzer
+          - static-analyzer
+          - issue-manager
+          - report-generator
+          - sandbox-builder
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build package
+        run: npm run build --workspace=packages/${{ matrix.package }}
+
+      - name: Publish package to npm
+        run: npm publish --workspace=packages/${{ matrix.package }} --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate, publish-npm]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Extract changelog for current version
+        id: changelog
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          CHANGELOG=$(sed -n "/^## \[$VERSION\]/,/^## \[/p" CHANGELOG.md | sed '$d' | tail -n +2)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## IT Supervisor Tools v${{ steps.version.outputs.version }}
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ### Published Packages
+
+            - `@it-supervisor/logger@${{ steps.version.outputs.version }}`
+            - `@it-supervisor/metrics-model@${{ steps.version.outputs.version }}`
+            - `@it-supervisor/repo-analyzer@${{ steps.version.outputs.version }}`
+            - `@it-supervisor/static-analyzer@${{ steps.version.outputs.version }}`
+            - `@it-supervisor/issue-manager@${{ steps.version.outputs.version }}`
+            - `@it-supervisor/report-generator@${{ steps.version.outputs.version }}`
+            - `@it-supervisor/sandbox-builder@${{ steps.version.outputs.version }}`
+
+            ### Installation
+
+            ```bash
+            npm install @it-supervisor/static-analyzer
+            npm install @it-supervisor/repo-analyzer
+            npm install @it-supervisor/sandbox-builder
+            npm install @it-supervisor/report-generator
+            npm install @it-supervisor/issue-manager
+            npm install @it-supervisor/metrics-model
+            npm install @it-supervisor/logger
+            ```
+
+            ### Documentation
+
+            - [README](https://github.com/your-org/it-supervisor-tools#readme)
+            - [CHANGELOG](https://github.com/your-org/it-supervisor-tools/blob/main/CHANGELOG.md)
+            - [API Documentation](https://github.com/your-org/it-supervisor-tools/tree/main/packages)
+
+            ---
+
+            🤖 Generated with [GitHub Actions](https://github.com/features/actions)
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}

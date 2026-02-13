@@ -1,0 +1,25 @@
+name: 'Setup Puppeteer Dependencies'
+description: 'Install system dependencies required for Puppeteer/Chrome'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install system dependencies for Puppeteer
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libnss3 \
+          libatk1.0-0 \
+          libatk-bridge2.0-0 \
+          libcups2 \
+          libdrm2 \
+          libxkbcommon0 \
+          libxcomposite1 \
+          libxdamage1 \
+          libxfixes3 \
+          libxrandr2 \
+          libgbm1 \
+          libasound2 \
+          libpangocairo-1.0-0 \
+          libgtk-3-0

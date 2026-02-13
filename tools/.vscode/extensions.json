@@ -1,0 +1,36 @@
+{
+  "recommendations": [
+    // TypeScript & JavaScript
+    "dbaeumer.vscode-eslint",
+    "ms-vscode.vscode-typescript-next",
+
+    // Testing
+    "vitest.explorer",
+
+    // Git
+    "eamodio.gitlens",
+
+    // Code Quality
+    "streetsidesoftware.code-spell-checker",
+    "editorconfig.editorconfig",
+
+    // Markdown
+    "yzhang.markdown-all-in-one",
+    "davidanson.vscode-markdownlint",
+
+    // Utilities
+    "christian-kohler.path-intellisense",
+    "visualstudioexptteam.vscodeintellicode",
+    "gruntfuggly.todo-tree",
+
+    // Docker (for sandbox-builder)
+    "ms-azuretools.vscode-docker",
+
+    // JSON
+    "zainchen.json"
+  ],
+  "unwantedRecommendations": [
+    // Avoid conflicts with ESLint
+    "ms-vscode.vscode-typescript-tslint-plugin"
+  ]
+}

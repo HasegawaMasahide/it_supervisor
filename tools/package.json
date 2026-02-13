@@ -1,0 +1,82 @@
+{
+  "name": "@it-supervisor/tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "IT資産監査・改善サービス用ツール群 - Comprehensive IT asset auditing and improvement toolkit",
+  "license": "MIT",
+  "author": "IT Supervisor Tools Team",
+  "keywords": [
+    "it-asset",
+    "audit",
+    "static-analysis",
+    "code-quality",
+    "security",
+    "repository-analysis",
+    "report-generation",
+    "docker",
+    "sandbox",
+    "typescript",
+    "monorepo"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/it-supervisor-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/it-supervisor-tools/issues"
+  },
+  "homepage": "https://github.com/your-org/it-supervisor-tools#readme",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "coverage": "vitest run --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "type-check": "tsc --noEmit",
+    "clean": "npm run clean --workspaces",
+    "prepare": "husky",
+    "release": "bash scripts/release.sh",
+    "release:patch": "bash scripts/release.sh patch",
+    "release:minor": "bash scripts/release.sh minor",
+    "release:major": "bash scripts/release.sh major",
+    "benchmark": "npm run benchmark:repo && npm run benchmark:analyzer && npm run benchmark:report",
+    "benchmark:repo": "tsx benchmarks/repo-analyzer.bench.ts",
+    "benchmark:analyzer": "tsx benchmarks/static-analyzer.bench.ts",
+    "benchmark:report": "tsx benchmarks/report-generator.bench.ts",
+    "complexity": "tsx scripts/complexity-report.ts",
+    "complexity:json": "eslintcc --format json --output .tmp/complexity-report.json packages/**/*.ts",
+    "complexity:html": "eslintcc --format html --output .tmp/complexity-report.html packages/**/*.ts",
+    "deps": "tsx scripts/dependency-graph.ts",
+    "deps:graph": "tsx scripts/dependency-graph.ts && cat .tmp/dependency-graph.md",
+    "quality": "tsx scripts/quality-dashboard.ts",
+    "quality:json": "tsx scripts/quality-dashboard.ts && cat .tmp/quality-dashboard.json",
+    "quality:md": "tsx scripts/quality-dashboard.ts && cat .tmp/quality-dashboard.md"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/parser": "^8.55.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "eslint": "^8.55.0",
+    "eslintcc": "^0.8.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "tsx": "^4.21.0",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "vitest related --run --bail"
+    ]
+  }
+}

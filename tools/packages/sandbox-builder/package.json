@@ -1,0 +1,57 @@
+{
+  "name": "@it-supervisor/sandbox-builder",
+  "version": "0.1.0",
+  "description": "サンドボックス環境構築ツール - 解析対象システムを安全に動作させる環境を自動構築",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "bin": {
+    "sandbox": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "docs"
+  ],
+  "keywords": [
+    "sandbox",
+    "docker",
+    "containerization",
+    "it-audit"
+  ],
+  "author": "IT Supervisor Team",
+  "license": "MIT",
+  "dependencies": {
+    "@it-supervisor/logger": "^0.1.0",
+    "js-yaml": "^4.1.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.2.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/it-supervisor-tools.git",
+    "directory": "packages/sandbox-builder"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/it-supervisor-tools/issues"
+  },
+  "homepage": "https://github.com/your-org/it-supervisor-tools/tree/main/packages/sandbox-builder#readme"
+}
