@@ -18,7 +18,65 @@ export class ReportGenerator {
   private templatesDir: string;
 
   constructor(templatesDir?: string) {
-    this.templatesDir = templatesDir || path.join(__dirname, '../templates');
+    // ESM/CJS両対応のパス解決
+    const defaultDir = typeof __dirname !== 'undefined'
+      ? path.join(__dirname, '../templates')
+      : path.join(process.cwd(), 'templates');
+    this.templatesDir = templatesDir || defaultDir;
+  }
+
+  /**
+   * MarkdownファイルからPDFを直接生成（簡易版）
+   */
+  async markdownToPDF(markdownPath: string, outputPath: string, config?: Partial<ReportConfig>): Promise<void> {
+    const fs = await import('fs');
+    const markdown = await fs.promises.readFile(markdownPath, 'utf-8');
+
+    const defaultConfig: ReportConfig = {
+      projectName: path.basename(markdownPath, '.md'),
+      customerName: '顧客名未設定',
+      date: new Date(),
+      data: {}
+    };
+
+    const mergedConfig = { ...defaultConfig, ...config };
+
+    // Markdownをパースしてレポート構造を生成
+    const sections = this.parseMarkdown(markdown);
+    const toc = this.generateTOC(sections);
+
+    const report: Report = {
+      type: ReportType.Analysis,
+      config: mergedConfig,
+      sections,
+      toc,
+      generatedAt: new Date()
+    };
+
+    await this.exportToPDF(report, outputPath);
+  }
+
+  /**
+   * Markdownテキストから直接HTMLを生成
+   */
+  markdownToHTML(markdown: string, title: string = 'レポート'): string {
+    const sections = this.parseMarkdown(markdown);
+    const toc = this.generateTOC(sections);
+
+    const report: Report = {
+      type: ReportType.Analysis,
+      config: {
+        projectName: title,
+        customerName: '',
+        date: new Date(),
+        data: {}
+      },
+      sections,
+      toc,
+      generatedAt: new Date()
+    };
+
+    return this.generateHTML(report);
   }
 
   /**
