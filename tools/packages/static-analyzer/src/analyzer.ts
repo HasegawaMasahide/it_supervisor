@@ -177,10 +177,273 @@ export class StaticAnalyzer {
       case AnalyzerTool.Gitleaks:
         return this.runGitleaks(repoPath, options);
 
+      case AnalyzerTool.PHPStan:
+        return this.runPHPStan(repoPath, options);
+
+      case AnalyzerTool.PHPCodeSniffer:
+        return this.runPHPCS(repoPath, options);
+
       default:
         // その他のツールは未実装
         return [];
     }
+  }
+
+  /**
+   * PHPStan実行（実装版）
+   */
+  private async runPHPStan(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      // composer.jsonの存在確認
+      const composerJsonPath = path.join(repoPath, 'composer.json');
+      if (!await this.fileExists(composerJsonPath)) {
+        return [];
+      }
+
+      // PHPStanコマンド実行
+      // Docker経由またはローカルで実行
+      let command: string;
+      if (options.useDocker) {
+        command = `docker run --rm -v "${repoPath}:/app" -w /app ghcr.io/phpstan/phpstan analyse --error-format=json --no-progress`;
+      } else {
+        command = `./vendor/bin/phpstan analyse --error-format=json --no-progress`;
+      }
+
+      const { stdout } = await execAsync(command, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024
+      }).catch(error => {
+        // PHPStanは問題があるとexit code 1を返す
+        return { stdout: error.stdout || '{"files":{},"errors":[]}', stderr: error.stderr || '' };
+      });
+
+      // 結果をパース
+      const result = JSON.parse(stdout || '{"files":{},"errors":[]}');
+      return this.parsePHPStanResults(result, repoPath);
+    } catch (error) {
+      console.error('PHPStan execution failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * PHPStan結果をパース
+   */
+  private parsePHPStanResults(result: any, repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    // エラー形式: { files: { "path/file.php": { errors: [{ message, line, ... }] } } }
+    if (result.files) {
+      for (const [filePath, fileData] of Object.entries(result.files as Record<string, any>)) {
+        if (!fileData.errors) continue;
+
+        for (const error of fileData.errors) {
+          const severity = this.mapPHPStanSeverity(error);
+          const category = this.categorizePHPStanError(error.message);
+
+          issues.push({
+            id: randomUUID(),
+            tool: AnalyzerTool.PHPStan,
+            severity,
+            category,
+            rule: error.identifier || 'phpstan-error',
+            message: error.message,
+            file: filePath,
+            line: error.line,
+            snippet: error.tip,
+            fix: error.tip ? {
+              available: true,
+              description: error.tip
+            } : undefined
+          });
+        }
+      }
+    }
+
+    // グローバルエラー
+    if (result.errors && Array.isArray(result.errors)) {
+      for (const error of result.errors) {
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.PHPStan,
+          severity: Severity.High,
+          category: IssueCategory.CodeQuality,
+          rule: 'phpstan-global-error',
+          message: typeof error === 'string' ? error : error.message,
+          file: 'global'
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  /**
+   * PHPStanの重要度をマッピング
+   */
+  private mapPHPStanSeverity(error: any): Severity {
+    const message = error.message?.toLowerCase() || '';
+
+    // セキュリティ関連は高優先度
+    if (message.includes('sql') || message.includes('injection') || message.includes('xss')) {
+      return Severity.Critical;
+    }
+
+    // 型エラーは中優先度
+    if (message.includes('type') || message.includes('parameter') || message.includes('return')) {
+      return Severity.Medium;
+    }
+
+    // 未定義変数は高優先度
+    if (message.includes('undefined variable') || message.includes('does not exist')) {
+      return Severity.High;
+    }
+
+    return Severity.Medium;
+  }
+
+  /**
+   * PHPStanエラーをカテゴリ分類
+   */
+  private categorizePHPStanError(message: string): IssueCategory {
+    const lowerMessage = message.toLowerCase();
+
+    if (lowerMessage.includes('security') || lowerMessage.includes('sql') ||
+        lowerMessage.includes('injection') || lowerMessage.includes('xss')) {
+      return IssueCategory.Security;
+    }
+
+    if (lowerMessage.includes('deprecated')) {
+      return IssueCategory.Maintainability;
+    }
+
+    if (lowerMessage.includes('complexity') || lowerMessage.includes('too many')) {
+      return IssueCategory.Complexity;
+    }
+
+    return IssueCategory.CodeQuality;
+  }
+
+  /**
+   * PHP_CodeSniffer実行（実装版）
+   */
+  private async runPHPCS(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      // PHPファイルの存在確認
+      const files = await fs.readdir(repoPath).catch(() => []);
+      const hasPhpFiles = files.some(f => f.endsWith('.php')) ||
+        await this.fileExists(path.join(repoPath, 'composer.json'));
+
+      if (!hasPhpFiles) {
+        return [];
+      }
+
+      // PHPCSコマンド実行
+      let command: string;
+      if (options.useDocker) {
+        command = `docker run --rm -v "${repoPath}:/app" -w /app php:8.2-cli php ./vendor/bin/phpcs --report=json --standard=PSR12`;
+      } else {
+        command = `./vendor/bin/phpcs --report=json --standard=PSR12`;
+      }
+
+      const { stdout } = await execAsync(command, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024
+      }).catch(error => {
+        // PHPCSは問題があるとexit code 1を返す
+        return { stdout: error.stdout || '{"files":{},"totals":{}}', stderr: error.stderr || '' };
+      });
+
+      // 結果をパース
+      const result = JSON.parse(stdout || '{"files":{},"totals":{}}');
+      return this.parsePHPCSResults(result, repoPath);
+    } catch (error) {
+      console.error('PHP_CodeSniffer execution failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * PHPCS結果をパース
+   */
+  private parsePHPCSResults(result: any, repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    if (!result.files) return issues;
+
+    for (const [filePath, fileData] of Object.entries(result.files as Record<string, any>)) {
+      if (!fileData.messages) continue;
+
+      for (const message of fileData.messages) {
+        const severity = this.mapPHPCSSeverity(message.type);
+        const category = this.categorizePHPCSRule(message.source);
+
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.PHPCodeSniffer,
+          severity,
+          category,
+          rule: message.source || 'phpcs-error',
+          message: message.message,
+          file: filePath,
+          line: message.line,
+          column: message.column,
+          fix: message.fixable ? {
+            available: true,
+            description: 'Auto-fixable with phpcbf'
+          } : undefined
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  /**
+   * PHPCSの重要度をマッピング
+   */
+  private mapPHPCSSeverity(phpcsType: string): Severity {
+    switch (phpcsType.toUpperCase()) {
+      case 'ERROR':
+        return Severity.High;
+      case 'WARNING':
+        return Severity.Medium;
+      default:
+        return Severity.Low;
+    }
+  }
+
+  /**
+   * PHPCSルールをカテゴリ分類
+   */
+  private categorizePHPCSRule(source: string | null): IssueCategory {
+    if (!source) return IssueCategory.CodeQuality;
+
+    const lowerSource = source.toLowerCase();
+
+    if (lowerSource.includes('security')) {
+      return IssueCategory.Security;
+    }
+
+    if (lowerSource.includes('performance')) {
+      return IssueCategory.Performance;
+    }
+
+    if (lowerSource.includes('complexity') || lowerSource.includes('npath')) {
+      return IssueCategory.Complexity;
+    }
+
+    if (lowerSource.includes('documentation') || lowerSource.includes('comment')) {
+      return IssueCategory.Documentation;
+    }
+
+    return IssueCategory.CodeQuality;
   }
 
   /**

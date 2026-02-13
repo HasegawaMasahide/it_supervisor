@@ -113,6 +113,38 @@ services:
     command: ["sleep", "infinity"]
 
   # ===========================================
+  # 静的解析ツール: PHPStan
+  # ===========================================
+  analyzer-phpstan:
+    build:
+      context: .
+      dockerfile: docker/analyzers/phpstan.Dockerfile
+    container_name: it-supervisor-analyzer-phpstan
+    volumes:
+      - customer-repos:/repos:ro
+      - ./reports:/reports:delegated
+    networks:
+      - it-supervisor-network
+    command: ["sleep", "infinity"]
+
+  # ===========================================
+  # セキュリティスキャナー: Snyk
+  # ===========================================
+  analyzer-snyk:
+    build:
+      context: .
+      dockerfile: docker/analyzers/snyk.Dockerfile
+    container_name: it-supervisor-analyzer-snyk
+    environment:
+      - SNYK_TOKEN=${SNYK_TOKEN:-}
+    volumes:
+      - customer-repos:/repos:ro
+      - ./reports:/reports:delegated
+    networks:
+      - it-supervisor-network
+    command: ["sleep", "infinity"]
+
+  # ===========================================
   # SonarQube（オプション: 高度な静的解析）
   # ===========================================
   # 注意: リソース消費が大きいため、必要に応じてコメントアウト解除
