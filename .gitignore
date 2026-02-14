@@ -129,6 +129,16 @@ credentials
 .terraform.lock.hcl
 
 # ===========================================
+# デモプロジェクト（ソースはbundleから復元）
+# ===========================================
+demo/laravel-todo-app/
+demo/react-cms-app/
+demo/django-ec-app/
+demo/aspnet-legacy-system/
+demo/vue-booking-app/
+demo/springboot-crm-app/
+
+# ===========================================
 # その他
 # ===========================================
 # バックアップファイル
