@@ -18,10 +18,27 @@ it_supervisor/
 ├── doc/                # 事業計画・要件定義ドキュメント
 │   ├── IT資産監査・改善サービス_事業計画書.md
 │   └── ツール群の要件ヒアリングメモ.md
-└── lp/                 # サービス紹介ランディングページ
-    ├── index.html      # メインページ
-    ├── styles.css      # スタイルシート
-    └── script.js       # インタラクション機能
+├── lp/                 # サービス紹介ランディングページ
+│   ├── index.html      # メインページ
+│   ├── styles.css      # スタイルシート
+│   └── script.js       # インタラクション機能
+├── tools/              # 監査ツール群（subtree管理）
+└── demo/               # デモンストレーション用資産
+    ├── setup.sh        # デモリポジトリ復元スクリプト（clone後に実行）
+    ├── bundles/        # 各デモプロジェクトのGit履歴（bundleファイル）
+    ├── project-docs/   # 各デモプロジェクトのREADME.md/ISSUES.md
+    ├── scripts/        # 解析スクリプト
+    ├── README.md       # デモパッケージの説明
+    ├── ANALYSIS_GUIDE.md
+    └── DEMO_SCENARIO.md
+```
+
+### デモリポジトリのセットアップ
+
+デモプロジェクトのソースコードはgit bundleとして管理されています。clone後に以下を実行すると、各デモに開発履歴付きのGitリポジトリが復元されます:
+
+```bash
+bash demo/setup.sh
 ```
 
 ## アーキテクチャと設計思想
