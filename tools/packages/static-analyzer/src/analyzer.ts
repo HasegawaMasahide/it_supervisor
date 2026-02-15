@@ -141,7 +141,7 @@ interface GitleaksFinding {
   EndColumn?: number;
 }
 
-interface CSharpPatternRule {
+interface PatternRule {
   id: string;
   pattern: RegExp;
   severity: Severity;
@@ -206,6 +206,14 @@ export class StaticAnalyzer {
     toolResults.forEach(result => {
       allIssues.push(...result.issues);
     });
+
+    // 共通パターン解析（設定ファイル、依存関係、多言語対応）
+    try {
+      const commonIssues = await this.runCommonPatternAnalysis(absolutePath);
+      allIssues.push(...commonIssues);
+    } catch (error) {
+      logger.warn('Common pattern analysis failed:', error);
+    }
 
     // 重複除去
     let duplicatesRemoved = 0;
@@ -1201,7 +1209,7 @@ export class StaticAnalyzer {
             const line = lines[i];
 
             // コメント行をスキップ（コメントアウト検出ルールを除く）
-            if (rule.id !== 'CS-SEC-010' && /^\s*\/\//.test(line)) {
+            if (rule.id !== 'CS-SEC-010' && rule.id !== 'CS-SEC-023' && /^\s*\/\//.test(line)) {
               continue;
             }
 
@@ -1233,7 +1241,7 @@ export class StaticAnalyzer {
   /**
    * C# パターンルール定義
    */
-  private getCSharpPatternRules(): CSharpPatternRule[] {
+  private getCSharpPatternRules(): PatternRule[] {
     return [
       // === セキュリティ: Critical ===
       {
@@ -1406,6 +1414,412 @@ export class StaticAnalyzer {
         message: '同期的なデータベース操作（ToList）が使用されています。ToListAsync()を使用してください',
         filePattern: /Controller\.cs$/
       },
+      // === C# 追加セキュリティ: High ===
+      {
+        id: 'CS-SEC-022',
+        pattern: /UseUrls.*"http:\/\//,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'UseUrlsでHTTPが許可されています。本番環境ではHTTPSのみに制限してください',
+        filePattern: /Program\.cs$/
+      },
+      // === C# 追加セキュリティ: Medium (コメント検出) ===
+      {
+        id: 'CS-SEC-023',
+        pattern: /\/\/\s*app\.UseHsts/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'UseHsts()がコメントアウトされています。本番環境ではHSTSを有効にしてください'
+      },
+      // === C# 追加コード品質: Medium ===
+      {
+        id: 'CS-CQ-007',
+        pattern: /\[HttpPost\]/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'POSTエンドポイントでModelState.IsValidのチェックが行われていません',
+        filePattern: /Controller\.cs$/,
+        fileCondition: (content) => content.includes('[HttpPost]') && !content.includes('ModelState.IsValid')
+      },
+      {
+        id: 'CS-CQ-008',
+        pattern: /\.AddMvc\s*\(\)/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'AddMvc()は非推奨です。AddControllersWithViews()またはAddControllers()を使用してください'
+      },
+    ];
+  }
+
+  /**
+   * 共通パターン解析（全言語対応）
+   * 設定ファイル、依存関係ファイル、各言語のソースコードを対象とする
+   */
+  private async runCommonPatternAnalysis(repoPath: string): Promise<AnalysisIssue[]> {
+    const extensions = [
+      '.json', '.yml', '.yaml', '.env', '.properties',
+      '.csproj', '.xml', '.txt',
+      '.php',
+      '.py',
+      '.java',
+      '.js', '.ts', '.tsx', '.jsx',
+      '.html'
+    ];
+
+    // 全対象ファイルを収集
+    const filePromises = extensions.map(ext => this.findFilesByExtension(repoPath, ext));
+    const fileArrays = await Promise.all(filePromises);
+    const allFiles = fileArrays.flat();
+
+    if (allFiles.length === 0) {
+      return [];
+    }
+
+    const issues: AnalysisIssue[] = [];
+    const rules: PatternRule[] = [
+      ...this.getConfigSecurityRules(),
+      ...this.getDependencyRules(),
+      ...this.getPHPPatternRules(),
+      ...this.getJavaScriptPatternRules(),
+      ...this.getPythonPatternRules(),
+      ...this.getJavaPatternRules(),
+    ];
+
+    // コメント検出ルール（コメント行スキップを除外するルール）
+    const commentDetectionRules = new Set(['CS-SEC-023']);
+
+    for (const filePath of allFiles) {
+      try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        const lines = content.split('\n');
+        const relativePath = path.relative(repoPath, filePath).replace(/\\/g, '/');
+
+        for (const rule of rules) {
+          if (rule.filePattern && !rule.filePattern.test(relativePath)) {
+            continue;
+          }
+          if (rule.fileCondition && !rule.fileCondition(content)) {
+            continue;
+          }
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // コメント行をスキップ（コメント検出ルールを除く）
+            if (!commentDetectionRules.has(rule.id) && /^\s*(?:\/\/|#|<!--)/.test(line)) {
+              continue;
+            }
+
+            if (rule.pattern.test(line)) {
+              issues.push({
+                id: randomUUID(),
+                tool: AnalyzerTool.RoslynAnalyzer,
+                severity: rule.severity,
+                category: rule.category,
+                rule: rule.id,
+                message: rule.message,
+                file: relativePath,
+                line: i + 1,
+                snippet: line.trim().substring(0, 200)
+              });
+            }
+            rule.pattern.lastIndex = 0;
+          }
+        }
+      } catch (error) {
+        logger.warn(`Failed to analyze file ${filePath}:`, error);
+      }
+    }
+
+    return issues;
+  }
+
+  /**
+   * 設定ファイルのシークレット検出ルール（全言語共通）
+   */
+  private getConfigSecurityRules(): PatternRule[] {
+    return [
+      {
+        id: 'CONFIG-SEC-001',
+        pattern: /(?:"[^"]*Connection[^"]*":\s*"[^"]*Password=[^"]+"|Password=[^\s;]+.*(?:Server|Database|Data Source))/i,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: '接続文字列に認証情報がハードコーディングされています。環境変数またはシークレット管理サービスを使用してください',
+        filePattern: /(?:appsettings.*\.json|\.env|\.properties|database\.php|settings\.py|application\.(?:yml|yaml|properties))$/i
+      },
+      {
+        id: 'CONFIG-SEC-002',
+        pattern: /(?:"(?:ApiKey|api_key|Secret|SecretKey|secret_key|AccessKey|access_key)":\s*"[^"]{8,}"|(?:API_KEY|SECRET_KEY|ACCESS_KEY|APP_SECRET)\s*=\s*\S{8,})/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'APIキーまたはシークレットが設定ファイルにハードコーディングされています',
+        filePattern: /(?:appsettings.*\.json|\.env|\.properties|application\.(?:yml|yaml|properties))$/i
+      },
+      {
+        id: 'CONFIG-SEC-003',
+        pattern: /SECRET_KEY\s*=\s*['"][^'"]{8,}['"]/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'SECRET_KEYがソースコードにハードコーディングされています。環境変数に移行してください',
+        filePattern: /(?:settings\.py|\.env)$/
+      },
+      {
+        id: 'CONFIG-SEC-004',
+        pattern: /"Default"\s*:\s*"Debug"/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'ログレベルがDebugに設定されています。本番環境ではWarning以上に変更してください',
+        filePattern: /appsettings.*\.json$/i
+      },
+      {
+        id: 'CONFIG-SEC-005',
+        pattern: /^\s*DEBUG\s*=\s*True/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'DEBUG=Trueが設定されています。本番環境ではFalseに設定してください',
+        filePattern: /settings\.py$/
+      },
+      {
+        id: 'CONFIG-SEC-006',
+        pattern: /verify\s*=\s*False/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'SSL検証が無効化されています（verify=False）。本番環境では有効にしてください',
+        filePattern: /\.py$/
+      },
+    ];
+  }
+
+  /**
+   * 依存関係の脆弱性検出ルール（全言語共通）
+   */
+  private getDependencyRules(): PatternRule[] {
+    return [
+      {
+        id: 'DEP-001',
+        pattern: /<TargetFramework>netcoreapp/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'EOL済みの.NETフレームワーク（netcoreapp）が使用されています。.NET 8以降にアップグレードしてください',
+        filePattern: /\.csproj$/
+      },
+      {
+        id: 'DEP-002',
+        pattern: /Newtonsoft\.Json.*Version="(?:9|10|11|12)\./,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '脆弱性のあるNewtonsoft.Jsonバージョンが使用されています。13.0.1以上にアップグレードしてください',
+        filePattern: /\.csproj$/
+      },
+      {
+        id: 'DEP-003',
+        pattern: /System\.Data\.SqlClient.*Version="4\.[0-5]/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '脆弱性のあるSystem.Data.SqlClientが使用されています。Microsoft.Data.SqlClientへ移行してください',
+        filePattern: /\.csproj$/
+      },
+      {
+        id: 'DEP-004',
+        pattern: /Django[<>=!]+[12]\./,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'EOL済みのDjangoバージョンが使用されています。最新のLTSバージョンにアップグレードしてください',
+        filePattern: /requirements.*\.txt$/
+      },
+      {
+        id: 'DEP-005',
+        pattern: /"laravel\/framework":\s*"[^"]*(?:5\.|6\.|7\.)/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'EOL済みのLaravelバージョンが使用されています。最新のLTSバージョンにアップグレードしてください',
+        filePattern: /composer\.json$/
+      },
+    ];
+  }
+
+  /**
+   * PHP パターンルール
+   */
+  private getPHPPatternRules(): PatternRule[] {
+    return [
+      {
+        id: 'PHP-SEC-001',
+        pattern: /(?:DB::select|DB::raw|DB::statement)\s*\(.*\$/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'SQLインジェクションの脆弱性: 変数を直接SQL文に埋め込んでいます。パラメータバインディングを使用してください',
+        filePattern: /\.php$/
+      },
+      {
+        id: 'PHP-SEC-002',
+        pattern: /md5\s*\(\s*\$/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'MD5は暗号学的に安全ではありません。パスワードにはbcrypt（Hash::make）を使用してください',
+        filePattern: /\.php$/
+      },
+      {
+        id: 'PHP-SEC-003',
+        pattern: /\{!!\s*\$/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'Bladeのエスケープなし出力（{!! !!}）が使用されています。XSS脆弱性のリスクがあります',
+        filePattern: /\.(?:blade\.php|php)$/
+      },
+      {
+        id: 'PHP-SEC-004',
+        pattern: /'password'\s*=>\s*'[^']+'/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'パスワードが設定ファイルにハードコーディングされています',
+        filePattern: /(?:config\/|\.env|database\.php).*\.php$/
+      },
+      {
+        id: 'PHP-SEC-005',
+        pattern: /->withoutMiddleware\s*\(.*auth/i,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '認証ミドルウェアが除外されています。意図的でない場合はセキュリティリスクです',
+        filePattern: /\.php$/
+      },
+    ];
+  }
+
+  /**
+   * JavaScript/TypeScript パターンルール
+   */
+  private getJavaScriptPatternRules(): PatternRule[] {
+    return [
+      {
+        id: 'JS-SEC-001',
+        pattern: /dangerouslySetInnerHTML/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'dangerouslySetInnerHTMLの使用はXSS脆弱性のリスクがあります。DOMPurify等でサニタイズしてください',
+        filePattern: /\.(?:jsx|tsx|js|ts)$/
+      },
+      {
+        id: 'JS-SEC-002',
+        pattern: /\beval\s*\(/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'eval()の使用はコードインジェクションのリスクがあります。安全な代替手段を検討してください',
+        filePattern: /\.(?:js|ts|jsx|tsx)$/
+      },
+      {
+        id: 'JS-SEC-003',
+        pattern: /\.innerHTML\s*=/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'innerHTMLへの直接代入はXSS脆弱性のリスクがあります。textContentまたはDOMPurifyを使用してください',
+        filePattern: /\.(?:js|ts|jsx|tsx)$/
+      },
+      {
+        id: 'JS-SEC-004',
+        pattern: /localStorage\.setItem\s*\([^)]*(?:token|password|secret|credential)/i,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '機密情報がlocalStorageに保存されています。HttpOnlyクッキーの使用を検討してください',
+        filePattern: /\.(?:js|ts|jsx|tsx)$/
+      },
+      {
+        id: 'JS-SEC-005',
+        pattern: /console\.log\s*\([^)]*(?:password|token|secret|credential)/i,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '機密情報がconsole.logで出力されています。本番環境では削除してください',
+        filePattern: /\.(?:js|ts|jsx|tsx)$/
+      },
+    ];
+  }
+
+  /**
+   * Python パターンルール
+   */
+  private getPythonPatternRules(): PatternRule[] {
+    return [
+      {
+        id: 'PY-SEC-001',
+        pattern: /\.execute\s*\(.*(?:f"|%s|\.format\s*\(|"\s*\+)/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'SQLインジェクションの脆弱性: パラメータ化クエリを使用してください',
+        filePattern: /\.py$/
+      },
+      {
+        id: 'PY-SEC-002',
+        pattern: /(?:hashlib\.md5|md5\s*\()/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'MD5は暗号学的に安全ではありません。パスワードにはPBKDF2/bcrypt/Argon2を使用してください',
+        filePattern: /\.py$/
+      },
+      {
+        id: 'PY-SEC-003',
+        pattern: /CORS_ALLOW_ALL_ORIGINS\s*=\s*True/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'CORS_ALLOW_ALL_ORIGINS=Trueはすべてのオリジンからのアクセスを許可します。ホワイトリストを使用してください',
+        filePattern: /(?:settings|config)\.py$/
+      },
+      {
+        id: 'PY-SEC-004',
+        pattern: /ALLOWED_HOSTS\s*=\s*\[.*['"]\*['"]/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: "ALLOWED_HOSTSが'*'に設定されています。許可するホストを明示的に指定してください",
+        filePattern: /settings\.py$/
+      },
+      {
+        id: 'PY-SEC-005',
+        pattern: /mark_safe\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'mark_safe()の使用はXSS脆弱性のリスクがあります。入力値のサニタイズを確認してください',
+        filePattern: /\.py$/
+      },
+    ];
+  }
+
+  /**
+   * Java パターンルール
+   */
+  private getJavaPatternRules(): PatternRule[] {
+    return [
+      {
+        id: 'JAVA-SEC-001',
+        pattern: /nativeQuery\s*=\s*true/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'nativeQuery使用時はSQLインジェクションのリスクがあります。パラメータバインディングを使用してください',
+        filePattern: /\.java$/,
+        fileCondition: (content) => /nativeQuery\s*=\s*true/.test(content) && /"\s*\+\s*\w+/.test(content)
+      },
+      {
+        id: 'JAVA-SEC-002',
+        pattern: /th:utext/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'Thymeleafのth:utextはHTMLエスケープを行いません。XSS脆弱性のリスクがあります。th:textの使用を検討してください',
+        filePattern: /\.html$/
+      },
+      {
+        id: 'JAVA-SEC-003',
+        pattern: /csrf\s*\(\s*\)\s*\.\s*disable\s*\(\)/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'CSRF対策が無効化されています。必要な場合を除き、CSRF保護を有効にしてください',
+        filePattern: /\.java$/
+      },
+      {
+        id: 'JAVA-SEC-004',
+        pattern: /(?:logger|log)\s*\.(?:info|debug)\s*\([^)]*(?:password|Password|credential|Credential)/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '機密情報（パスワード等）がログに出力されています。ログからの除外が必要です',
+        filePattern: /\.java$/
+      },
     ];
   }
 
@@ -1510,6 +1924,14 @@ export class StaticAnalyzer {
     toolResults.forEach(result => {
       allIssues.push(...result.issues);
     });
+
+    // 共通パターン解析（設定ファイル、依存関係、多言語対応）
+    try {
+      const commonIssues = await this.runCommonPatternAnalysis(absolutePath);
+      allIssues.push(...commonIssues);
+    } catch (error) {
+      logger.warn('Common pattern analysis failed:', error);
+    }
 
     if (options.removeDuplicates !== false) {
       const { unique } = this.removeDuplicateIssues(allIssues);

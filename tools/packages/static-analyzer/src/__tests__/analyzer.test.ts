@@ -1761,5 +1761,381 @@ ViewBag.Salary = employee.Salary;
         expect(sensitiveIssues.length).toBeGreaterThanOrEqual(2);
       });
     });
+
+    describe('C# additional pattern rules', () => {
+      const analyzeContent = async (content: string, fileName: string = 'TestController.cs') => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return [fileName] as any;
+          }
+          throw new Error('Not a directory');
+        });
+        vi.mocked(fs.readFile).mockResolvedValue(content);
+        return (analyzer as any).runCSharpPatternAnalysis('/test/repo');
+      };
+
+      it('should detect UseUrls with HTTP', async () => {
+        const content = `.UseUrls("http://*:5000", "https://*:5001")`;
+        const issues = await analyzeContent(content, 'Program.cs');
+        const httpIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-022');
+        expect(httpIssues).toHaveLength(1);
+        expect(httpIssues[0].severity).toBe(Severity.High);
+      });
+
+      it('should detect commented out UseHsts', async () => {
+        const content = `// app.UseHsts();`;
+        const issues = await analyzeContent(content, 'Startup.cs');
+        const hstsIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-023');
+        expect(hstsIssues).toHaveLength(1);
+        expect(hstsIssues[0].severity).toBe(Severity.Medium);
+      });
+
+      it('should detect missing ModelState.IsValid check', async () => {
+        const content = `
+[HttpPost]
+public IActionResult Create(Employee emp) { _context.Add(emp); return View(); }
+`;
+        const issues = await analyzeContent(content);
+        const modelIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-CQ-007');
+        expect(modelIssues).toHaveLength(1);
+      });
+
+      it('should NOT flag CS-CQ-007 when ModelState.IsValid is present', async () => {
+        const content = `
+[HttpPost]
+public IActionResult Create(Employee emp) {
+    if (!ModelState.IsValid) return View(emp);
+    _context.Add(emp);
+    return View();
+}`;
+        const issues = await analyzeContent(content);
+        const modelIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-CQ-007');
+        expect(modelIssues).toHaveLength(0);
+      });
+
+      it('should detect deprecated AddMvc()', async () => {
+        const content = `services.AddMvc();`;
+        const issues = await analyzeContent(content, 'Startup.cs');
+        const mvcIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-CQ-008');
+        expect(mvcIssues).toHaveLength(1);
+      });
+    });
+
+    describe('Common pattern analysis - Config security rules', () => {
+      const analyzeCommon = async (content: string, fileName: string) => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return [fileName] as any;
+          }
+          throw new Error('Not a directory');
+        });
+        vi.mocked(fs.readFile).mockResolvedValue(content);
+        return (analyzer as any).runCommonPatternAnalysis('/test/repo');
+      };
+
+      it('should detect connection string secrets in appsettings.json', async () => {
+        const content = `"DefaultConnection": "Server=db;Database=App;Password=Secret123;"`;
+        const issues = await analyzeCommon(content, 'appsettings.json');
+        const configIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CONFIG-SEC-001');
+        expect(configIssues).toHaveLength(1);
+        expect(configIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect API keys in config files', async () => {
+        const content = `"ApiKey": "pk_live_abc123xyz789defghijklmno"`;
+        const issues = await analyzeCommon(content, 'appsettings.json');
+        const keyIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CONFIG-SEC-002');
+        expect(keyIssues).toHaveLength(1);
+        expect(keyIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect SECRET_KEY in settings.py', async () => {
+        const content = `SECRET_KEY = 'django-insecure-abc123def456ghi789'`;
+        const issues = await analyzeCommon(content, 'settings.py');
+        const secretIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CONFIG-SEC-003');
+        expect(secretIssues).toHaveLength(1);
+        expect(secretIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect Debug log level in appsettings.json', async () => {
+        const content = `"Default": "Debug"`;
+        const issues = await analyzeCommon(content, 'appsettings.json');
+        const debugIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CONFIG-SEC-004');
+        expect(debugIssues).toHaveLength(1);
+      });
+
+      it('should detect DEBUG=True in settings.py', async () => {
+        const content = `DEBUG = True`;
+        const issues = await analyzeCommon(content, 'settings.py');
+        const debugIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CONFIG-SEC-005');
+        expect(debugIssues).toHaveLength(1);
+      });
+
+      it('should detect verify=False in Python files', async () => {
+        const content = `response = requests.post(url, data=data, verify=False)`;
+        const issues = await analyzeCommon(content, 'views.py');
+        const sslIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CONFIG-SEC-006');
+        expect(sslIssues).toHaveLength(1);
+      });
+    });
+
+    describe('Common pattern analysis - Dependency rules', () => {
+      const analyzeCommon = async (content: string, fileName: string) => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return [fileName] as any;
+          }
+          throw new Error('Not a directory');
+        });
+        vi.mocked(fs.readFile).mockResolvedValue(content);
+        return (analyzer as any).runCommonPatternAnalysis('/test/repo');
+      };
+
+      it('should detect EOL .NET framework in .csproj', async () => {
+        const content = `<TargetFramework>netcoreapp2.1</TargetFramework>`;
+        const issues = await analyzeCommon(content, 'App.csproj');
+        const depIssues = issues.filter((i: AnalysisIssue) => i.rule === 'DEP-001');
+        expect(depIssues).toHaveLength(1);
+        expect(depIssues[0].severity).toBe(Severity.High);
+      });
+
+      it('should detect vulnerable Newtonsoft.Json', async () => {
+        const content = `<PackageReference Include="Newtonsoft.Json" Version="11.0.2" />`;
+        const issues = await analyzeCommon(content, 'App.csproj');
+        const depIssues = issues.filter((i: AnalysisIssue) => i.rule === 'DEP-002');
+        expect(depIssues).toHaveLength(1);
+      });
+
+      it('should detect vulnerable System.Data.SqlClient', async () => {
+        const content = `<PackageReference Include="System.Data.SqlClient" Version="4.5.0" />`;
+        const issues = await analyzeCommon(content, 'App.csproj');
+        const depIssues = issues.filter((i: AnalysisIssue) => i.rule === 'DEP-003');
+        expect(depIssues).toHaveLength(1);
+      });
+
+      it('should detect EOL Django in requirements.txt', async () => {
+        const content = `Django==2.0.1`;
+        const issues = await analyzeCommon(content, 'requirements.txt');
+        const depIssues = issues.filter((i: AnalysisIssue) => i.rule === 'DEP-004');
+        expect(depIssues).toHaveLength(1);
+      });
+
+      it('should detect EOL Laravel in composer.json', async () => {
+        const content = `"laravel/framework": "^7.0"`;
+        const issues = await analyzeCommon(content, 'composer.json');
+        const depIssues = issues.filter((i: AnalysisIssue) => i.rule === 'DEP-005');
+        expect(depIssues).toHaveLength(1);
+      });
+    });
+
+    describe('Common pattern analysis - PHP rules', () => {
+      const analyzeCommon = async (content: string, fileName: string) => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return [fileName] as any;
+          }
+          throw new Error('Not a directory');
+        });
+        vi.mocked(fs.readFile).mockResolvedValue(content);
+        return (analyzer as any).runCommonPatternAnalysis('/test/repo');
+      };
+
+      it('should detect SQL injection in PHP (DB::raw)', async () => {
+        const content = `$users = DB::select("SELECT * FROM users WHERE id = " . $id);`;
+        const issues = await analyzeCommon(content, 'UserController.php');
+        const sqlIssues = issues.filter((i: AnalysisIssue) => i.rule === 'PHP-SEC-001');
+        expect(sqlIssues).toHaveLength(1);
+        expect(sqlIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect MD5 password hashing in PHP', async () => {
+        const content = `$hashed = md5($password);`;
+        const issues = await analyzeCommon(content, 'AuthController.php');
+        const md5Issues = issues.filter((i: AnalysisIssue) => i.rule === 'PHP-SEC-002');
+        expect(md5Issues).toHaveLength(1);
+      });
+
+      it('should detect Blade unescaped output', async () => {
+        const content = `{!! $user->name !!}`;
+        const issues = await analyzeCommon(content, 'show.blade.php');
+        const xssIssues = issues.filter((i: AnalysisIssue) => i.rule === 'PHP-SEC-003');
+        expect(xssIssues).toHaveLength(1);
+      });
+    });
+
+    describe('Common pattern analysis - JavaScript/TypeScript rules', () => {
+      const analyzeCommon = async (content: string, fileName: string) => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return [fileName] as any;
+          }
+          throw new Error('Not a directory');
+        });
+        vi.mocked(fs.readFile).mockResolvedValue(content);
+        return (analyzer as any).runCommonPatternAnalysis('/test/repo');
+      };
+
+      it('should detect dangerouslySetInnerHTML', async () => {
+        const content = `<div dangerouslySetInnerHTML={{__html: userInput}} />`;
+        const issues = await analyzeCommon(content, 'Component.tsx');
+        const xssIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JS-SEC-001');
+        expect(xssIssues).toHaveLength(1);
+        expect(xssIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect eval()', async () => {
+        const content = `const result = eval(userInput);`;
+        const issues = await analyzeCommon(content, 'helpers.ts');
+        const evalIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JS-SEC-002');
+        expect(evalIssues).toHaveLength(1);
+      });
+
+      it('should detect innerHTML assignment', async () => {
+        const content = `element.innerHTML = userContent;`;
+        const issues = await analyzeCommon(content, 'editor.js');
+        const htmlIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JS-SEC-003');
+        expect(htmlIssues).toHaveLength(1);
+      });
+
+      it('should detect sensitive data in localStorage', async () => {
+        const content = `localStorage.setItem('token', authToken);`;
+        const issues = await analyzeCommon(content, 'auth.ts');
+        const storageIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JS-SEC-004');
+        expect(storageIssues).toHaveLength(1);
+      });
+
+      it('should detect sensitive data in console.log', async () => {
+        const content = `console.log('Login:', { password: user.password });`;
+        const issues = await analyzeCommon(content, 'api.ts');
+        const logIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JS-SEC-005');
+        expect(logIssues).toHaveLength(1);
+      });
+    });
+
+    describe('Common pattern analysis - Python rules', () => {
+      const analyzeCommon = async (content: string, fileName: string) => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return [fileName] as any;
+          }
+          throw new Error('Not a directory');
+        });
+        vi.mocked(fs.readFile).mockResolvedValue(content);
+        return (analyzer as any).runCommonPatternAnalysis('/test/repo');
+      };
+
+      it('should detect SQL injection via f-string', async () => {
+        const content = `cursor.execute(f"SELECT * FROM users WHERE name = '{name}'")`;
+        const issues = await analyzeCommon(content, 'views.py');
+        const sqlIssues = issues.filter((i: AnalysisIssue) => i.rule === 'PY-SEC-001');
+        expect(sqlIssues).toHaveLength(1);
+        expect(sqlIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect MD5 usage in Python', async () => {
+        const content = `password_hash = hashlib.md5(password.encode()).hexdigest()`;
+        const issues = await analyzeCommon(content, 'auth.py');
+        const md5Issues = issues.filter((i: AnalysisIssue) => i.rule === 'PY-SEC-002');
+        expect(md5Issues).toHaveLength(1);
+      });
+
+      it('should detect CORS_ALLOW_ALL_ORIGINS', async () => {
+        const content = `CORS_ALLOW_ALL_ORIGINS = True`;
+        const issues = await analyzeCommon(content, 'settings.py');
+        const corsIssues = issues.filter((i: AnalysisIssue) => i.rule === 'PY-SEC-003');
+        expect(corsIssues).toHaveLength(1);
+      });
+
+      it('should detect mark_safe()', async () => {
+        const content = `return mark_safe(user_input)`;
+        const issues = await analyzeCommon(content, 'utils.py');
+        const xssIssues = issues.filter((i: AnalysisIssue) => i.rule === 'PY-SEC-005');
+        expect(xssIssues).toHaveLength(1);
+      });
+    });
+
+    describe('Common pattern analysis - Java rules', () => {
+      const analyzeCommon = async (content: string, fileName: string) => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return [fileName] as any;
+          }
+          throw new Error('Not a directory');
+        });
+        vi.mocked(fs.readFile).mockResolvedValue(content);
+        return (analyzer as any).runCommonPatternAnalysis('/test/repo');
+      };
+
+      it('should detect nativeQuery with string concatenation', async () => {
+        const content = `@Query(value = "SELECT * FROM users WHERE name = '" + name + "'", nativeQuery = true)`;
+        const issues = await analyzeCommon(content, 'UserRepository.java');
+        const sqlIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JAVA-SEC-001');
+        expect(sqlIssues).toHaveLength(1);
+        expect(sqlIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect th:utext in Thymeleaf', async () => {
+        const content = '<span th:utext="${user.description}"></span>';
+        const issues = await analyzeCommon(content, 'detail.html');
+        const xssIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JAVA-SEC-002');
+        expect(xssIssues).toHaveLength(1);
+      });
+
+      it('should detect csrf().disable()', async () => {
+        const content = `http.csrf().disable()`;
+        const issues = await analyzeCommon(content, 'SecurityConfig.java');
+        const csrfIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JAVA-SEC-003');
+        expect(csrfIssues).toHaveLength(1);
+      });
+
+      it('should detect sensitive data in logger', async () => {
+        const content = `logger.info("Login attempt: password=" + password);`;
+        const issues = await analyzeCommon(content, 'AuthService.java');
+        const logIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JAVA-SEC-004');
+        expect(logIssues).toHaveLength(1);
+      });
+    });
+
+    describe('Common pattern analysis - comment skipping', () => {
+      const analyzeCommon = async (content: string, fileName: string) => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return [fileName] as any;
+          }
+          throw new Error('Not a directory');
+        });
+        vi.mocked(fs.readFile).mockResolvedValue(content);
+        return (analyzer as any).runCommonPatternAnalysis('/test/repo');
+      };
+
+      it('should skip commented lines in Python', async () => {
+        const content = `# CORS_ALLOW_ALL_ORIGINS = True`;
+        const issues = await analyzeCommon(content, 'settings.py');
+        const corsIssues = issues.filter((i: AnalysisIssue) => i.rule === 'PY-SEC-003');
+        expect(corsIssues).toHaveLength(0);
+      });
+
+      it('should skip commented lines in Java', async () => {
+        const content = `// http.csrf().disable()`;
+        const issues = await analyzeCommon(content, 'SecurityConfig.java');
+        const csrfIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JAVA-SEC-003');
+        expect(csrfIssues).toHaveLength(0);
+      });
+
+      it('should skip HTML comments', async () => {
+        const content = `<!-- <span th:utext="\${user.name}"></span> -->`;
+        const issues = await analyzeCommon(content, 'template.html');
+        const xssIssues = issues.filter((i: AnalysisIssue) => i.rule === 'JAVA-SEC-002');
+        expect(xssIssues).toHaveLength(0);
+      });
+    });
   });
 });
