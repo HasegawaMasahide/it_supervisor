@@ -39,6 +39,7 @@
     "@it-supervisor/issue-manager": "^0.1.0",
     "@it-supervisor/logger": "^0.1.0",
     "@it-supervisor/metrics-model": "^0.1.0",
+    "handlebars": "^4.7.8",
     "marked": "^17.0.2"
   },
   "devDependencies": {

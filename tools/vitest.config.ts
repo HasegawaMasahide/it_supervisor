@@ -31,13 +31,13 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@it-supervisor/logger': '/workspace/packages/logger/src/index.ts',
-      '@it-supervisor/metrics-model': '/workspace/packages/metrics-model/src/index.ts',
-      '@it-supervisor/repo-analyzer': '/workspace/packages/repo-analyzer/src/index.ts',
-      '@it-supervisor/static-analyzer': '/workspace/packages/static-analyzer/src/index.ts',
-      '@it-supervisor/issue-manager': '/workspace/packages/issue-manager/src/index.ts',
-      '@it-supervisor/report-generator': '/workspace/packages/report-generator/src/index.ts',
-      '@it-supervisor/sandbox-builder': '/workspace/packages/sandbox-builder/src/index.ts',
+      '@it-supervisor/logger': new URL('./packages/logger/src/index.ts', import.meta.url).pathname,
+      '@it-supervisor/metrics-model': new URL('./packages/metrics-model/src/index.ts', import.meta.url).pathname,
+      '@it-supervisor/repo-analyzer': new URL('./packages/repo-analyzer/src/index.ts', import.meta.url).pathname,
+      '@it-supervisor/static-analyzer': new URL('./packages/static-analyzer/src/index.ts', import.meta.url).pathname,
+      '@it-supervisor/issue-manager': new URL('./packages/issue-manager/src/index.ts', import.meta.url).pathname,
+      '@it-supervisor/report-generator': new URL('./packages/report-generator/src/index.ts', import.meta.url).pathname,
+      '@it-supervisor/sandbox-builder': new URL('./packages/sandbox-builder/src/index.ts', import.meta.url).pathname,
     },
   },
 });

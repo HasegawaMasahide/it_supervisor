@@ -372,13 +372,55 @@ export class RepositoryAnalyzer {
       const csprojFiles = files.filter(f => f.endsWith('.csproj'));
       if (csprojFiles.length > 0) {
         const csproj = await fs.readFile(path.join(repoPath, csprojFiles[0]), 'utf-8');
-        if (csproj.includes('Microsoft.AspNetCore')) frameworks.push({ name: 'ASP.NET Core', detectionMethod: '*.csproj', confidence: 'high' });
+
+        // TargetFramework からバージョン情報を抽出
+        const tfmMatch = csproj.match(/<TargetFramework>(.*?)<\/TargetFramework>/);
+        const targetFramework = tfmMatch?.[1] ?? '';
+
+        if (csproj.includes('Microsoft.AspNetCore') || targetFramework.startsWith('netcoreapp') || targetFramework.startsWith('net5') || targetFramework.startsWith('net6') || targetFramework.startsWith('net7') || targetFramework.startsWith('net8') || targetFramework.startsWith('net9')) {
+          const displayName = this.formatDotNetFrameworkName(targetFramework);
+          frameworks.push({
+            name: displayName,
+            version: targetFramework,
+            detectionMethod: '*.csproj',
+            confidence: 'high'
+          });
+        } else if (targetFramework.startsWith('net4')) {
+          frameworks.push({
+            name: '.NET Framework',
+            version: targetFramework,
+            detectionMethod: '*.csproj',
+            confidence: 'high'
+          });
+        } else if (targetFramework) {
+          frameworks.push({
+            name: '.NET',
+            version: targetFramework,
+            detectionMethod: '*.csproj',
+            confidence: 'medium'
+          });
+        }
       }
     } catch {
       // .csprojがない
     }
 
     return frameworks;
+  }
+
+  /**
+   * TargetFramework モニカーから表示名に変換
+   */
+  private formatDotNetFrameworkName(targetFramework: string): string {
+    if (targetFramework.startsWith('netcoreapp')) {
+      const version = targetFramework.replace('netcoreapp', '');
+      return `ASP.NET Core ${version}`;
+    }
+    if (targetFramework.startsWith('net') && !targetFramework.startsWith('net4')) {
+      const version = targetFramework.replace('net', '');
+      return `ASP.NET Core ${version}`;
+    }
+    return 'ASP.NET Core';
   }
 
   /**
@@ -427,6 +469,37 @@ export class RepositoryAnalyzer {
       }
     } catch {
       // composer.jsonがない
+    }
+
+    // .csproj (NuGet)
+    try {
+      const files = await fs.readdir(repoPath);
+      const csprojFiles = files.filter(f => f.endsWith('.csproj'));
+
+      for (const csprojFile of csprojFiles) {
+        try {
+          const csprojContent = await fs.readFile(path.join(repoPath, csprojFile), 'utf-8');
+          const packageRefRegex = /<PackageReference\s+Include="([^"]+)"(?:\s+Version="([^"]*)")?/g;
+          let match;
+
+          while ((match = packageRefRegex.exec(csprojContent)) !== null) {
+            const [, name, version] = match;
+            // 重複を避ける
+            if (!dependencies.some(d => d.name === name && d.ecosystem === 'nuget')) {
+              dependencies.push({
+                name,
+                version: version || 'unknown',
+                type: 'direct',
+                ecosystem: 'nuget'
+              });
+            }
+          }
+        } catch {
+          // 個別の .csproj 読み込みエラーは無視
+        }
+      }
+    } catch {
+      // readdir エラー
     }
 
     return dependencies;
@@ -564,6 +637,16 @@ export class RepositoryAnalyzer {
     if (await checkFile('build.gradle')) packageManagers.push('gradle');
     if (await checkFile('requirements.txt')) packageManagers.push('pip');
     if (await checkFile('Gemfile')) packageManagers.push('bundler');
+
+    // NuGet (.csproj の存在で判定)
+    try {
+      const files = await fs.readdir(repoPath);
+      if (files.some(f => f.endsWith('.csproj'))) {
+        packageManagers.push('nuget');
+      }
+    } catch {
+      // readdir エラーは無視
+    }
 
     return {
       hasGit,

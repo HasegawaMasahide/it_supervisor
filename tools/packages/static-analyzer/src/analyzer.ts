@@ -141,6 +141,16 @@ interface GitleaksFinding {
   EndColumn?: number;
 }
 
+interface CSharpPatternRule {
+  id: string;
+  pattern: RegExp;
+  severity: Severity;
+  category: IssueCategory;
+  message: string;
+  filePattern?: RegExp;
+  fileCondition?: (content: string) => boolean;
+}
+
 /**
  * 静的解析オーケストレータークラス
  */
@@ -321,6 +331,9 @@ export class StaticAnalyzer {
 
       case AnalyzerTool.PHPCodeSniffer:
         return this.runPHPCS(repoPath, options);
+
+      case AnalyzerTool.RoslynAnalyzer:
+        return this.runRoslynAnalyzer(repoPath, options);
 
       default:
         // その他のツールは未実装
@@ -945,6 +958,492 @@ export class StaticAnalyzer {
   }
 
   /**
+   * Roslyn/.NET Analyzer 実行（Docker ベース + 正規表現フォールバック）
+   */
+  private async runRoslynAnalyzer(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    // .csproj ファイルの検索
+    const csprojFiles = await this.findFilesByExtension(repoPath, '.csproj');
+    if (csprojFiles.length === 0) {
+      return [];
+    }
+
+    // Docker ベースの解析を試行（新しいフレームワークの場合のみ）
+    if (options.useDocker !== false) {
+      try {
+        const csprojContent = await fs.readFile(csprojFiles[0], 'utf-8');
+        const targetFramework = this.detectTargetFramework(csprojContent);
+        const dockerImage = this.selectDotnetDockerImage(targetFramework);
+
+        if (dockerImage) {
+          const dockerIssues = await this.runDockerDotnetAnalysis(
+            repoPath, dockerImage, options
+          );
+          if (dockerIssues.length > 0) {
+            logger.info(`Docker analysis found ${dockerIssues.length} issues`);
+            return dockerIssues;
+          }
+          logger.info('Docker analysis completed but found no issues, falling back to pattern analysis');
+        } else {
+          logger.info(`Target framework ${targetFramework} does not support Docker-based Roslyn analysis, using pattern analysis`);
+        }
+      } catch (error) {
+        logger.warn('Docker-based C# analysis failed, falling back to pattern analysis:', error);
+      }
+    }
+
+    // フォールバック: 正規表現パターンベースの解析
+    try {
+      const patternIssues = await this.runCSharpPatternAnalysis(repoPath);
+      logger.info(`Pattern analysis found ${patternIssues.length} issues`);
+      return patternIssues;
+    } catch (error) {
+      logger.warn('C# pattern analysis failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Docker 経由で dotnet build + Roslyn アナライザーを実行
+   */
+  private async runDockerDotnetAnalysis(
+    repoPath: string,
+    dockerImage: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    const repoPathForDocker = repoPath.replace(/\\/g, '/');
+    const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+    // Docker 内でビルド + アナライザー実行
+    // ソースを read-only マウントし、コンテナ内にコピーしてビルド
+    const shellScript = [
+      'mkdir -p /build',
+      'cp -r /src/. /build/',
+      'cd /build',
+      'cat > Directory.Build.props << \'BUILDPROPS\'',
+      '<Project>',
+      '  <PropertyGroup>',
+      '    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>',
+      '    <AnalysisLevel>latest-all</AnalysisLevel>',
+      '    <EnableNETAnalyzers>true</EnableNETAnalyzers>',
+      '    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>',
+      '  </PropertyGroup>',
+      '  <ItemGroup>',
+      '    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">',
+      '      <PrivateAssets>all</PrivateAssets>',
+      '      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>',
+      '    </PackageReference>',
+      '  </ItemGroup>',
+      '</Project>',
+      'BUILDPROPS',
+      'dotnet restore --verbosity quiet 2>&1',
+      'dotnet build --no-restore -v normal 2>&1 || true'
+    ].join('\n');
+
+    const { stdout, stderr } = await execFileAsync('docker', [
+      'run', '--rm',
+      '-v', `${repoPathForDocker}:/src:ro`,
+      dockerImage,
+      'sh', '-c', shellScript
+    ], {
+      maxBuffer: 50 * 1024 * 1024,
+      timeout
+    }).catch(error => {
+      return {
+        stdout: (error as any).stdout || '',
+        stderr: (error as any).stderr || ''
+      };
+    });
+
+    const output = `${stdout}\n${stderr}`;
+    return this.parseDotnetBuildWarnings(output, repoPath);
+  }
+
+  /**
+   * .csproj からターゲットフレームワークを検出
+   */
+  private detectTargetFramework(csprojContent: string): string {
+    const match = csprojContent.match(/<TargetFramework>(.*?)<\/TargetFramework>/);
+    return match?.[1] ?? 'unknown';
+  }
+
+  /**
+   * ターゲットフレームワークに適した Docker イメージを選択
+   * 古いフレームワーク（netcoreapp2.x, netcoreapp3.x 等）は null を返す
+   */
+  private selectDotnetDockerImage(targetFramework: string): string | null {
+    if (targetFramework.startsWith('net9.')) return 'mcr.microsoft.com/dotnet/sdk:9.0-alpine';
+    if (targetFramework.startsWith('net8.')) return 'mcr.microsoft.com/dotnet/sdk:8.0-alpine';
+    if (targetFramework.startsWith('net7.')) return 'mcr.microsoft.com/dotnet/sdk:7.0-alpine';
+    if (targetFramework.startsWith('net6.')) return 'mcr.microsoft.com/dotnet/sdk:6.0-alpine';
+    if (targetFramework.startsWith('net5.')) return 'mcr.microsoft.com/dotnet/sdk:5.0';
+    // netcoreapp2.1, netcoreapp3.1 等の古いフレームワークは Roslyn Analyzer 非対応
+    return null;
+  }
+
+  /**
+   * dotnet build の出力から警告・エラーをパース
+   * MSBuild 形式: path(line,column): warning/error CODE: message [project]
+   */
+  private parseDotnetBuildWarnings(output: string, _repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+    const diagnosticPattern = /^(.+?)\((\d+),(\d+)\):\s*(warning|error)\s+(\w+):\s*(.+?)(?:\s*\[.+\])?\s*$/gm;
+
+    let match;
+    while ((match = diagnosticPattern.exec(output)) !== null) {
+      const [, filePath, lineStr, colStr, level, code, message] = match;
+      const line = parseInt(lineStr, 10);
+      const column = parseInt(colStr, 10);
+
+      // /build/ プレフィックスを除去して相対パスに変換
+      const relativePath = filePath.replace(/^\/build\//, '').replace(/\\/g, '/');
+
+      const severity = this.mapDotnetDiagnosticSeverity(code, level);
+      const category = this.categorizeDotnetDiagnostic(code);
+
+      issues.push({
+        id: randomUUID(),
+        tool: AnalyzerTool.RoslynAnalyzer,
+        severity,
+        category,
+        rule: code,
+        message,
+        file: relativePath,
+        line,
+        column
+      });
+    }
+
+    return issues;
+  }
+
+  /**
+   * dotnet 診断コードの重要度をマッピング
+   */
+  private mapDotnetDiagnosticSeverity(code: string, level: string): Severity {
+    // セキュリティ系: CA2100, CA30xx, CA5xxx
+    if (/^CA(2100|30\d{2}|5\d{3})$/.test(code)) {
+      return Severity.Critical;
+    }
+    // セキュリティ系: CA31xx
+    if (/^CA31\d{2}$/.test(code)) {
+      return Severity.High;
+    }
+    // ビルドエラー
+    if (level === 'error') {
+      return Severity.High;
+    }
+    // コード解析警告
+    if (code.startsWith('CA')) {
+      return Severity.Medium;
+    }
+    // コンパイラ警告
+    if (code.startsWith('CS')) {
+      return Severity.Low;
+    }
+    return Severity.Medium;
+  }
+
+  /**
+   * dotnet 診断コードをカテゴリ分類
+   */
+  private categorizeDotnetDiagnostic(code: string): IssueCategory {
+    // Security: CA2xxx, CA3xxx, CA5xxx
+    if (/^CA(2\d{3}|3\d{3}|5\d{3})$/.test(code)) {
+      return IssueCategory.Security;
+    }
+    // Performance: CA18xx
+    if (/^CA18\d{2}$/.test(code)) {
+      return IssueCategory.Performance;
+    }
+    // Maintainability: CA15xx
+    if (/^CA15\d{2}$/.test(code)) {
+      return IssueCategory.Maintainability;
+    }
+    return IssueCategory.CodeQuality;
+  }
+
+  /**
+   * C# ソースコードの正規表現パターンベース解析（フォールバック）
+   */
+  private async runCSharpPatternAnalysis(repoPath: string): Promise<AnalysisIssue[]> {
+    const csFiles = await this.findFilesByExtension(repoPath, '.cs');
+    const cshtmlFiles = await this.findFilesByExtension(repoPath, '.cshtml');
+    const allFiles = [...csFiles, ...cshtmlFiles];
+    if (allFiles.length === 0) {
+      return [];
+    }
+
+    const issues: AnalysisIssue[] = [];
+    const rules = this.getCSharpPatternRules();
+
+    for (const filePath of allFiles) {
+      try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        const lines = content.split('\n');
+        const relativePath = path.relative(repoPath, filePath).replace(/\\/g, '/');
+
+        for (const rule of rules) {
+          // ファイルパターンフィルタ
+          if (rule.filePattern && !rule.filePattern.test(relativePath)) {
+            continue;
+          }
+
+          // ファイルコンテンツ条件チェック
+          if (rule.fileCondition && !rule.fileCondition(content)) {
+            continue;
+          }
+
+          // 行ごとにパターンマッチング
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // コメント行をスキップ（コメントアウト検出ルールを除く）
+            if (rule.id !== 'CS-SEC-010' && /^\s*\/\//.test(line)) {
+              continue;
+            }
+
+            if (rule.pattern.test(line)) {
+              issues.push({
+                id: randomUUID(),
+                tool: AnalyzerTool.RoslynAnalyzer,
+                severity: rule.severity,
+                category: rule.category,
+                rule: rule.id,
+                message: rule.message,
+                file: relativePath,
+                line: i + 1,
+                snippet: line.trim().substring(0, 200)
+              });
+            }
+            // RegExp の lastIndex をリセット
+            rule.pattern.lastIndex = 0;
+          }
+        }
+      } catch (error) {
+        logger.warn(`Failed to analyze C# file ${filePath}:`, error);
+      }
+    }
+
+    return issues;
+  }
+
+  /**
+   * C# パターンルール定義
+   */
+  private getCSharpPatternRules(): CSharpPatternRule[] {
+    return [
+      // === セキュリティ: Critical ===
+      {
+        id: 'CS-SEC-001',
+        pattern: /\$"(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|EXEC)\s.*\{/i,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'SQLインジェクションの脆弱性: パラメータ化されていないSQL文に変数を直接埋め込んでいます'
+      },
+      {
+        id: 'CS-SEC-002',
+        pattern: /(?:apiKey|api_key|secretKey|secret_key|apiSecret|api_secret|appSecret)\s*=\s*"[^"]{8,}"/i,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'APIキー/シークレットがハードコーディングされています'
+      },
+      {
+        id: 'CS-SEC-003',
+        pattern: /(?:Password|AdminPassword|DefaultPassword|MasterPassword)\s*=\s*"[^"]{3,}"/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'パスワードがコード内にハードコーディングされています'
+      },
+      {
+        id: 'CS-SEC-004',
+        pattern: /UseDeveloperExceptionPage\s*\(\)/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'DeveloperExceptionPageが使用されています。本番環境では詳細なエラー情報が漏洩する可能性があります'
+      },
+      {
+        id: 'CS-SEC-005',
+        pattern: /\.Password\s*=\s*(?:employee|user|model|input|request|dto|entity)\./i,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'パスワードが平文のまま保存されています。ハッシュ化が必要です'
+      },
+      {
+        id: 'CS-SEC-006',
+        pattern: /(?:(?:AppendLine|Append|WriteLine|Write)\s*\(.*\b(?:Password|SocialSecurityNumber|CreditCard|SSN)\b|(?:Password|SocialSecurityNumber|CreditCard|SSN)\b.*(?:AppendLine|Append|Write|csv))/i,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: '機密情報（パスワード、SSN等）がエクスポートまたはレスポンスに含まれています'
+      },
+      // === セキュリティ: High ===
+      {
+        id: 'CS-SEC-007',
+        pattern: /Html\.Raw\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'Html.Rawの使用によるXSS脆弱性の可能性があります。ユーザー入力をサニタイズしてください'
+      },
+      {
+        id: 'CS-SEC-008',
+        pattern: /AllowAnyOrigin\s*\(\)/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'CORS設定が緩すぎます。AllowAnyOriginは任意のオリジンからのアクセスを許可します'
+      },
+      {
+        id: 'CS-SEC-010',
+        pattern: /\/\/\s*app\.UseHttpsRedirection/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'HTTPSリダイレクトがコメントアウトされています。本番環境ではHTTPSを強制してください'
+      },
+      {
+        id: 'CS-SEC-011',
+        pattern: /\.HttpOnly\s*=\s*false/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'CookieのHttpOnlyがfalseです。XSS攻撃でCookieが窃取される可能性があります'
+      },
+      {
+        id: 'CS-SEC-012',
+        pattern: /SecurePolicy\s*=\s*CookieSecurePolicy\.None/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'CookieのSecurePolicyがNoneです。HTTP経由でCookieが送信される可能性があります'
+      },
+      {
+        id: 'CS-SEC-013',
+        pattern: /\[HttpPost\]/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'POSTエンドポイントに[Authorize]属性がありません。認証・認可チェックを追加してください',
+        filePattern: /Controller\.cs$/,
+        fileCondition: (content) => !content.includes('[Authorize]')
+      },
+      {
+        id: 'CS-SEC-014',
+        pattern: /ViewBag\.\w+\s*=\s*\w+\.(?:Password|SocialSecurityNumber|SSN|Salary)/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '機密情報（パスワード、SSN、給与）がViewBag経由でビューに渡されています'
+      },
+      // === セキュリティ: Medium ===
+      {
+        id: 'CS-SEC-015',
+        pattern: /Content\s*\([^)]*(?:ex\.Message|ex\.StackTrace|exception\.Message)/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: '例外の詳細がユーザーに表示されています。攻撃者にシステム情報が漏洩する可能性があります'
+      },
+      {
+        id: 'CS-SEC-016',
+        pattern: /IdleTimeout\s*=\s*TimeSpan\.From\w+\s*\(\s*\d{4,}/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'セッションのタイムアウトが非常に長く設定されています'
+      },
+      {
+        id: 'CS-SEC-017',
+        pattern: /Cookie\.HttpOnly\s*=\s*false/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'セッションCookieのHttpOnlyがfalseに設定されています。セッションハイジャックのリスクがあります'
+      },
+      // === コード品質: High ===
+      {
+        id: 'CS-CQ-001',
+        pattern: /AddSingleton<[^>]*DbContext/,
+        severity: Severity.High,
+        category: IssueCategory.CodeQuality,
+        message: 'DbContextがSingletonとして登録されています。スレッドセーフでないため、AddDbContext（Scoped）で登録してください'
+      },
+      // === コード品質: Medium ===
+      {
+        id: 'CS-CQ-002',
+        pattern: /private\s+static\s+(?:List|Dictionary|HashSet|Collection|Queue|Stack|ConcurrentDictionary)</,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: '変更可能なstaticコレクションが使用されています。マルチスレッド環境で問題が発生する可能性があります'
+      },
+      {
+        id: 'CS-CQ-003',
+        pattern: /catch\s*\(\s*Exception\s+\w+\s*\)/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: '汎用例外（Exception）をキャッチしています。具体的な例外型をキャッチしてください'
+      },
+      {
+        id: 'CS-CQ-004',
+        pattern: /(?:int|long|double|float|decimal)\.Parse\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'Parse()を使用しています。TryParse()で変換エラーを安全に処理してください'
+      },
+      {
+        id: 'CS-CQ-005',
+        pattern: /public\s+static\s+(?:IConfiguration|IServiceProvider|IHostEnvironment)\s+\w+/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'DIコンテナで管理すべきオブジェクトがグローバルstaticフィールドに保存されています'
+      },
+      // === コード品質: Low ===
+      {
+        id: 'CS-CQ-006',
+        pattern: /ViewBag\.\w+\s*=/,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: 'ViewBagの使用。型安全なViewModelの使用を検討してください'
+      },
+      // === パフォーマンス: High ===
+      {
+        id: 'CS-PERF-001',
+        pattern: /(?:_context|dbContext|_db|_repository)\.\w+\.ToList\s*\(\)/i,
+        severity: Severity.High,
+        category: IssueCategory.Performance,
+        message: '同期的なデータベース操作（ToList）が使用されています。ToListAsync()を使用してください',
+        filePattern: /Controller\.cs$/
+      },
+    ];
+  }
+
+  /**
+   * 指定拡張子のファイルを再帰的に検索
+   */
+  private async findFilesByExtension(dirPath: string, extension: string): Promise<string[]> {
+    const results: string[] = [];
+    const skipDirs = new Set(['node_modules', '.git', 'bin', 'obj', 'packages', '.vs', '.vscode']);
+
+    const walk = async (dir: string): Promise<void> => {
+      let entries: string[];
+      try {
+        const rawEntries = await fs.readdir(dir);
+        entries = rawEntries as unknown as string[];
+      } catch {
+        return;
+      }
+
+      for (const entry of entries) {
+        if (skipDirs.has(entry)) continue;
+
+        const fullPath = path.join(dir, entry);
+
+        if (entry.endsWith(extension)) {
+          results.push(fullPath);
+        } else if (!entry.includes('.')) {
+          // ドットを含まないエントリはディレクトリとして再帰
+          await walk(fullPath);
+        }
+      }
+    };
+
+    await walk(dirPath);
+    return results;
+  }
+
+  /**
    * 修正サジェスチョンを生成
    */
   generateFixSuggestion(issue: AnalysisIssue): string | null {
@@ -1212,6 +1711,16 @@ export class StaticAnalyzer {
       args: ['analyse', '--error-format=json'],
       languages: ['PHP'],
       categories: [IssueCategory.CodeQuality, IssueCategory.BestPractice],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.RoslynAnalyzer, {
+      tool: AnalyzerTool.RoslynAnalyzer,
+      command: 'dotnet',
+      args: ['build', '-v', 'normal'],
+      dockerImage: 'mcr.microsoft.com/dotnet/sdk:8.0-alpine',
+      languages: ['C#'],
+      categories: [IssueCategory.Security, IssueCategory.CodeQuality, IssueCategory.Performance],
       enabled: true
     });
 

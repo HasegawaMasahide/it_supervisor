@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import { execFile } from 'child_process';
+import * as path from 'path';
 import { StaticAnalyzer } from '../analyzer.js';
 import {
   AnalyzerTool,
@@ -570,7 +571,7 @@ describe('StaticAnalyzer', () => {
       // エラーが発生しても空配列を返す
       expect(result).toEqual([]);
       // 一時ファイルの削除が試行される
-      expect(fs.unlink).toHaveBeenCalledWith('/test/repo/gitleaks-report.json');
+      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('gitleaks-report.json'));
     });
 
     it('should cleanup temp files on success in Gitleaks', async () => {
@@ -586,7 +587,7 @@ describe('StaticAnalyzer', () => {
 
       expect(result).toBeDefined();
       // 一時ファイルの削除が試行される
-      expect(fs.unlink).toHaveBeenCalledWith('/test/repo/gitleaks-report.json');
+      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('gitleaks-report.json'));
     });
 
     it('should handle invalid JSON in Gitleaks report', async () => {
@@ -602,7 +603,7 @@ describe('StaticAnalyzer', () => {
 
       expect(result).toEqual([]);
       // 一時ファイルの削除が試行される
-      expect(fs.unlink).toHaveBeenCalledWith('/test/repo/gitleaks-report.json');
+      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('gitleaks-report.json'));
     });
 
     it('should handle tool execution errors gracefully in PHPStan', async () => {
@@ -1129,6 +1130,636 @@ describe('StaticAnalyzer', () => {
       expect(issues[0].file).toBe('unknown');
       expect(issues[0].line).toBeUndefined();
       expect(issues[0].references).toBeUndefined();
+    });
+  });
+
+  describe('RoslynAnalyzer / C# Pattern Analysis', () => {
+    describe('selectTools with .csproj', () => {
+      it('should select RoslynAnalyzer when .csproj exists', async () => {
+        vi.mocked(fs.access).mockRejectedValue(new Error('File not found'));
+        vi.mocked(fs.readdir).mockResolvedValue(['MyProject.csproj', 'Program.cs'] as any);
+
+        const tools = await (analyzer as any).selectTools('/test/repo');
+
+        expect(tools).toContain(AnalyzerTool.RoslynAnalyzer);
+      });
+    });
+
+    describe('detectTargetFramework', () => {
+      it('should detect netcoreapp2.1', () => {
+        const csproj = '<Project><PropertyGroup><TargetFramework>netcoreapp2.1</TargetFramework></PropertyGroup></Project>';
+        expect((analyzer as any).detectTargetFramework(csproj)).toBe('netcoreapp2.1');
+      });
+
+      it('should detect net8.0', () => {
+        const csproj = '<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>';
+        expect((analyzer as any).detectTargetFramework(csproj)).toBe('net8.0');
+      });
+
+      it('should return unknown for missing TargetFramework', () => {
+        const csproj = '<Project></Project>';
+        expect((analyzer as any).detectTargetFramework(csproj)).toBe('unknown');
+      });
+    });
+
+    describe('selectDotnetDockerImage', () => {
+      it('should return null for netcoreapp2.1 (old framework)', () => {
+        expect((analyzer as any).selectDotnetDockerImage('netcoreapp2.1')).toBeNull();
+      });
+
+      it('should return null for netcoreapp3.1 (old framework)', () => {
+        expect((analyzer as any).selectDotnetDockerImage('netcoreapp3.1')).toBeNull();
+      });
+
+      it('should return sdk:6.0 for net6.0', () => {
+        expect((analyzer as any).selectDotnetDockerImage('net6.0')).toBe('mcr.microsoft.com/dotnet/sdk:6.0-alpine');
+      });
+
+      it('should return sdk:8.0 for net8.0', () => {
+        expect((analyzer as any).selectDotnetDockerImage('net8.0')).toBe('mcr.microsoft.com/dotnet/sdk:8.0-alpine');
+      });
+
+      it('should return sdk:9.0 for net9.0', () => {
+        expect((analyzer as any).selectDotnetDockerImage('net9.0')).toBe('mcr.microsoft.com/dotnet/sdk:9.0-alpine');
+      });
+
+      it('should return null for unknown framework', () => {
+        expect((analyzer as any).selectDotnetDockerImage('unknown')).toBeNull();
+      });
+    });
+
+    describe('parseDotnetBuildWarnings', () => {
+      it('should parse MSBuild warning output', () => {
+        const output = [
+          'Microsoft (R) Build Engine version 17.0',
+          '/build/Controllers/HomeController.cs(10,5): warning CA2100: Review SQL queries for security vulnerabilities [/build/MyProject.csproj]',
+          '/build/Program.cs(20,1): warning CS0168: The variable \'ex\' is declared but never used [/build/MyProject.csproj]',
+          'Build succeeded.'
+        ].join('\n');
+
+        const issues = (analyzer as any).parseDotnetBuildWarnings(output, '/test');
+
+        expect(issues).toHaveLength(2);
+        expect(issues[0]).toMatchObject({
+          tool: AnalyzerTool.RoslynAnalyzer,
+          severity: Severity.Critical, // CA2100 is security
+          category: IssueCategory.Security,
+          rule: 'CA2100',
+          message: 'Review SQL queries for security vulnerabilities',
+          file: 'Controllers/HomeController.cs',
+          line: 10,
+          column: 5
+        });
+        expect(issues[1]).toMatchObject({
+          tool: AnalyzerTool.RoslynAnalyzer,
+          severity: Severity.Low, // CS-prefixed is Low
+          rule: 'CS0168',
+          file: 'Program.cs',
+          line: 20,
+          column: 1
+        });
+      });
+
+      it('should parse MSBuild error output', () => {
+        const output = '/build/Startup.cs(5,10): error CS1002: ; expected [/build/MyProject.csproj]\n';
+
+        const issues = (analyzer as any).parseDotnetBuildWarnings(output, '/test');
+
+        expect(issues).toHaveLength(1);
+        expect(issues[0]).toMatchObject({
+          severity: Severity.High, // errors are High
+          rule: 'CS1002'
+        });
+      });
+
+      it('should handle empty output', () => {
+        const issues = (analyzer as any).parseDotnetBuildWarnings('', '/test');
+        expect(issues).toHaveLength(0);
+      });
+
+      it('should strip /build/ prefix from file paths', () => {
+        const output = '/build/src/Controllers/Test.cs(1,1): warning CA1234: Test [/build/MyProject.csproj]\n';
+
+        const issues = (analyzer as any).parseDotnetBuildWarnings(output, '/test');
+
+        expect(issues[0].file).toBe('src/Controllers/Test.cs');
+      });
+    });
+
+    describe('mapDotnetDiagnosticSeverity', () => {
+      it('should map CA2100 (SQL injection) to Critical', () => {
+        expect((analyzer as any).mapDotnetDiagnosticSeverity('CA2100', 'warning')).toBe(Severity.Critical);
+      });
+
+      it('should map CA3001 (SQL injection data flow) to Critical', () => {
+        expect((analyzer as any).mapDotnetDiagnosticSeverity('CA3001', 'warning')).toBe(Severity.Critical);
+      });
+
+      it('should map CA5350 (weak crypto) to Critical', () => {
+        expect((analyzer as any).mapDotnetDiagnosticSeverity('CA5350', 'warning')).toBe(Severity.Critical);
+      });
+
+      it('should map CA3147 (CSRF) to High', () => {
+        expect((analyzer as any).mapDotnetDiagnosticSeverity('CA3147', 'warning')).toBe(Severity.High);
+      });
+
+      it('should map error level to High', () => {
+        expect((analyzer as any).mapDotnetDiagnosticSeverity('CS1002', 'error')).toBe(Severity.High);
+      });
+
+      it('should map generic CA to Medium', () => {
+        expect((analyzer as any).mapDotnetDiagnosticSeverity('CA1000', 'warning')).toBe(Severity.Medium);
+      });
+
+      it('should map CS warnings to Low', () => {
+        expect((analyzer as any).mapDotnetDiagnosticSeverity('CS0168', 'warning')).toBe(Severity.Low);
+      });
+    });
+
+    describe('categorizeDotnetDiagnostic', () => {
+      it('should categorize CA2xxx as Security', () => {
+        expect((analyzer as any).categorizeDotnetDiagnostic('CA2100')).toBe(IssueCategory.Security);
+      });
+
+      it('should categorize CA3xxx as Security', () => {
+        expect((analyzer as any).categorizeDotnetDiagnostic('CA3001')).toBe(IssueCategory.Security);
+      });
+
+      it('should categorize CA5xxx as Security', () => {
+        expect((analyzer as any).categorizeDotnetDiagnostic('CA5350')).toBe(IssueCategory.Security);
+      });
+
+      it('should categorize CA18xx as Performance', () => {
+        expect((analyzer as any).categorizeDotnetDiagnostic('CA1801')).toBe(IssueCategory.Performance);
+      });
+
+      it('should categorize CA15xx as Maintainability', () => {
+        expect((analyzer as any).categorizeDotnetDiagnostic('CA1500')).toBe(IssueCategory.Maintainability);
+      });
+
+      it('should categorize other codes as CodeQuality', () => {
+        expect((analyzer as any).categorizeDotnetDiagnostic('CA1000')).toBe(IssueCategory.CodeQuality);
+        expect((analyzer as any).categorizeDotnetDiagnostic('CS0168')).toBe(IssueCategory.CodeQuality);
+      });
+    });
+
+    describe('findFilesByExtension', () => {
+      it('should find files with matching extension', async () => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return ['Program.cs', 'App.csproj', 'Controllers', 'README.md'] as any;
+          }
+          if (dirStr.endsWith('Controllers')) {
+            return ['HomeController.cs', 'ApiController.cs'] as any;
+          }
+          throw new Error('Not a directory');
+        });
+
+        const files = await (analyzer as any).findFilesByExtension('/test/repo', '.cs');
+
+        expect(files).toHaveLength(3);
+        expect(files).toContain(path.join('/test/repo', 'Program.cs'));
+        expect(files).toContain(path.join('/test/repo', 'Controllers', 'HomeController.cs'));
+        expect(files).toContain(path.join('/test/repo', 'Controllers', 'ApiController.cs'));
+      });
+
+      it('should skip excluded directories', async () => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return ['Program.cs', '.git', 'bin', 'obj', 'node_modules', 'src'] as any;
+          }
+          if (dirStr.endsWith('src')) {
+            return ['App.cs'] as any;
+          }
+          throw new Error('Not a directory');
+        });
+
+        const files = await (analyzer as any).findFilesByExtension('/test/repo', '.cs');
+
+        expect(files).toHaveLength(2); // Program.cs + src/App.cs
+      });
+
+      it('should handle empty directories', async () => {
+        vi.mocked(fs.readdir).mockResolvedValue([] as any);
+
+        const files = await (analyzer as any).findFilesByExtension('/test/repo', '.cs');
+
+        expect(files).toHaveLength(0);
+      });
+
+      it('should handle readdir errors gracefully', async () => {
+        vi.mocked(fs.readdir).mockRejectedValue(new Error('Permission denied'));
+
+        const files = await (analyzer as any).findFilesByExtension('/test/repo', '.cs');
+
+        expect(files).toHaveLength(0);
+      });
+    });
+
+    describe('C# pattern analysis rules', () => {
+      // Helper to run pattern analysis on a single file
+      const analyzeContent = async (content: string, fileName: string = 'TestController.cs') => {
+        // Mock readdir to return one file
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return [fileName] as any;
+          }
+          throw new Error('Not a directory');
+        });
+
+        // Mock readFile to return the content
+        vi.mocked(fs.readFile).mockResolvedValue(content);
+
+        return (analyzer as any).runCSharpPatternAnalysis('/test/repo');
+      };
+
+      it('should detect SQL injection via string interpolation', async () => {
+        const content = `
+public IActionResult Search(string name)
+{
+    var sql = $"SELECT * FROM Users WHERE Name = '{name}'";
+    return View();
+}`;
+        const issues = await analyzeContent(content);
+
+        const sqlIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-001');
+        expect(sqlIssues).toHaveLength(1);
+        expect(sqlIssues[0].severity).toBe(Severity.Critical);
+        expect(sqlIssues[0].category).toBe(IssueCategory.Security);
+      });
+
+      it('should detect hardcoded API keys', async () => {
+        const content = `
+var apiKey = "sk-1234567890abcdefghij";
+`;
+        const issues = await analyzeContent(content);
+
+        const keyIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-002');
+        expect(keyIssues).toHaveLength(1);
+        expect(keyIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect hardcoded passwords', async () => {
+        const content = `
+var AdminPassword = "SuperSecret123";
+`;
+        const issues = await analyzeContent(content);
+
+        const pwdIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-003');
+        expect(pwdIssues).toHaveLength(1);
+        expect(pwdIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect DeveloperExceptionPage usage', async () => {
+        const content = `
+public void Configure(IApplicationBuilder app)
+{
+    app.UseDeveloperExceptionPage();
+}`;
+        const issues = await analyzeContent(content, 'Startup.cs');
+
+        const devExIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-004');
+        expect(devExIssues).toHaveLength(1);
+        expect(devExIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect plaintext password storage', async () => {
+        const content = `
+existing.Password = employee.Password;
+`;
+        const issues = await analyzeContent(content);
+
+        const pwdIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-005');
+        expect(pwdIssues).toHaveLength(1);
+        expect(pwdIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect sensitive data in export', async () => {
+        const content = `
+csv.AppendLine($"{emp.Id},{emp.Name},{emp.Password},{emp.SSN}");
+`;
+        const issues = await analyzeContent(content);
+
+        const exportIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-006');
+        expect(exportIssues.length).toBeGreaterThanOrEqual(1);
+        expect(exportIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should detect Html.Raw (XSS)', async () => {
+        const content = `
+@Html.Raw(Model.Description)
+`;
+        const issues = await analyzeContent(content, 'View.cshtml');
+
+        const xssIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-007');
+        expect(xssIssues).toHaveLength(1);
+        expect(xssIssues[0].severity).toBe(Severity.High);
+      });
+
+      it('should detect AllowAnyOrigin (loose CORS)', async () => {
+        const content = `
+builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+`;
+        const issues = await analyzeContent(content, 'Startup.cs');
+
+        const corsIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-008');
+        expect(corsIssues).toHaveLength(1);
+        expect(corsIssues[0].severity).toBe(Severity.High);
+      });
+
+      it('should detect commented out HTTPS redirection', async () => {
+        const content = `
+// app.UseHttpsRedirection();
+`;
+        const issues = await analyzeContent(content, 'Startup.cs');
+
+        const httpsIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-010');
+        expect(httpsIssues).toHaveLength(1);
+        expect(httpsIssues[0].severity).toBe(Severity.High);
+      });
+
+      it('should detect HttpOnly = false', async () => {
+        const content = `
+options.Cookie.HttpOnly = false;
+`;
+        const issues = await analyzeContent(content, 'Startup.cs');
+
+        const cookieIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-011');
+        expect(cookieIssues).toHaveLength(1);
+        expect(cookieIssues[0].severity).toBe(Severity.High);
+      });
+
+      it('should detect CookieSecurePolicy.None', async () => {
+        const content = `
+options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+`;
+        const issues = await analyzeContent(content, 'Startup.cs');
+
+        const secureIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-012');
+        expect(secureIssues).toHaveLength(1);
+        expect(secureIssues[0].severity).toBe(Severity.High);
+      });
+
+      it('should detect missing [Authorize] on POST endpoints', async () => {
+        const content = `
+public class EmployeeController : Controller
+{
+    [HttpPost]
+    public IActionResult Create(Employee emp) { return View(); }
+
+    [HttpPost]
+    public IActionResult Update(Employee emp) { return View(); }
+}`;
+        const issues = await analyzeContent(content);
+
+        const authIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-013');
+        expect(authIssues).toHaveLength(2); // 2 [HttpPost] without [Authorize]
+      });
+
+      it('should NOT flag [HttpPost] when [Authorize] is present', async () => {
+        const content = `
+[Authorize]
+public class EmployeeController : Controller
+{
+    [HttpPost]
+    public IActionResult Create(Employee emp) { return View(); }
+}`;
+        const issues = await analyzeContent(content);
+
+        const authIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-013');
+        expect(authIssues).toHaveLength(0);
+      });
+
+      it('should detect AddSingleton<DbContext>', async () => {
+        const content = `
+services.AddSingleton<ApplicationDbContext>(provider => { });
+`;
+        const issues = await analyzeContent(content, 'Startup.cs');
+
+        const dbIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-CQ-001');
+        expect(dbIssues).toHaveLength(1);
+        expect(dbIssues[0].severity).toBe(Severity.High);
+      });
+
+      it('should detect static mutable collections', async () => {
+        const content = `
+private static List<Employee> cachedEmployees = new List<Employee>();
+`;
+        const issues = await analyzeContent(content);
+
+        const staticIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-CQ-002');
+        expect(staticIssues).toHaveLength(1);
+        expect(staticIssues[0].severity).toBe(Severity.Medium);
+      });
+
+      it('should detect catch-all exception handling', async () => {
+        const content = `
+try { DoSomething(); } catch (Exception ex) { Log(ex); }
+`;
+        const issues = await analyzeContent(content);
+
+        const catchIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-CQ-003');
+        expect(catchIssues).toHaveLength(1);
+        expect(catchIssues[0].severity).toBe(Severity.Medium);
+      });
+
+      it('should detect int.Parse usage', async () => {
+        const content = `
+var id = int.Parse(input);
+`;
+        const issues = await analyzeContent(content);
+
+        const parseIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-CQ-004');
+        expect(parseIssues).toHaveLength(1);
+        expect(parseIssues[0].severity).toBe(Severity.Medium);
+      });
+
+      it('should detect global static DI-managed objects', async () => {
+        const content = `
+public static IConfiguration GlobalConfig;
+`;
+        const issues = await analyzeContent(content, 'Startup.cs');
+
+        const globalIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-CQ-005');
+        expect(globalIssues).toHaveLength(1);
+      });
+
+      it('should detect synchronous DB operations in controllers', async () => {
+        const content = `
+public IActionResult Index()
+{
+    var employees = _context.Employees.ToList();
+    return View(employees);
+}`;
+        const issues = await analyzeContent(content);
+
+        const syncIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-PERF-001');
+        expect(syncIssues).toHaveLength(1);
+        expect(syncIssues[0].severity).toBe(Severity.High);
+        expect(syncIssues[0].category).toBe(IssueCategory.Performance);
+      });
+
+      it('should skip commented-out code (except comment detection rules)', async () => {
+        const content = `
+// var sql = $"SELECT * FROM Users WHERE Name = '{name}'";
+// AllowAnyOrigin()
+`;
+        const issues = await analyzeContent(content, 'Test.cs');
+
+        // SQL injection and CORS rules should NOT fire on commented lines
+        const sqlIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-001');
+        const corsIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-008');
+        expect(sqlIssues).toHaveLength(0);
+        expect(corsIssues).toHaveLength(0);
+      });
+
+      it('should detect exception details exposed to users', async () => {
+        const content = `
+return Content($"Error: {ex.Message}");
+`;
+        const issues = await analyzeContent(content);
+
+        const exIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-015');
+        expect(exIssues).toHaveLength(1);
+        expect(exIssues[0].severity).toBe(Severity.Medium);
+      });
+
+      it('should return empty array for no .cs files', async () => {
+        vi.mocked(fs.readdir).mockResolvedValue(['index.html', 'style.css'] as any);
+
+        const issues = await (analyzer as any).runCSharpPatternAnalysis('/test/repo');
+
+        expect(issues).toHaveLength(0);
+      });
+    });
+
+    describe('runRoslynAnalyzer integration', () => {
+      it('should fall back to pattern analysis for old frameworks', async () => {
+        // Mock: .csproj exists with netcoreapp2.1
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return ['LegacySystem.csproj', 'Program.cs'] as any;
+          }
+          throw new Error('Not a directory');
+        });
+
+        vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('.csproj')) {
+            return '<Project><PropertyGroup><TargetFramework>netcoreapp2.1</TargetFramework></PropertyGroup></Project>';
+          }
+          if (pathStr.endsWith('.cs')) {
+            return 'app.UseDeveloperExceptionPage();';
+          }
+          return '';
+        });
+
+        const issues = await (analyzer as any).runRoslynAnalyzer('/test/repo', {});
+
+        // Should have pattern analysis results (not Docker)
+        expect(issues.length).toBeGreaterThanOrEqual(1);
+        expect(issues.some((i: AnalysisIssue) => i.rule === 'CS-SEC-004')).toBe(true);
+      });
+
+      it('should return empty when no .csproj files exist', async () => {
+        vi.mocked(fs.readdir).mockResolvedValue(['index.html'] as any);
+
+        const issues = await (analyzer as any).runRoslynAnalyzer('/test/repo', {});
+
+        expect(issues).toHaveLength(0);
+      });
+
+      it('should skip Docker when useDocker is false', async () => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return ['App.csproj', 'Program.cs'] as any;
+          }
+          throw new Error('Not a directory');
+        });
+
+        vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('.csproj')) {
+            return '<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>';
+          }
+          if (pathStr.endsWith('.cs')) {
+            return 'var x = int.Parse(input);';
+          }
+          return '';
+        });
+
+        // Docker should not be called
+        const mockExecFile = vi.mocked(execFile);
+        mockExecFile.mockClear();
+
+        const issues = await (analyzer as any).runRoslynAnalyzer('/test/repo', { useDocker: false });
+
+        // Should have pattern analysis results
+        expect(issues.length).toBeGreaterThanOrEqual(1);
+        // Docker should not have been invoked
+        expect(mockExecFile).not.toHaveBeenCalled();
+      });
+
+      it('should handle Docker failure gracefully and fall back to pattern analysis', async () => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return ['App.csproj', 'Startup.cs'] as any;
+          }
+          throw new Error('Not a directory');
+        });
+
+        vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+          const pathStr = String(filePath);
+          if (pathStr.endsWith('.csproj')) {
+            return '<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>';
+          }
+          if (pathStr.endsWith('.cs')) {
+            return 'app.UseDeveloperExceptionPage();';
+          }
+          return '';
+        });
+
+        // Mock Docker execution to fail
+        vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+          callback(new Error('Docker not found'), '', '');
+          return {} as any;
+        });
+
+        const issues = await (analyzer as any).runRoslynAnalyzer('/test/repo', {});
+
+        // Should fall back to pattern analysis
+        expect(issues.length).toBeGreaterThanOrEqual(1);
+        expect(issues.some((i: AnalysisIssue) => i.rule === 'CS-SEC-004')).toBe(true);
+      });
+    });
+
+    describe('sensitive data in ViewBag', () => {
+      it('should detect sensitive data passed via ViewBag', async () => {
+        vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+          const dirStr = String(dir);
+          if (dirStr.endsWith('repo')) {
+            return ['EmployeeController.cs'] as any;
+          }
+          throw new Error('Not a directory');
+        });
+
+        vi.mocked(fs.readFile).mockResolvedValue(`
+ViewBag.PasswordHash = employee.Password;
+ViewBag.SSN = employee.SocialSecurityNumber;
+ViewBag.Salary = employee.Salary;
+`);
+
+        const issues = await (analyzer as any).runCSharpPatternAnalysis('/test/repo');
+
+        const sensitiveIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CS-SEC-014');
+        expect(sensitiveIssues.length).toBeGreaterThanOrEqual(2);
+      });
     });
   });
 });

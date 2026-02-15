@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { marked } from 'marked';
+import Handlebars from 'handlebars';
 import * as http from 'http';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { createLogger, LogLevel } from '@it-supervisor/logger';
@@ -15,6 +16,42 @@ import {
 
 const logger = createLogger('report-generator', {
   level: process.env.LOG_LEVEL === 'debug' ? LogLevel.DEBUG : LogLevel.INFO,
+});
+
+// Handlebars ヘルパー登録
+Handlebars.registerHelper('formatNumber', (value: unknown) => {
+  if (typeof value === 'number') return value.toLocaleString('ja-JP');
+  return String(value ?? '');
+});
+
+Handlebars.registerHelper('percentage', (value: unknown, total: unknown) => {
+  const v = Number(value);
+  const t = Number(total);
+  if (!t || isNaN(v) || isNaN(t)) return '0.0';
+  return (v / t * 100).toFixed(1);
+});
+
+Handlebars.registerHelper('severityBadge', (severity: string) => {
+  const badges: Record<string, string> = {
+    critical: 'CRITICAL',
+    high: 'HIGH',
+    medium: 'MEDIUM',
+    low: 'LOW',
+    info: 'INFO',
+  };
+  return badges[severity?.toLowerCase()] || String(severity ?? '');
+});
+
+Handlebars.registerHelper('gt', (a: unknown, b: unknown) => Number(a) > Number(b));
+Handlebars.registerHelper('eq', (a: unknown, b: unknown) => a === b);
+Handlebars.registerHelper('add', (a: unknown, b: unknown) => Number(a) + Number(b));
+Handlebars.registerHelper('scoreLabel', (score: unknown) => {
+  const s = Number(score);
+  if (s >= 80) return 'A (良好)';
+  if (s >= 60) return 'B (普通)';
+  if (s >= 40) return 'C (要改善)';
+  if (s >= 20) return 'D (問題あり)';
+  return 'E (危険)';
 });
 
 /**
@@ -217,43 +254,144 @@ export class ReportGenerator {
   private getDefaultTemplate(type: ReportType): string {
     switch (type) {
       case ReportType.Analysis:
-        return `# {{projectName}} - 分析レポート
+        return `# {{projectName}} 分析レポート
 
-## 概要
-
-顧客: {{customerName}}
-作成日: {{date}}
-
-## リポジトリ分析
-
-### 技術スタック
-
-{{#repoAnalysis.techStack}}
-- **言語**: {{languages}}
-- **フレームワーク**: {{frameworks}}
-{{/repoAnalysis.techStack}}
-
-### コード統計
-
-- 総ファイル数: {{repoAnalysis.fileStats.totalFiles}}
-- 総行数: {{repoAnalysis.fileStats.totalLines}}
-
-## 静的解析結果
-
-### 検出された問題
-
-- Critical: {{staticAnalysis.summary.bySeverity.critical}}
-- High: {{staticAnalysis.summary.bySeverity.high}}
-- Medium: {{staticAnalysis.summary.bySeverity.medium}}
-- Low: {{staticAnalysis.summary.bySeverity.low}}
-
-## 推奨事項
-
-[推奨事項をここに記載]
+**顧客名**: {{customerName}}
+**作成日**: {{date}}
+{{#if author}}**作成者**: {{author}}{{/if}}
+{{#if version}}**バージョン**: {{version}}{{/if}}
 
 ---
 
-*このレポートは自動生成されました*
+## エグゼクティブサマリー
+
+本レポートは、{{projectName}}の技術的な分析結果をまとめたものです。
+静的解析ツールおよびリポジトリ解析ツールを使用し、コード品質、セキュリティ、技術的負債の観点から評価を行いました。
+
+### 総合評価
+
+| 評価項目 | スコア | 判定 |
+|---------|--------|------|
+{{#if scores}}| コード品質 | {{scores.codeQuality}}/100 | {{scoreLabel scores.codeQuality}} |
+| セキュリティ | {{scores.security}}/100 | {{scoreLabel scores.security}} |
+| 保守性 | {{scores.maintainability}}/100 | {{scoreLabel scores.maintainability}} |
+| 技術的負債 | {{scores.technicalDebt}}/100 | {{scoreLabel scores.technicalDebt}} |{{else}}| コード品質 | -/100 | 未評価 |
+| セキュリティ | -/100 | 未評価 |
+| 保守性 | -/100 | 未評価 |
+| 技術的負債 | -/100 | 未評価 |{{/if}}
+
+### 重要な発見事項
+
+{{#if summary}}- **Critical問題**: {{summary.criticalIssues}}件
+- **High問題**: {{summary.highIssues}}件
+- **Medium問題**: {{summary.mediumIssues}}件
+- **Low問題**: {{summary.lowIssues}}件
+- **合計**: {{summary.totalIssues}}件{{else}}- 問題の検出結果はありません。{{/if}}
+
+---
+
+## リポジトリ分析
+
+{{#if repository}}| 項目 | 内容 |
+|------|------|
+| リポジトリ名 | {{repository.name}} |
+| Gitリポジトリ | {{#if repository.hasGit}}はい{{else}}いいえ{{/if}} |
+| CI/CD | {{#if repository.hasCI}}設定済み{{else}}未設定{{/if}} |
+| Dockerfile | {{#if repository.hasDockerfile}}あり{{else}}なし{{/if}} |{{/if}}
+
+### 技術スタック
+
+{{#if languages}}| 言語 | 割合 | 行数 |
+|------|------|------|
+{{#each languages}}| {{name}} | {{percentage}}% | {{formatNumber lines}} |
+{{/each}}{{else}}言語情報が取得できませんでした。{{/if}}
+
+### フレームワーク
+
+{{#if frameworks}}| フレームワーク | バージョン | 検出信頼度 |
+|--------------|----------|-----------|
+{{#each frameworks}}| {{name}} | {{version}} | {{confidence}} |
+{{/each}}{{else}}フレームワークは検出されませんでした。{{/if}}
+
+### コード統計
+
+{{#if summary}}| 指標 | 値 |
+|------|-----|
+| 総ファイル数 | {{formatNumber summary.totalFiles}} |
+| 総行数 | {{formatNumber summary.totalLines}} |
+| コード行数 | {{formatNumber summary.totalCodeLines}} |{{/if}}
+
+---
+
+## 静的解析結果
+
+### 問題の分布
+
+#### 重要度別
+
+{{#if summary}}| 重要度 | 件数 | 割合 |
+|--------|------|------|
+| Critical | {{summary.criticalIssues}} | {{percentage summary.criticalIssues summary.totalIssues}}% |
+| High | {{summary.highIssues}} | {{percentage summary.highIssues summary.totalIssues}}% |
+| Medium | {{summary.mediumIssues}} | {{percentage summary.mediumIssues summary.totalIssues}}% |
+| Low | {{summary.lowIssues}} | {{percentage summary.lowIssues summary.totalIssues}}% |{{else}}静的解析結果がありません。{{/if}}
+
+{{#if securityIssues}}### Critical/High問題の詳細
+
+| 重要度 | カテゴリ | 問題 | ファイル | 推奨対応 |
+|--------|---------|------|---------|---------|
+{{#each securityIssues}}| {{severityBadge severity}} | {{category}} | {{title}} | {{file}} | {{recommendation}} |
+{{/each}}{{/if}}
+
+---
+
+## 品質メトリクス
+
+{{#if qualityMetrics}}| 指標 | 値 | 単位 | 状態 |
+|------|-----|------|------|
+{{#each qualityMetrics}}| {{name}} | {{formatNumber value}} | {{unit}} | {{status}} |
+{{/each}}{{/if}}
+
+---
+
+## 推奨事項
+
+{{#if recommendations}}{{#each recommendations}}### {{priority}}: {{title}}
+
+{{description}}
+
+- **想定工数**: {{effort}}
+- **期待効果**: {{impact}}
+
+{{/each}}{{else}}改善提案はありません。{{/if}}
+
+---
+
+## 次のステップ
+
+{{#if summary}}{{#if (gt summary.criticalIssues 0)}}1. Critical問題の即時修正（{{summary.criticalIssues}}件）
+{{/if}}{{#if (gt summary.highIssues 0)}}1. High問題の早期修正計画策定（{{summary.highIssues}}件）
+{{/if}}1. 詳細診断の実施（オプション）
+1. 改善提案書の作成{{else}}1. 詳細な解析の実施
+1. 改善提案書の作成{{/if}}
+
+---
+
+## 付録
+
+### A. 使用した解析ツール
+
+{{#if toolsUsed}}{{#each toolsUsed}}- {{this}}
+{{/each}}{{else}}- 情報がありません{{/if}}
+
+### B. 解析対象サマリー
+
+{{#if summary}}- 対象ファイル数: {{formatNumber summary.totalFiles}}
+- 対象コード行数: {{formatNumber summary.totalCodeLines}}{{/if}}
+
+---
+
+*このレポートは IT Supervisor により自動生成されました*
 `;
 
       case ReportType.Diagnosis:
@@ -268,13 +406,15 @@ export class ReportGenerator {
 
 ### Critical問題
 
-{{#criticalIssues}}
-- **{{title}}**: {{description}}
-{{/criticalIssues}}
+{{#if criticalIssues}}{{#each criticalIssues}}- **{{title}}**: {{description}}
+{{/each}}{{else}}Critical問題は検出されませんでした。{{/if}}
 
 ### リスク評価
 
-[リスクマトリクスをここに挿入]
+{{#if scores}}| 評価項目 | スコア |
+|---------|--------|
+| セキュリティ | {{scores.security}}/100 |
+| コード品質 | {{scores.codeQuality}}/100 |{{/if}}
 
 ## 改善の優先順位
 
@@ -284,7 +424,8 @@ export class ReportGenerator {
 
 ## 次のステップ
 
-[次のステップをここに記載]
+{{#if recommendations}}{{#each recommendations}}1. {{title}}（{{priority}}）
+{{/each}}{{else}}1. 詳細な診断の実施{{/if}}
 
 ---
 
@@ -312,47 +453,70 @@ export class ReportGenerator {
    * テンプレート変数を準備
    */
   private prepareVariables(config: ReportConfig): TemplateVariables {
-    return {
+    const data = config.data || {};
+    const variables: TemplateVariables = {
       projectName: config.projectName,
       customerName: config.customerName,
       date: config.date.toLocaleDateString('ja-JP'),
       author: config.author,
       version: config.version,
-      ...config.data
+      ...data
     };
+
+    // スコア計算（summary データがある場合）
+    const summary = data.summary as Record<string, number> | undefined;
+    if (summary) {
+      const totalIssues = summary.totalIssues ?? 0;
+      const criticalIssues = summary.criticalIssues ?? 0;
+      const highIssues = summary.highIssues ?? 0;
+      const mediumIssues = summary.mediumIssues ?? 0;
+      const totalLines = summary.totalCodeLines ?? summary.totalLines ?? 1;
+
+      // コード品質スコア（問題密度ベース）
+      const issueDensity = totalIssues / Math.max(totalLines / 1000, 1);
+      const codeQualityScore = Math.max(0, Math.min(100, Math.round(100 - issueDensity * 10)));
+
+      // セキュリティスコア（Critical/High問題の影響が大きい）
+      const securityPenalty = criticalIssues * 25 + highIssues * 10;
+      const securityScore = Math.max(0, Math.min(100, 100 - securityPenalty));
+
+      // 保守性スコア（Medium/Low問題ベース）
+      const maintainabilityPenalty = mediumIssues * 3 + (totalIssues - criticalIssues - highIssues - mediumIssues) * 1;
+      const maintainabilityScore = Math.max(0, Math.min(100, 100 - maintainabilityPenalty));
+
+      // 技術的負債スコア
+      const debtScore = Math.round((codeQualityScore + maintainabilityScore) / 2);
+
+      variables.scores = {
+        codeQuality: codeQualityScore,
+        security: securityScore,
+        maintainability: maintainabilityScore,
+        technicalDebt: debtScore,
+      };
+    }
+
+    return variables;
   }
 
   /**
-   * テンプレートを展開
+   * テンプレートを展開（Handlebars ベース）
    */
   private expandTemplate(template: string, variables: TemplateVariables): string {
-    let result = template;
-
-    // 単純な変数置換 {{variable}}
-    Object.entries(variables).forEach(([key, value]) => {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      result = result.replace(regex, String(value ?? ''));
-    });
-
-    // ドット記法のサポート {{object.property}}
-    const dotNotationRegex = /{{(\w+)\.(\w+)(?:\.(\w+))?}}/g;
-    result = result.replace(dotNotationRegex, (match, obj, prop1, prop2) => {
-      try {
-        const objValue = variables[obj];
-        if (!objValue || typeof objValue !== 'object') return '';
-
-        const prop1Value = (objValue as Record<string, unknown>)[prop1];
-        if (prop2) {
-          if (!prop1Value || typeof prop1Value !== 'object') return '';
-          return String((prop1Value as Record<string, unknown>)[prop2] ?? '');
+    try {
+      const compiled = Handlebars.compile(template, { noEscape: true });
+      return compiled(variables);
+    } catch (error) {
+      logger.warn('Handlebars template expansion failed, falling back to simple replacement', error);
+      // フォールバック: 単純な変数置換
+      let result = template;
+      Object.entries(variables).forEach(([key, value]) => {
+        if (typeof value !== 'object' || value === null) {
+          const regex = new RegExp(`{{${key}}}`, 'g');
+          result = result.replace(regex, String(value ?? ''));
         }
-        return String(prop1Value ?? '');
-      } catch {
-        return '';
-      }
-    });
-
-    return result;
+      });
+      return result;
+    }
   }
 
   /**

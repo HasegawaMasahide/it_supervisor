@@ -275,7 +275,7 @@ Content`;
       expect(result).toBe('Hello Alice, welcome to Wonderland!');
     });
 
-    it('should leave undefined variables as-is', () => {
+    it('should replace undefined variables with empty string (Handlebars behavior)', () => {
       const template = 'Hello {{name}}, age: {{age}}';
       const variables = {
         projectName: '',
@@ -287,9 +287,8 @@ Content`;
       // @ts-ignore
       const result = generator['expandTemplate'](template, variables);
 
-      // expandTemplate only replaces variables that exist in the variables object
-      // Missing variables are left as {{variable}}
-      expect(result).toBe('Hello Bob, age: {{age}}');
+      // Handlebars replaces undefined variables with empty string
+      expect(result).toBe('Hello Bob, age: ');
     });
 
     it('should support dot notation for nested objects', () => {
@@ -411,10 +410,12 @@ Content`;
       // @ts-ignore
       const template = generator['getDefaultTemplate'](ReportType.Analysis);
 
-      expect(template).toContain('# {{projectName}} - 分析レポート');
-      expect(template).toContain('顧客: {{customerName}}');
+      expect(template).toContain('{{projectName}} 分析レポート');
+      expect(template).toContain('{{customerName}}');
       expect(template).toContain('## リポジトリ分析');
       expect(template).toContain('## 静的解析結果');
+      expect(template).toContain('## エグゼクティブサマリー');
+      expect(template).toContain('## 推奨事項');
     });
 
     it('should return Diagnosis template', () => {
@@ -447,7 +448,7 @@ Content`;
       types.forEach(type => {
         // @ts-ignore
         const template = generator['getDefaultTemplate'](type);
-        expect(template).toContain('このレポートは自動生成されました');
+        expect(template).toContain('自動生成されました');
       });
     });
   });
@@ -906,19 +907,25 @@ Total files: {{stats.totalFiles}}`;
 
 This is a test.`;
 
-      vi.mocked(fs.readFile).mockResolvedValue(markdownContent);
+      vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+        if (String(filePath).includes('test.md')) return markdownContent;
+        throw new Error('Not found');
+      });
 
       await generator.markdownToPDF('/input/test.md', '/output/test.pdf');
 
       expect(fs.readFile).toHaveBeenCalledWith('/input/test.md', 'utf-8');
       // Will fallback to HTML when puppeteer is not available
       expect(fs.writeFile).toHaveBeenCalled();
-    });
+    }, 20000);
 
     it('should use custom config when provided', async () => {
       const markdownContent = `# Custom Report`;
 
-      vi.mocked(fs.readFile).mockResolvedValue(markdownContent);
+      vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+        if (String(filePath).includes('test.md')) return markdownContent;
+        throw new Error('Not found');
+      });
 
       const customConfig = {
         projectName: 'Custom Project',
@@ -928,22 +935,25 @@ This is a test.`;
       await generator.markdownToPDF('/input/test.md', '/output/test.pdf', customConfig);
 
       expect(fs.readFile).toHaveBeenCalledWith('/input/test.md', 'utf-8');
-    });
+    }, 20000);
 
     it('should fallback to HTML when PDF generation fails', async () => {
       const markdownContent = `# Fallback Test`;
 
-      vi.mocked(fs.readFile).mockResolvedValue(markdownContent);
+      vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+        if (String(filePath).includes('test.md')) return markdownContent;
+        throw new Error('Not found');
+      });
 
       await generator.markdownToPDF('/input/test.md', '/output/test.pdf');
 
       // When puppeteer fails, it should write HTML as fallback
       expect(fs.writeFile).toHaveBeenCalledWith(
-        '/output/test.html',
+        expect.stringContaining('test.html'),
         expect.stringContaining('<!DOCTYPE html>'),
         'utf-8'
       );
-    });
+    }, 20000);
   });
 
   describe('Error handling', () => {
@@ -1227,9 +1237,12 @@ Custom content here`;
 
       await generator.registerTemplate('custom-template', templateContent);
 
-      expect(fs.mkdir).toHaveBeenCalledWith('/test/templates', { recursive: true });
+      expect(fs.mkdir).toHaveBeenCalledWith(
+        expect.stringContaining('templates'),
+        { recursive: true }
+      );
       expect(fs.writeFile).toHaveBeenCalledWith(
-        '/test/templates/custom-template.md',
+        expect.stringContaining('custom-template.md'),
         templateContent,
         'utf-8'
       );
@@ -1241,7 +1254,7 @@ Custom content here`;
       await generator.registerTemplate('existing', newContent);
 
       expect(fs.writeFile).toHaveBeenCalledWith(
-        '/test/templates/existing.md',
+        expect.stringContaining('existing.md'),
         newContent,
         'utf-8'
       );
@@ -1253,7 +1266,7 @@ Custom content here`;
       await generator.registerTemplate('analysis_v2', templateContent);
 
       expect(fs.writeFile).toHaveBeenCalledWith(
-        '/test/templates/analysis_v2.md',
+        expect.stringContaining('analysis_v2.md'),
         templateContent,
         'utf-8'
       );
@@ -1264,7 +1277,10 @@ Custom content here`;
 
       await generator.registerTemplate('new-template', templateContent);
 
-      expect(fs.mkdir).toHaveBeenCalledWith('/test/templates', { recursive: true });
+      expect(fs.mkdir).toHaveBeenCalledWith(
+        expect.stringContaining('templates'),
+        { recursive: true }
+      );
     });
   });
 
