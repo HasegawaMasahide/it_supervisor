@@ -218,6 +218,29 @@ interface SemgrepResult {
   errors?: Array<{ message: string }>;
 }
 
+// --- Trivy 出力の型定義 ---
+
+interface TrivyResult {
+  Results?: TrivyTarget[];
+}
+
+interface TrivyTarget {
+  Target: string;
+  Type: string;
+  Vulnerabilities?: TrivyVulnerability[];
+}
+
+interface TrivyVulnerability {
+  VulnerabilityID: string;
+  PkgName: string;
+  InstalledVersion: string;
+  FixedVersion?: string;
+  Severity: string;
+  Title: string;
+  Description?: string;
+  PrimaryURL?: string;
+}
+
 interface ProgpilotVuln {
   source_name: string;
   source_file: string;
@@ -541,6 +564,9 @@ export class StaticAnalyzer {
 
       case AnalyzerTool.DependencyCheck:
         return this.runDependencyCheck(repoPath, options);
+
+      case AnalyzerTool.Trivy:
+        return this.runTrivy(repoPath, options);
 
       default:
         // その他のツールは未実装
@@ -868,6 +894,9 @@ export class StaticAnalyzer {
 
   /**
    * ESLint実行（実装版）
+   *
+   * 監査用ESLint設定ファイル（configs/audit-eslintrc.json）が存在する場合、
+   * ターゲットリポの設定を無視し、セキュリティ・品質・React向けの包括的ルールで解析する。
    */
   private async runESLint(
     repoPath: string,
@@ -878,6 +907,11 @@ export class StaticAnalyzer {
       const packageJsonPath = path.join(repoPath, 'package.json');
       await fs.access(packageJsonPath);
 
+      // 監査用ESLint設定の検出
+      const toolsRoot = path.resolve(__dirname, '..', '..', '..');
+      const auditConfig = path.resolve(__dirname, '..', 'configs', 'audit-eslintrc.json');
+      const hasAuditConfig = await this.fileExists(auditConfig);
+
       // ESLintコマンド実行
       const command = 'npx';
       const args = [
@@ -887,12 +921,25 @@ export class StaticAnalyzer {
         '--ext', '.js,.ts,.jsx,.tsx'
       ];
 
+      // 監査用設定がある場合はターゲットの設定を上書き
+      let cwd = repoPath;
+      if (hasAuditConfig) {
+        args.push(
+          '--no-eslintrc',
+          '--config', auditConfig,
+          '--resolve-plugins-relative-to', toolsRoot
+        );
+        cwd = toolsRoot;
+        logger.info('Using audit ESLint config:', auditConfig);
+      }
+
       const timeout = options.timeout || DEFAULT_TIMEOUT;
 
       const { stdout } = await execFileAsync(command, args, {
-        cwd: repoPath,
+        cwd,
         maxBuffer: 10 * 1024 * 1024,
-        timeout
+        timeout,
+        shell: true // Windows では npx.cmd を解決するためにシェル経由が必要
       }).catch(error => {
         // ESLintは問題があるとexit code 1を返すので、エラーを無視
         return { stdout: error.stdout || '[]', stderr: error.stderr || '' };
@@ -2284,11 +2331,14 @@ export class StaticAnalyzer {
     try {
       let command: string;
       let args: string[];
-      if (options.useDocker) {
+      const useDocker = await this.shouldUseDocker(AnalyzerTool.Semgrep, options);
+
+      if (useDocker) {
+        const repoPathForDocker = repoPath.replace(/\\/g, '/');
         command = 'docker';
         args = [
           'run', '--rm',
-          '-v', `${repoPath}:/src`,
+          '-v', `${repoPathForDocker}:/src`,
           'semgrep/semgrep',
           'semgrep', 'scan', '--config=auto', '--json', '--quiet'
         ];
@@ -2299,7 +2349,7 @@ export class StaticAnalyzer {
 
       const timeout = options.timeout || DEFAULT_TIMEOUT;
       const { stdout } = await execFileAsync(command, args, {
-        cwd: repoPath,
+        cwd: useDocker ? undefined : repoPath,
         maxBuffer: 10 * 1024 * 1024,
         timeout
       }).catch(error => {
@@ -2537,7 +2587,9 @@ export class StaticAnalyzer {
       let args: string[];
       const timeout = options.timeout || DEFAULT_TIMEOUT;
 
-      if (options.useDocker) {
+      const useDocker = await this.shouldUseDocker(AnalyzerTool.Gitleaks, options);
+
+      if (useDocker) {
         const repoPathForDocker = repoPath.replace(/\\/g, '/');
         command = 'docker';
         args = [
@@ -2560,7 +2612,7 @@ export class StaticAnalyzer {
       }
 
       await execFileAsync(command, args, {
-        cwd: options.useDocker ? undefined : repoPath,
+        cwd: useDocker ? undefined : repoPath,
         timeout
       }).catch(() => {
         // Gitleaksは検出があるとexit code 1を返す
@@ -3844,6 +3896,46 @@ export class StaticAnalyzer {
   }
 
   /**
+   * ローカルコマンドが利用可能か確認
+   */
+  private async isCommandAvailable(command: string): Promise<boolean> {
+    try {
+      const which = process.platform === 'win32' ? 'where' : 'which';
+      await execFileAsync(which, [command], { timeout: 5000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Docker利用可否とツールのDockerImage設定に基づいて、Docker実行すべきか判定
+   * - useDocker が明示的に true → Docker実行
+   * - useDocker が未設定で、ローカルコマンドが無い場合 → Docker fallback
+   */
+  private async shouldUseDocker(
+    tool: AnalyzerTool,
+    options: AnalysisOptions
+  ): Promise<boolean> {
+    if (options.useDocker === true) return true;
+    if (options.useDocker === false) return false;
+
+    // useDocker が未設定の場合: ローカルコマンドがなければDocker fallback
+    const config = this.toolConfigs.get(tool);
+    if (!config?.dockerImage) return false;
+
+    const localAvailable = await this.isCommandAvailable(config.command);
+    if (localAvailable) return false;
+
+    // Dockerが利用可能か確認
+    const dockerAvailable = await this.isCommandAvailable('docker');
+    if (!dockerAvailable) return false;
+
+    logger.info(`${tool}: local command not found, falling back to Docker (${config.dockerImage})`);
+    return true;
+  }
+
+  /**
    * 重複問題を除去
    */
   private removeDuplicateIssues(
@@ -3916,7 +4008,8 @@ export class StaticAnalyzer {
       [AnalyzerTool.Pylint]: 0,
       [AnalyzerTool.Radon]: 0,
       [AnalyzerTool.DjangoCheckDeploy]: 0,
-      [AnalyzerTool.PMD]: 0
+      [AnalyzerTool.PMD]: 0,
+      [AnalyzerTool.Trivy]: 0
     };
 
     allIssues.forEach(issue => {
@@ -3936,6 +4029,120 @@ export class StaticAnalyzer {
       filesAnalyzed,
       executionTime
     };
+  }
+
+  /**
+   * Trivy実行（依存関係脆弱性チェック）
+   */
+  private async runTrivy(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      let command: string;
+      let args: string[];
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const useDocker = await this.shouldUseDocker(AnalyzerTool.Trivy, options);
+
+      if (useDocker) {
+        const repoPathForDocker = repoPath.replace(/\\/g, '/');
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPathForDocker}:/repo:ro`,
+          'aquasec/trivy',
+          'fs', '--format', 'json',
+          '--scanners', 'vuln',
+          '--skip-dirs', 'node_modules,.git,vendor,dist',
+          '/repo'
+        ];
+      } else {
+        command = 'trivy';
+        args = [
+          'fs', '--format', 'json',
+          '--scanners', 'vuln',
+          '--skip-dirs', 'node_modules,.git,vendor,dist',
+          repoPath
+        ];
+      }
+
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: useDocker ? undefined : repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '{"Results":[]}', stderr: error.stderr || '' };
+      });
+
+      let result: TrivyResult;
+      try {
+        result = JSON.parse(stdout || '{"Results":[]}') as TrivyResult;
+      } catch {
+        logger.error('Failed to parse Trivy output');
+        return [];
+      }
+
+      return this.parseTrivyResults(result, repoPath);
+    } catch (error) {
+      logger.error('Trivy execution failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Trivy結果をパース
+   */
+  private parseTrivyResults(result: TrivyResult, _repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    if (!result.Results) return issues;
+
+    for (const target of result.Results) {
+      if (!target.Vulnerabilities) continue;
+
+      for (const vuln of target.Vulnerabilities) {
+        let severity: Severity;
+        switch (vuln.Severity.toUpperCase()) {
+          case 'CRITICAL':
+            severity = Severity.Critical;
+            break;
+          case 'HIGH':
+            severity = Severity.High;
+            break;
+          case 'MEDIUM':
+            severity = Severity.Medium;
+            break;
+          case 'LOW':
+            severity = Severity.Low;
+            break;
+          default:
+            severity = Severity.Info;
+        }
+
+        const fixInfo = vuln.FixedVersion
+          ? `Upgrade to ${vuln.PkgName}@${vuln.FixedVersion}`
+          : 'No fix available';
+
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.Trivy,
+          severity,
+          category: IssueCategory.Security,
+          rule: vuln.VulnerabilityID,
+          message: `${vuln.Title || vuln.VulnerabilityID}: ${vuln.PkgName}@${vuln.InstalledVersion}`,
+          file: target.Target,
+          cve: [vuln.VulnerabilityID],
+          references: vuln.PrimaryURL ? [vuln.PrimaryURL] : undefined,
+          fix: {
+            available: !!vuln.FixedVersion,
+            description: fixInfo
+          }
+        });
+      }
+    }
+
+    return issues;
   }
 
   /**
@@ -4070,6 +4277,16 @@ export class StaticAnalyzer {
       dockerImage: 'semgrep/semgrep',
       languages: ['*'],
       categories: [IssueCategory.Security, IssueCategory.CodeQuality],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.Trivy, {
+      tool: AnalyzerTool.Trivy,
+      command: 'trivy',
+      args: ['fs', '--format', 'json', '--scanners', 'vuln'],
+      dockerImage: 'aquasec/trivy',
+      languages: ['*'],
+      categories: [IssueCategory.Security],
       enabled: true
     });
 

@@ -157,6 +157,11 @@ async function main() {
   tools.push(AnalyzerTool.Gitleaks);
   tools.push(AnalyzerTool.Semgrep);
 
+  // 依存関係脆弱性チェック（Trivy）
+  if (repoResult.techStack.dependencies.length > 0) {
+    tools.push(AnalyzerTool.Trivy);
+  }
+
   // SonarQube（環境変数がある場合のみ）
   if (process.env.SONARQUBE_URL) {
     tools.push(AnalyzerTool.SonarQube);
@@ -181,6 +186,7 @@ async function main() {
         tools,
         parallel: true,
         timeout: 300000,
+        useDocker: true,
         removeDuplicates: true,
         excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__'],
       },
@@ -197,6 +203,7 @@ async function main() {
         tools,
         parallel: true,
         timeout: 600000,
+        useDocker: true,
         removeDuplicates: true,
         excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__'],
       },

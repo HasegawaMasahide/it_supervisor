@@ -50,7 +50,9 @@ export enum AnalyzerTool {
   Opengrep = 'opengrep',
   Pylint = 'pylint',
   Radon = 'radon',
-  DjangoCheckDeploy = 'django-check-deploy'
+  DjangoCheckDeploy = 'django-check-deploy',
+  // 汎用依存関係チェック
+  Trivy = 'trivy'
 }
 
 /**
