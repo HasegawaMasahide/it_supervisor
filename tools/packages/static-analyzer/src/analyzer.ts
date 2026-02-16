@@ -127,6 +127,48 @@ interface PatternRule {
 
 // --- 追加ツール出力の型定義 ---
 
+// npm audit
+interface NpmAuditVia {
+  name: string;
+  title?: string;
+  url?: string;
+  severity: string;
+  cwe?: string[];
+}
+
+interface NpmAuditVulnerability {
+  name: string;
+  severity: string;
+  isDirect: boolean;
+  via: (string | NpmAuditVia)[];
+  effects: string[];
+  range: string;
+  fixAvailable: boolean | { name: string; version: string; isSemVerMajor: boolean };
+}
+
+// jscpd
+interface JscpdFileLoc {
+  name: string;
+  start: number;
+  end: number;
+  startLoc: { line: number; column: number };
+  endLoc: { line: number; column: number };
+}
+
+interface JscpdDuplicate {
+  format: string;
+  lines: number;
+  tokens: number;
+  firstFile: JscpdFileLoc;
+  secondFile: JscpdFileLoc;
+  fragment?: string;
+}
+
+interface JscpdResult {
+  duplicates: JscpdDuplicate[];
+  statistics?: Record<string, unknown>;
+}
+
 interface PsalmIssue {
   severity: string;
   line_from: number;
@@ -332,6 +374,19 @@ interface OWASPDCReport {
 }
 
 /**
+ * 外部ツールが未インストール時のエラー
+ */
+class ToolNotInstalledError extends Error {
+  constructor(toolName: string, installUrl?: string) {
+    const msg = installUrl
+      ? `${toolName} is not installed. Install from ${installUrl}`
+      : `${toolName} is not installed.`;
+    super(msg);
+    this.name = 'ToolNotInstalledError';
+  }
+}
+
+/**
  * 静的解析オーケストレータークラス
  */
 export class StaticAnalyzer {
@@ -482,12 +537,16 @@ export class StaticAnalyzer {
         }
       };
     } catch (error) {
+      const isNotInstalled = error instanceof ToolNotInstalledError;
       return {
         tool,
         success: false,
         executionTime: Date.now() - startTime,
         issues: [],
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        warnings: isNotInstalled
+          ? [`${tool}: ${error instanceof Error ? error.message : String(error)}`]
+          : undefined
       };
     }
   }
@@ -567,6 +626,15 @@ export class StaticAnalyzer {
 
       case AnalyzerTool.Trivy:
         return this.runTrivy(repoPath, options);
+
+      case AnalyzerTool.NpmAudit:
+        return this.runNpmAudit(repoPath, options);
+
+      case AnalyzerTool.NpmCheckUpdates:
+        return this.runNpmCheckUpdates(repoPath, options);
+
+      case AnalyzerTool.Jscpd:
+        return this.runJscpd(repoPath, options);
 
       default:
         // その他のツールは未実装
@@ -918,7 +986,7 @@ export class StaticAnalyzer {
         'eslint',
         repoPath,
         '--format', 'json',
-        '--ext', '.js,.ts,.jsx,.tsx'
+        '--ext', '.js,.ts,.jsx,.tsx,.vue'
       ];
 
       // 監査用設定がある場合はターゲットの設定を上書き
@@ -2589,6 +2657,17 @@ export class StaticAnalyzer {
 
       const useDocker = await this.shouldUseDocker(AnalyzerTool.Gitleaks, options);
 
+      // Docker未使用時はCLI存在確認
+      if (!useDocker) {
+        const gitleaksAvailable = await this.isCommandAvailable('gitleaks');
+        if (!gitleaksAvailable) {
+          throw new ToolNotInstalledError(
+            'Gitleaks',
+            'https://github.com/gitleaks/gitleaks#install'
+          );
+        }
+      }
+
       if (useDocker) {
         const repoPathForDocker = repoPath.replace(/\\/g, '/');
         command = 'docker';
@@ -2631,6 +2710,8 @@ export class StaticAnalyzer {
 
       return this.parseGitleaksResults(results, repoPath);
     } catch (error) {
+      // ToolNotInstalledError は runTool() まで伝播させる
+      if (error instanceof ToolNotInstalledError) throw error;
       logger.error('Gitleaks execution failed:', error);
       return [];
     } finally {
@@ -2659,6 +2740,282 @@ export class StaticAnalyzer {
         line: finding.StartLine,
         snippet: finding.Secret,
         references: finding.Tags ? finding.Tags.map((tag: string) => `Tag: ${tag}`) : undefined
+      });
+    }
+
+    return issues;
+  }
+
+  // ========================================
+  // npm audit / npm-check-updates / jscpd
+  // ========================================
+
+  /**
+   * npm audit 実行（依存関係の脆弱性チェック）
+   */
+  private async runNpmAudit(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      const packageJsonPath = path.join(repoPath, 'package.json');
+      if (!await this.fileExists(packageJsonPath)) return [];
+
+      // node_modules が存在しない場合はスキップ
+      if (!await this.fileExists(path.join(repoPath, 'node_modules'))) {
+        logger.warn('node_modules not found. Skipping npm audit.');
+        return [];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+      const { stdout } = await execFileAsync('npm', ['audit', '--json'], {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout,
+        shell: true
+      }).catch(error => {
+        // npm audit は脆弱性があると exit code 1 を返す
+        return { stdout: error.stdout || '{}', stderr: error.stderr || '' };
+      });
+
+      let result: { vulnerabilities?: Record<string, NpmAuditVulnerability> };
+      try {
+        result = JSON.parse(stdout || '{}');
+      } catch {
+        logger.error('Failed to parse npm audit output');
+        return [];
+      }
+
+      return this.parseNpmAuditResults(result.vulnerabilities || {});
+    } catch (error) {
+      logger.error('npm audit execution failed:', error);
+      return [];
+    }
+  }
+
+  private parseNpmAuditResults(
+    vulnerabilities: Record<string, NpmAuditVulnerability>
+  ): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    for (const [pkgName, vuln] of Object.entries(vulnerabilities)) {
+      const severity = this.mapNpmAuditSeverity(vuln.severity);
+      const viaDetails = (vuln.via || [])
+        .filter((v): v is NpmAuditVia => typeof v !== 'string')
+        .map(v => v.title)
+        .filter(Boolean)
+        .join(', ');
+
+      const cweList = (vuln.via || [])
+        .filter((v): v is NpmAuditVia => typeof v !== 'string')
+        .flatMap(v => v.cwe || []);
+
+      const fixInfo = typeof vuln.fixAvailable === 'object'
+        ? `Update to ${vuln.fixAvailable.name}@${vuln.fixAvailable.version}`
+        : vuln.fixAvailable ? 'Fix available via npm audit fix' : 'No fix available';
+
+      issues.push({
+        id: randomUUID(),
+        tool: AnalyzerTool.NpmAudit,
+        severity,
+        category: IssueCategory.Security,
+        rule: `npm-audit-${vuln.severity}`,
+        message: `パッケージ "${pkgName}" に${vuln.severity}レベルの脆弱性があります${viaDetails ? ': ' + viaDetails : ''}`,
+        file: 'package.json',
+        cwe: cweList.length > 0 ? cweList : undefined,
+        fix: { available: !!vuln.fixAvailable, description: fixInfo }
+      });
+    }
+
+    return issues;
+  }
+
+  private mapNpmAuditSeverity(severity: string): Severity {
+    switch (severity) {
+      case 'critical': return Severity.Critical;
+      case 'high': return Severity.High;
+      case 'moderate': return Severity.Medium;
+      case 'low': return Severity.Low;
+      case 'info': return Severity.Info;
+      default: return Severity.Medium;
+    }
+  }
+
+  /**
+   * npm-check-updates 実行（依存関係の陳腐化チェック）
+   */
+  private static readonly DEPRECATED_PACKAGES: Record<string, string> = {
+    'moment': 'day.js または date-fns への移行を推奨',
+    'request': 'axios または node-fetch への移行を推奨',
+    'vuex': 'Pinia への移行を推奨',
+    'node-sass': 'sass (Dart Sass) への移行を推奨',
+    'tslint': 'ESLint + @typescript-eslint への移行を推奨',
+  };
+
+  private async runNpmCheckUpdates(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      const packageJsonPath = path.join(repoPath, 'package.json');
+      const packageJsonContent = await fs.readFile(packageJsonPath, 'utf-8');
+      const packageJson = JSON.parse(packageJsonContent);
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const { stdout } = await execFileAsync('npx', ['-y', 'npm-check-updates', '--jsonUpgraded'], {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout,
+        shell: true
+      }).catch(error => {
+        return { stdout: error.stdout || '{}', stderr: error.stderr || '' };
+      });
+
+      let ncuResult: Record<string, string>;
+      try {
+        ncuResult = JSON.parse(stdout || '{}');
+      } catch {
+        logger.error('Failed to parse npm-check-updates output');
+        return [];
+      }
+
+      return this.parseNcuResults(ncuResult, packageJson);
+    } catch (error) {
+      logger.error('npm-check-updates execution failed:', error);
+      return [];
+    }
+  }
+
+  private parseNcuResults(
+    ncuResult: Record<string, string>,
+    packageJson: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> }
+  ): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+    const allDeps = {
+      ...(packageJson.dependencies || {}),
+      ...(packageJson.devDependencies || {})
+    };
+
+    // メジャーバージョン遅れの検出
+    for (const [pkg, latestVersion] of Object.entries(ncuResult)) {
+      const currentVersion = allDeps[pkg];
+      if (!currentVersion) continue;
+
+      const currentMajor = this.extractMajorVersion(currentVersion);
+      const latestMajor = this.extractMajorVersion(latestVersion);
+
+      if (currentMajor !== null && latestMajor !== null && latestMajor - currentMajor >= 1) {
+        const lag = latestMajor - currentMajor;
+        const severity = lag >= 3 ? Severity.High : lag >= 2 ? Severity.Medium : Severity.Low;
+
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.NpmCheckUpdates,
+          severity,
+          category: IssueCategory.Maintainability,
+          rule: 'ncu-outdated-major',
+          message: `パッケージ "${pkg}" が ${lag} メジャーバージョン遅れています (${currentVersion} → ${latestVersion})`,
+          file: 'package.json',
+          fix: { available: true, description: `npm install ${pkg}@${latestVersion}` }
+        });
+      }
+    }
+
+    // 非推奨パッケージの検出
+    for (const [pkg, recommendation] of Object.entries(StaticAnalyzer.DEPRECATED_PACKAGES)) {
+      if (allDeps[pkg]) {
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.NpmCheckUpdates,
+          severity: Severity.Medium,
+          category: IssueCategory.Maintainability,
+          rule: 'ncu-deprecated',
+          message: `非推奨パッケージ "${pkg}" が使用されています。${recommendation}`,
+          file: 'package.json'
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  private extractMajorVersion(version: string): number | null {
+    const match = version.replace(/^[\^~>=<]*/, '').match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+  }
+
+  /**
+   * jscpd 実行（コード重複検出）
+   */
+  private async runJscpd(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    const reportDir = path.join(repoPath, '.jscpd-audit-report');
+
+    try {
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      await execFileAsync('npx', [
+        '-y', 'jscpd',
+        repoPath,
+        '--reporters', 'json',
+        '--output', reportDir,
+        '--ignore', 'node_modules,dist,vendor,.git,coverage,__pycache__,migrations',
+        '--min-lines', '10',
+        '--min-tokens', '50'
+      ], {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout,
+        shell: true
+      }).catch(() => {
+        // jscpd は重複があってもexit 0だが、パースエラー等を握りつぶす
+      });
+
+      const reportPath = path.join(reportDir, 'jscpd-report.json');
+      const reportContent = await fs.readFile(reportPath, 'utf-8').catch(() => '{"duplicates":[],"statistics":{}}');
+
+      let result: JscpdResult;
+      try {
+        result = JSON.parse(reportContent);
+      } catch {
+        logger.error('Failed to parse jscpd output');
+        return [];
+      }
+
+      return this.parseJscpdResults(result, repoPath);
+    } catch (error) {
+      logger.error('jscpd execution failed:', error);
+      return [];
+    } finally {
+      // レポートディレクトリをクリーンアップ
+      await fs.rm(reportDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  private parseJscpdResults(result: JscpdResult, repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+    if (!result.duplicates) return issues;
+
+    for (const dup of result.duplicates) {
+      const severity = dup.lines >= 50 ? Severity.High
+        : dup.lines >= 20 ? Severity.Medium
+        : Severity.Low;
+
+      const firstFile = path.relative(repoPath, dup.firstFile.name).replace(/\\/g, '/');
+      const secondFile = path.relative(repoPath, dup.secondFile.name).replace(/\\/g, '/');
+
+      issues.push({
+        id: randomUUID(),
+        tool: AnalyzerTool.Jscpd,
+        severity,
+        category: IssueCategory.Maintainability,
+        rule: 'jscpd-duplicate',
+        message: `コードの重複を検出 (${dup.lines}行): ${firstFile}:${dup.firstFile.startLoc.line} と ${secondFile}:${dup.secondFile.startLoc.line}`,
+        file: firstFile,
+        line: dup.firstFile.startLoc.line,
+        snippet: dup.fragment?.substring(0, 200)
       });
     }
 
@@ -3162,7 +3519,7 @@ export class StaticAnalyzer {
       '.php',
       '.py',
       '.java',
-      '.js', '.ts', '.tsx', '.jsx',
+      '.js', '.ts', '.tsx', '.jsx', '.vue',
       '.html'
     ];
 
@@ -3405,7 +3762,7 @@ export class StaticAnalyzer {
         severity: Severity.Critical,
         category: IssueCategory.Security,
         message: 'dangerouslySetInnerHTMLの使用はXSS脆弱性のリスクがあります。DOMPurify等でサニタイズしてください',
-        filePattern: /\.(?:jsx|tsx|js|ts)$/
+        filePattern: /\.(?:jsx?|tsx?|vue)$/
       },
       {
         id: 'JS-SEC-002',
@@ -3413,7 +3770,7 @@ export class StaticAnalyzer {
         severity: Severity.Critical,
         category: IssueCategory.Security,
         message: 'eval()の使用はコードインジェクションのリスクがあります。安全な代替手段を検討してください',
-        filePattern: /\.(?:js|ts|jsx|tsx)$/
+        filePattern: /\.(?:jsx?|tsx?|vue)$/
       },
       {
         id: 'JS-SEC-003',
@@ -3421,7 +3778,7 @@ export class StaticAnalyzer {
         severity: Severity.High,
         category: IssueCategory.Security,
         message: 'innerHTMLへの直接代入はXSS脆弱性のリスクがあります。textContentまたはDOMPurifyを使用してください',
-        filePattern: /\.(?:js|ts|jsx|tsx)$/
+        filePattern: /\.(?:jsx?|tsx?|vue)$/
       },
       {
         id: 'JS-SEC-004',
@@ -3429,7 +3786,7 @@ export class StaticAnalyzer {
         severity: Severity.High,
         category: IssueCategory.Security,
         message: '機密情報がlocalStorageに保存されています。HttpOnlyクッキーの使用を検討してください',
-        filePattern: /\.(?:js|ts|jsx|tsx)$/
+        filePattern: /\.(?:jsx?|tsx?|vue)$/
       },
       {
         id: 'JS-SEC-005',
@@ -3437,7 +3794,31 @@ export class StaticAnalyzer {
         severity: Severity.High,
         category: IssueCategory.Security,
         message: '機密情報がconsole.logで出力されています。本番環境では削除してください',
-        filePattern: /\.(?:js|ts|jsx|tsx)$/
+        filePattern: /\.(?:jsx?|tsx?|vue)$/
+      },
+      {
+        id: 'JS-SEC-006',
+        pattern: /v-html\s*=/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'v-htmlディレクティブの使用はXSS脆弱性のリスクがあります。v-textまたはDOMPurifyでサニタイズしてください',
+        filePattern: /\.vue$/
+      },
+      {
+        id: 'JS-SEC-007',
+        pattern: /cors\s*\(\s*\{[^}]*origin\s*:\s*['"][*]['"]/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'CORS設定でワイルドカード(*)が使用されています。許可するオリジンを明示的に指定してください',
+        filePattern: /\.(?:js|ts)$/
+      },
+      {
+        id: 'JS-SEC-008',
+        pattern: /origin\s*:\s*['"][*]['"]/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'CORS設定で全オリジンが許可されています。本番環境では許可するオリジンを明示的に指定してください',
+        filePattern: /\.(?:js|ts)$/
       },
     ];
   }
@@ -3828,6 +4209,9 @@ export class StaticAnalyzer {
     // package.json存在確認 (JavaScript/TypeScript)
     if (await this.fileExists(path.join(repoPath, 'package.json'))) {
       tools.push(AnalyzerTool.ESLint);
+      tools.push(AnalyzerTool.NpmAudit);
+      tools.push(AnalyzerTool.NpmCheckUpdates);
+      tools.push(AnalyzerTool.Jscpd);
 
       if (await this.fileExists(path.join(repoPath, 'tsconfig.json'))) {
         tools.push(AnalyzerTool.TypeScriptCompiler);
@@ -4009,7 +4393,10 @@ export class StaticAnalyzer {
       [AnalyzerTool.Radon]: 0,
       [AnalyzerTool.DjangoCheckDeploy]: 0,
       [AnalyzerTool.PMD]: 0,
-      [AnalyzerTool.Trivy]: 0
+      [AnalyzerTool.Trivy]: 0,
+      [AnalyzerTool.NpmAudit]: 0,
+      [AnalyzerTool.NpmCheckUpdates]: 0,
+      [AnalyzerTool.Jscpd]: 0
     };
 
     allIssues.forEach(issue => {
@@ -4358,6 +4745,34 @@ export class StaticAnalyzer {
       dockerImage: 'python:3.11',
       languages: ['Python'],
       categories: [IssueCategory.Security],
+      enabled: true
+    });
+
+    // JavaScript/Node.js 依存関係チェック
+    configs.set(AnalyzerTool.NpmAudit, {
+      tool: AnalyzerTool.NpmAudit,
+      command: 'npm',
+      args: ['audit', '--json'],
+      languages: ['JavaScript', 'TypeScript'],
+      categories: [IssueCategory.Security],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.NpmCheckUpdates, {
+      tool: AnalyzerTool.NpmCheckUpdates,
+      command: 'npx',
+      args: ['-y', 'npm-check-updates', '--jsonUpgraded'],
+      languages: ['JavaScript', 'TypeScript'],
+      categories: [IssueCategory.Maintainability],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.Jscpd, {
+      tool: AnalyzerTool.Jscpd,
+      command: 'npx',
+      args: ['-y', 'jscpd', '--reporters', 'json'],
+      languages: ['*'],
+      categories: [IssueCategory.Maintainability],
       enabled: true
     });
 

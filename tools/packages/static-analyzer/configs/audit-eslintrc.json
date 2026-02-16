@@ -48,5 +48,25 @@
     "react/no-danger-with-children": "error",
     "react/jsx-no-target-blank": "error",
     "react/prop-types": "warn"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["*.vue"],
+      "parser": "vue-eslint-parser",
+      "parserOptions": {
+        "parser": "@typescript-eslint/parser",
+        "ecmaVersion": 2020,
+        "sourceType": "module"
+      },
+      "plugins": ["vue"],
+      "extends": [
+        "plugin:vue/recommended"
+      ],
+      "rules": {
+        "vue/no-v-html": "error",
+        "vue/component-api-style": ["warn", ["script-setup", "composition"]],
+        "vue/max-lines-per-block": ["warn", { "script": 200, "template": 200, "style": 200 }]
+      }
+    }
+  ]
 }

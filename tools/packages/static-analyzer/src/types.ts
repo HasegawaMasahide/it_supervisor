@@ -52,7 +52,12 @@ export enum AnalyzerTool {
   Radon = 'radon',
   DjangoCheckDeploy = 'django-check-deploy',
   // 汎用依存関係チェック
-  Trivy = 'trivy'
+  Trivy = 'trivy',
+  // JavaScript/Node.js 依存関係チェック
+  NpmAudit = 'npm-audit',
+  NpmCheckUpdates = 'npm-check-updates',
+  // コード重複検出
+  Jscpd = 'jscpd'
 }
 
 /**

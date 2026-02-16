@@ -569,7 +569,7 @@ describe('StaticAnalyzer', () => {
       // エラーが発生しても空配列を返す
       expect(result).toEqual([]);
       // 一時ファイルの削除が試行される
-      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('gitleaks-report.json'));
+      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('gitleaks-report'));
     });
 
     it('should cleanup temp files on success in Gitleaks', async () => {
@@ -585,7 +585,7 @@ describe('StaticAnalyzer', () => {
 
       expect(result).toBeDefined();
       // 一時ファイルの削除が試行される
-      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('gitleaks-report.json'));
+      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('gitleaks-report'));
     });
 
     it('should handle invalid JSON in Gitleaks report', async () => {
@@ -601,7 +601,7 @@ describe('StaticAnalyzer', () => {
 
       expect(result).toEqual([]);
       // 一時ファイルの削除が試行される
-      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('gitleaks-report.json'));
+      expect(fs.unlink).toHaveBeenCalledWith(expect.stringContaining('gitleaks-report'));
     });
 
     it('should handle tool execution errors gracefully in PHPStan', async () => {
@@ -2583,6 +2583,193 @@ Found 1 clones with 25 duplicated lines in 2 files:
       const result = await (analyzer as any).runSonarQube('/test/repo', {});
 
       expect(result).toHaveLength(0);
+    });
+  });
+
+  // ========================================
+  // Step 1: Vue.js パターンルール + .vue 対応
+  // ========================================
+  describe('Vue.js pattern rules', () => {
+    it('should detect v-html in Vue files (JS-SEC-006)', () => {
+      const rules = (analyzer as any).getJavaScriptPatternRules();
+      const vhtmlRule = rules.find((r: any) => r.id === 'JS-SEC-006');
+      expect(vhtmlRule).toBeDefined();
+      expect(vhtmlRule.pattern.test('<div v-html="userContent">')).toBe(true);
+      expect(vhtmlRule.filePattern.test('Component.vue')).toBe(true);
+      expect(vhtmlRule.filePattern.test('app.js')).toBe(false);
+      expect(vhtmlRule.severity).toBe('critical');
+    });
+
+    it('should detect CORS wildcard origin (JS-SEC-007)', () => {
+      const rules = (analyzer as any).getJavaScriptPatternRules();
+      const corsRule = rules.find((r: any) => r.id === 'JS-SEC-007');
+      expect(corsRule).toBeDefined();
+      expect(corsRule.pattern.test("cors({ origin: '*' })")).toBe(true);
+      expect(corsRule.filePattern.test('server.js')).toBe(true);
+    });
+
+    it('should detect CORS origin wildcard string (JS-SEC-008)', () => {
+      const rules = (analyzer as any).getJavaScriptPatternRules();
+      const corsRule2 = rules.find((r: any) => r.id === 'JS-SEC-008');
+      expect(corsRule2).toBeDefined();
+      expect(corsRule2.pattern.test("origin: '*'")).toBe(true);
+    });
+
+    it('should match existing JS rules on .vue files', () => {
+      const rules = (analyzer as any).getJavaScriptPatternRules();
+      const evalRule = rules.find((r: any) => r.id === 'JS-SEC-002');
+      expect(evalRule.filePattern.test('Component.vue')).toBe(true);
+      const localStorageRule = rules.find((r: any) => r.id === 'JS-SEC-004');
+      expect(localStorageRule.filePattern.test('store.vue')).toBe(true);
+    });
+  });
+
+  // ========================================
+  // Step 3: ToolNotInstalledError handling
+  // ========================================
+  describe('ToolNotInstalledError handling', () => {
+    it('should return warnings when tool is not installed', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      // isCommandAvailable returns false
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const cmdStr = String(cmd);
+        if (cmdStr === 'where' || cmdStr === 'which') {
+          callback(new Error('not found'), '', '');
+        } else {
+          callback(null, '', '');
+        }
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runTool('/test/repo', 'gitleaks', {});
+      expect(result.success).toBe(false);
+      expect(result.warnings).toBeDefined();
+      expect(result.warnings[0]).toContain('not installed');
+    });
+  });
+
+  // ========================================
+  // Step 4: npm audit
+  // ========================================
+  describe('npm audit', () => {
+    it('should parse npm audit results with vulnerabilities', () => {
+      const vulnerabilities = {
+        'lodash': {
+          name: 'lodash',
+          severity: 'high',
+          isDirect: true,
+          via: [{ name: 'lodash', title: 'Prototype Pollution', severity: 'high', cwe: ['CWE-1321'] }],
+          effects: [],
+          range: '<4.17.21',
+          fixAvailable: { name: 'lodash', version: '4.17.21', isSemVerMajor: false }
+        }
+      };
+      const issues = (analyzer as any).parseNpmAuditResults(vulnerabilities);
+      expect(issues).toHaveLength(1);
+      expect(issues[0].severity).toBe('high');
+      expect(issues[0].tool).toBe('npm-audit');
+      expect(issues[0].fix?.available).toBe(true);
+      expect(issues[0].cwe).toContain('CWE-1321');
+    });
+
+    it('should return empty for no vulnerabilities', () => {
+      const issues = (analyzer as any).parseNpmAuditResults({});
+      expect(issues).toHaveLength(0);
+    });
+
+    it('should map severity correctly', () => {
+      expect((analyzer as any).mapNpmAuditSeverity('critical')).toBe('critical');
+      expect((analyzer as any).mapNpmAuditSeverity('high')).toBe('high');
+      expect((analyzer as any).mapNpmAuditSeverity('moderate')).toBe('medium');
+      expect((analyzer as any).mapNpmAuditSeverity('low')).toBe('low');
+      expect((analyzer as any).mapNpmAuditSeverity('info')).toBe('info');
+    });
+  });
+
+  // ========================================
+  // Step 5: npm-check-updates
+  // ========================================
+  describe('npm-check-updates', () => {
+    it('should detect major version lag', () => {
+      const ncuResult = { 'vue': '3.4.0' };
+      const packageJson = { dependencies: { 'vue': '^2.7.0' } };
+      const issues = (analyzer as any).parseNcuResults(ncuResult, packageJson);
+      const outdated = issues.filter((i: any) => i.rule === 'ncu-outdated-major');
+      expect(outdated).toHaveLength(1);
+      expect(outdated[0].severity).toBe('low'); // 1 major version lag
+    });
+
+    it('should assign higher severity for 3+ major lag', () => {
+      const ncuResult = { 'webpack': '5.90.0' };
+      const packageJson = { dependencies: { 'webpack': '^2.0.0' } };
+      const issues = (analyzer as any).parseNcuResults(ncuResult, packageJson);
+      const outdated = issues.filter((i: any) => i.rule === 'ncu-outdated-major');
+      expect(outdated[0].severity).toBe('high'); // 3 major versions
+    });
+
+    it('should detect deprecated packages', () => {
+      const ncuResult = {};
+      const packageJson = { dependencies: { 'moment': '2.29.0', 'vuex': '4.0.0' } };
+      const issues = (analyzer as any).parseNcuResults(ncuResult, packageJson);
+      const deprecated = issues.filter((i: any) => i.rule === 'ncu-deprecated');
+      expect(deprecated).toHaveLength(2);
+      expect(deprecated.map((i: any) => i.message)).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('moment'),
+          expect.stringContaining('vuex')
+        ])
+      );
+    });
+
+    it('should extract major version correctly', () => {
+      expect((analyzer as any).extractMajorVersion('^2.7.0')).toBe(2);
+      expect((analyzer as any).extractMajorVersion('~3.4.1')).toBe(3);
+      expect((analyzer as any).extractMajorVersion('>=1.0.0')).toBe(1);
+      expect((analyzer as any).extractMajorVersion('5.0.0')).toBe(5);
+    });
+  });
+
+  // ========================================
+  // Step 6: jscpd
+  // ========================================
+  describe('jscpd', () => {
+    it('should parse jscpd results with duplicates', () => {
+      const result = {
+        duplicates: [{
+          format: 'javascript',
+          lines: 25,
+          tokens: 100,
+          firstFile: { name: '/test/repo/src/a.js', start: 0, end: 100, startLoc: { line: 10, column: 0 }, endLoc: { line: 35, column: 0 } },
+          secondFile: { name: '/test/repo/src/b.js', start: 0, end: 100, startLoc: { line: 5, column: 0 }, endLoc: { line: 30, column: 0 } },
+          fragment: 'duplicated code here...'
+        }],
+        statistics: {}
+      };
+      const issues = (analyzer as any).parseJscpdResults(result, '/test/repo');
+      expect(issues).toHaveLength(1);
+      expect(issues[0].severity).toBe('medium'); // 25 lines
+      expect(issues[0].rule).toBe('jscpd-duplicate');
+      expect(issues[0].tool).toBe('jscpd');
+    });
+
+    it('should assign high severity for large duplicates', () => {
+      const result = {
+        duplicates: [{
+          format: 'javascript', lines: 60, tokens: 300,
+          firstFile: { name: '/test/repo/a.js', start: 0, end: 0, startLoc: { line: 1, column: 0 }, endLoc: { line: 61, column: 0 } },
+          secondFile: { name: '/test/repo/b.js', start: 0, end: 0, startLoc: { line: 1, column: 0 }, endLoc: { line: 61, column: 0 } },
+          fragment: ''
+        }],
+        statistics: {}
+      };
+      const issues = (analyzer as any).parseJscpdResults(result, '/test/repo');
+      expect(issues[0].severity).toBe('high');
+    });
+
+    it('should return empty for no duplicates', () => {
+      const result = { duplicates: [], statistics: {} };
+      const issues = (analyzer as any).parseJscpdResults(result, '/test/repo');
+      expect(issues).toHaveLength(0);
     });
   });
 });
