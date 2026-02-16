@@ -206,7 +206,80 @@ npx tsx を使って実行してください。
 
 ### 静的解析ツールが見つからない
 
-ESLint 等は tools の devDependencies に含まれていますが、PHPStan/Snyk 等はシステムにインストールされている必要があります。利用できないツールはスキップされる設計です。
+ESLint 等は tools の devDependencies に含まれていますが、外部ツールはシステムにインストールされている必要があります。利用できないツールはスキップされる設計です。
+
+#### 外部ツールのインストール
+
+**PHP プロジェクト用ツール（Composer 経由）:**
+
+```bash
+# PHPStan
+composer global require phpstan/phpstan
+
+# PHPCS (PHP_CodeSniffer)
+composer global require squizlabs/php_codesniffer
+
+# Psalm（テイント解析）
+composer global require vimeo/psalm
+
+# PHPMD（メトリクス・複雑度）
+composer global require phpmd/phpmd
+
+# PHPCPD（重複コード検出）
+composer global require systemsdk/phpcpd
+
+# Progpilot（PHP SAST）- phar ファイルをダウンロード
+curl -L -o progpilot.phar https://github.com/designsecurity/progpilot/releases/latest/download/progpilot.phar
+```
+
+**Docker 経由（推奨 - 環境を汚さない）:**
+
+各ツールは Docker イメージとしても利用可能です。`useDocker: true` オプションを指定すると Docker 経由で実行されます。
+
+```bash
+# 各ツールの Docker イメージを事前に pull
+docker pull vimeo/psalm
+docker pull phpmd/phpmd
+docker pull systemsdk/phpcpd
+docker pull composer:latest
+docker pull semgrep/semgrep
+docker pull sonarsource/sonar-scanner-cli
+```
+
+**Semgrep（多言語対応SAST）:**
+
+```bash
+# pip 経由
+pip install semgrep
+
+# または Docker（推奨）
+docker pull semgrep/semgrep
+```
+
+**SonarQube Community Edition（オプション）:**
+
+SonarQube はサーバーとして起動し、環境変数 `SONARQUBE_URL` を設定する必要があります。
+
+```bash
+# Docker で SonarQube サーバー起動
+docker run -d --name sonarqube -p 9000:9000 sonarqube:community
+
+# 環境変数を設定
+export SONARQUBE_URL=http://localhost:9000
+```
+
+**Gitleaks（シークレット検出）:**
+
+```bash
+# Windows (Scoop)
+scoop install gitleaks
+
+# macOS
+brew install gitleaks
+
+# Docker
+docker pull ghcr.io/gitleaks/gitleaks
+```
 
 ### PDF が生成されない
 

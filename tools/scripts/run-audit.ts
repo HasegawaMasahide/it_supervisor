@@ -139,14 +139,28 @@ async function main() {
     tools.push(AnalyzerTool.ESLint);
   }
   if (languageNames.includes('php')) {
-    tools.push(AnalyzerTool.PHPStan, AnalyzerTool.PHPCodeSniffer);
+    tools.push(
+      AnalyzerTool.PHPStan,
+      AnalyzerTool.PHPCodeSniffer,
+      AnalyzerTool.Psalm,
+      AnalyzerTool.PHPMessDetector,
+      AnalyzerTool.PHPCPD,
+      AnalyzerTool.Progpilot,
+      AnalyzerTool.ComposerAudit,
+    );
   }
   if (languageNames.includes('c#')) {
     tools.push(AnalyzerTool.RoslynAnalyzer);
   }
 
-  // 共通セキュリティツール
+  // 共通セキュリティ・品質ツール
   tools.push(AnalyzerTool.Gitleaks);
+  tools.push(AnalyzerTool.Semgrep);
+
+  // SonarQube（環境変数がある場合のみ）
+  if (process.env.SONARQUBE_URL) {
+    tools.push(AnalyzerTool.SonarQube);
+  }
 
   // Python / Django 検出
   if (languageNames.includes('python')) {

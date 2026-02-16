@@ -2288,4 +2288,301 @@ public IActionResult Create(Employee emp) {
       });
     });
   });
+
+  // ========================================
+  // 追加ツールの結果パーステスト
+  // ========================================
+
+  describe('Psalm result parsing', () => {
+    it('should parse taint analysis results', async () => {
+      const psalmOutput = JSON.stringify([
+        {
+          severity: 'error',
+          line_from: 24,
+          line_to: 24,
+          type: 'TaintedSql',
+          message: 'Detected tainted SQL',
+          file_name: 'AuthController.php',
+          file_path: '/app/Http/Controllers/AuthController.php',
+          snippet: '$db->query("SELECT * FROM users WHERE id = $id")',
+          selected_text: '$id',
+          from: 100,
+          to: 103,
+          snippet_from: 80,
+          snippet_to: 130,
+          column_from: 20,
+          column_to: 23,
+          taint_trace: [{ file_name: 'routes.php', file_path: '/routes/web.php', line_from: 10, line_to: 10, snippet: '$id = $_GET["id"]' }]
+        }
+      ]);
+
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        // Psalm は issue 検出時に非ゼロ終了する。promisify のカスタムシンボルがモックでは無いため、
+        // エラーオブジェクトの stdout にデータを載せて .catch ハンドラで処理させる
+        const error = new Error('Exit code 2') as any;
+        error.stdout = psalmOutput;
+        error.stderr = '';
+        callback(error);
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runPsalm('/test/repo', {});
+
+      expect(result.length).toBeGreaterThanOrEqual(1);
+      if (result.length > 0) {
+        expect(result[0].severity).toBe(Severity.Critical);
+        expect(result[0].category).toBe(IssueCategory.Security);
+        expect(result[0].rule).toBe('TaintedSql');
+      }
+    });
+
+    it('should return empty array when command fails', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Command not found') as any;
+        error.stdout = '';
+        error.stderr = 'psalm: command not found';
+        callback(error);
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runPsalm('/test/repo', {});
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('PHPMD result parsing', () => {
+    it('should parse complexity violations', async () => {
+      const phpmdOutput = JSON.stringify({
+        version: '2.14.0',
+        package: 'phpmd',
+        timestamp: '2026-01-01T00:00:00',
+        files: [{
+          file: '/test/repo/app/Controllers/TodoController.php',
+          violations: [{
+            beginLine: 29,
+            endLine: 68,
+            package: 'App\\Controllers',
+            method: 'index',
+            description: 'The method index() has a Cyclomatic Complexity of 15.',
+            rule: 'CyclomaticComplexity',
+            ruleSet: 'Code Size Rules',
+            externalInfoUrl: 'https://phpmd.org/rules/codesize.html',
+            priority: 2
+          }]
+        }]
+      });
+
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Exit code 2') as any;
+        error.stdout = phpmdOutput;
+        error.stderr = '';
+        callback(error);
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runPHPMD('/test/repo', {});
+
+      expect(result.length).toBeGreaterThanOrEqual(1);
+      if (result.length > 0) {
+        expect(result[0].severity).toBe(Severity.High);
+        expect(result[0].category).toBe(IssueCategory.Complexity);
+        expect(result[0].rule).toBe('CyclomaticComplexity');
+      }
+    });
+
+    it('should return empty on invalid JSON', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Exit code 2') as any;
+        error.stdout = 'not json';
+        error.stderr = '';
+        callback(error);
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runPHPMD('/test/repo', {});
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('Composer audit result parsing', () => {
+    it('should parse vulnerability advisories', async () => {
+      const composerOutput = JSON.stringify({
+        advisories: {
+          'laravel/framework': [{
+            advisoryId: 'GHSA-1234-5678',
+            packageName: 'laravel/framework',
+            affectedVersions: '>=8.0,<8.83.28',
+            title: 'SQL Injection via query builder',
+            cve: 'CVE-2024-1234',
+            link: 'https://github.com/advisories/GHSA-1234',
+            reportedAt: '2024-01-01'
+          }]
+        }
+      });
+
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Exit code 1') as any;
+        error.stdout = composerOutput;
+        error.stderr = '';
+        callback(error);
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runComposerAudit('/test/repo', {});
+
+      expect(result.length).toBeGreaterThanOrEqual(1);
+      if (result.length > 0) {
+        expect(result[0].category).toBe(IssueCategory.Security);
+        expect(result[0].cve).toContain('CVE-2024-1234');
+      }
+    });
+  });
+
+  describe('Semgrep result parsing', () => {
+    it('should parse security findings', async () => {
+      const semgrepOutput = JSON.stringify({
+        results: [{
+          check_id: 'php.lang.security.eval-use',
+          path: 'resources/views/welcome.blade.php',
+          start: { line: 173, col: 1 },
+          end: { line: 175, col: 10 },
+          extra: {
+            message: 'Detected use of eval(). This is dangerous and can lead to code injection.',
+            severity: 'ERROR',
+            metadata: {
+              category: 'security',
+              cwe: ['CWE-94'],
+              references: ['https://owasp.org/Top10/A03_2021-Injection/']
+            },
+            lines: 'eval($userInput);'
+          }
+        }]
+      });
+
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Exit code 1') as any;
+        error.stdout = semgrepOutput;
+        error.stderr = '';
+        callback(error);
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runSemgrep('/test/repo', {});
+
+      expect(result.length).toBeGreaterThanOrEqual(1);
+      if (result.length > 0) {
+        expect(result[0].severity).toBe(Severity.Critical);
+        expect(result[0].category).toBe(IssueCategory.Security);
+        expect(result[0].cwe).toContain('CWE-94');
+      }
+    });
+
+    it('should handle empty results', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Exit code 0') as any;
+        error.stdout = '{"results":[]}';
+        error.stderr = '';
+        callback(error);
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runSemgrep('/test/repo', {});
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('Progpilot result parsing', () => {
+    it('should parse vulnerability findings', async () => {
+      const progpilotOutput = JSON.stringify([{
+        source_name: '$_GET["id"]',
+        source_file: '/test/repo/routes/web.php',
+        source_line: 16,
+        source_column: 5,
+        source_type: 'GET',
+        sink_name: 'echo',
+        sink_file: '/test/repo/routes/web.php',
+        sink_line: 18,
+        sink_column: 1,
+        vuln_name: 'xss',
+        vuln_cwe: 'CWE-79',
+        vuln_id: 'prog-001',
+        vuln_type: 'taint'
+      }]);
+
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Exit code 1') as any;
+        error.stdout = progpilotOutput;
+        error.stderr = '';
+        callback(error);
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runProgpilot('/test/repo', {});
+
+      expect(result.length).toBeGreaterThanOrEqual(1);
+      if (result.length > 0) {
+        expect(result[0].category).toBe(IssueCategory.Security);
+        expect(result[0].cwe).toContain('CWE-79');
+      }
+    });
+  });
+
+  describe('PHPCPD result parsing', () => {
+    it('should parse duplicate code output', async () => {
+      const phpcpdOutput = `phpcpd 6.0.3 by Sebastian Bergmann.
+
+Found 1 clones with 25 duplicated lines in 2 files:
+
+  - /test/repo/app/Controllers/TodoController.php:175-200 (25 lines)
+  - /test/repo/app/Controllers/TodoController.php:202-227 (25 lines)
+
+1.7% duplicated lines out of 1473 total lines of code.`;
+
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('Exit code 1') as any;
+        error.stdout = phpcpdOutput;
+        error.stderr = '';
+        callback(error);
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runPHPCPD('/test/repo', {});
+
+      expect(result.length).toBeGreaterThanOrEqual(1);
+      if (result.length > 0) {
+        expect(result[0].category).toBe(IssueCategory.Maintainability);
+        expect(result[0].rule).toBe('duplicate-code');
+      }
+    });
+  });
+
+  describe('SonarQube result parsing', () => {
+    it('should skip when server is not reachable', async () => {
+      vi.mocked(fs.access).mockResolvedValue();
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        // curl health check fails
+        const error = new Error('Connection refused') as any;
+        error.stdout = '';
+        error.stderr = 'Connection refused';
+        callback(error);
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runSonarQube('/test/repo', {});
+
+      expect(result).toHaveLength(0);
+    });
+  });
 });

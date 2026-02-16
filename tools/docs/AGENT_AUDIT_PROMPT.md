@@ -156,7 +156,15 @@ if (languageNames.some(l => ['javascript', 'typescript'].includes(l))) {
 
 // PHP
 if (languageNames.includes('php')) {
-  tools.push(AnalyzerTool.PHPStan, AnalyzerTool.PHPCodeSniffer);
+  tools.push(
+    AnalyzerTool.PHPStan,
+    AnalyzerTool.PHPCodeSniffer,
+    AnalyzerTool.Psalm,           // テイント解析（XSS, SQLi等）
+    AnalyzerTool.PHPMessDetector,  // 循環的複雑度・メソッド長
+    AnalyzerTool.PHPCPD,           // 重複コード検出
+    AnalyzerTool.Progpilot,        // PHP SAST（テイント解析）
+    AnalyzerTool.ComposerAudit,    // 依存パッケージ脆弱性
+  );
 }
 
 // C#
@@ -180,8 +188,14 @@ if (languageNames.includes('python')) {
   }
 }
 
-// 共通セキュリティツール（常に実行）
+// 共通セキュリティ・品質ツール（常に実行）
 tools.push(AnalyzerTool.Gitleaks);
+tools.push(AnalyzerTool.Semgrep);  // 多言語対応SAST
+
+// SonarQube（環境変数がある場合のみ）
+if (process.env.SONARQUBE_URL) {
+  tools.push(AnalyzerTool.SonarQube);
+}
 ```
 
 #### 解析実行
@@ -661,10 +675,11 @@ MetricCategory.TechnicalDebt | MetricCategory.Custom
 // 静的解析ツール
 AnalyzerTool.ESLint | AnalyzerTool.TypeScriptCompiler
 AnalyzerTool.PHPCodeSniffer | AnalyzerTool.PHPStan | AnalyzerTool.Psalm | AnalyzerTool.PHPMessDetector
+AnalyzerTool.PHPCPD | AnalyzerTool.ComposerAudit | AnalyzerTool.Progpilot
 AnalyzerTool.RoslynAnalyzer | AnalyzerTool.StyleCop
 AnalyzerTool.Bandit | AnalyzerTool.PipAudit | AnalyzerTool.Opengrep
 AnalyzerTool.Pylint | AnalyzerTool.Radon | AnalyzerTool.DjangoCheckDeploy
-AnalyzerTool.SonarQube | AnalyzerTool.Gitleaks | AnalyzerTool.DependencyCheck
+AnalyzerTool.Semgrep | AnalyzerTool.SonarQube | AnalyzerTool.Gitleaks | AnalyzerTool.DependencyCheck
 
 // Issue重要度
 IssueSeverity.Critical | IssueSeverity.High | IssueSeverity.Medium | IssueSeverity.Low
