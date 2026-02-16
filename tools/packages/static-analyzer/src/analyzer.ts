@@ -1587,6 +1587,14 @@ export class StaticAnalyzer {
         message: 'SSL検証が無効化されています（verify=False）。本番環境では有効にしてください',
         filePattern: /\.py$/
       },
+      {
+        id: 'CONFIG-SEC-007',
+        pattern: /"\s*(?:Password|Passwd|Pwd)\s*"\s*:\s*"[^"]+"/i,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'パスワードが設定ファイルにハードコーディングされています。シークレット管理サービスまたは環境変数を使用してください',
+        filePattern: /(?:appsettings.*\.json|\.env|composer\.json|database\.php|application\.(?:yml|yaml|properties))$/i
+      },
     ];
   }
 

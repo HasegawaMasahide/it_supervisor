@@ -1879,6 +1879,21 @@ public IActionResult Create(Employee emp) {
         const sslIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CONFIG-SEC-006');
         expect(sslIssues).toHaveLength(1);
       });
+
+      it('should detect hardcoded passwords in JSON config files', async () => {
+        const content = `"Password": "admin123"`;
+        const issues = await analyzeCommon(content, 'appsettings.json');
+        const pwdIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CONFIG-SEC-007');
+        expect(pwdIssues).toHaveLength(1);
+        expect(pwdIssues[0].severity).toBe(Severity.Critical);
+      });
+
+      it('should not duplicate CONFIG-SEC-007 with connection string passwords', async () => {
+        const content = `"DefaultConnection": "Server=db;Database=App;Password=Secret123;"`;
+        const issues = await analyzeCommon(content, 'appsettings.json');
+        const pwdIssues = issues.filter((i: AnalysisIssue) => i.rule === 'CONFIG-SEC-007');
+        expect(pwdIssues).toHaveLength(0);
+      });
     });
 
     describe('Common pattern analysis - Dependency rules', () => {
