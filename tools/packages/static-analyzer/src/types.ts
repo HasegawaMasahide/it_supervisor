@@ -42,6 +42,8 @@ export enum AnalyzerTool {
   Progpilot = 'progpilot',
   PHPCPD = 'phpcpd',
   ComposerAudit = 'composer-audit',
+  // Java
+  PMD = 'pmd',
   // Python / Django
   Bandit = 'bandit',
   PipAudit = 'pip-audit',

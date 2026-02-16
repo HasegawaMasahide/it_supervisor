@@ -258,6 +258,56 @@ interface SonarQubeIssuesResponse {
   paging: { pageIndex: number; pageSize: number; total: number };
 }
 
+// --- PMD / OWASP DC 出力の型定義 ---
+
+interface PMDViolation {
+  beginline: number;
+  begincolumn: number;
+  endline: number;
+  endcolumn: number;
+  description: string;
+  rule: string;
+  ruleset: string;
+  priority: number;
+  externalInfoUrl?: string;
+}
+
+interface PMDFileReport {
+  filename: string;
+  violations: PMDViolation[];
+}
+
+interface PMDReport {
+  formatVersion: number;
+  pmdVersion: string;
+  timestamp: string;
+  files: PMDFileReport[];
+  processingErrors?: Array<{ filename: string; message: string }>;
+}
+
+interface OWASPDCVulnerability {
+  name: string;
+  severity: string;
+  cvssV3?: { baseScore: number; baseSeverity: string };
+  cvssV2?: { score: number; severity: string };
+  cwes?: string[];
+  description?: string;
+  references?: Array<{ url: string; name: string }>;
+}
+
+interface OWASPDCDependency {
+  fileName: string;
+  filePath: string;
+  vulnerabilities?: OWASPDCVulnerability[];
+  packages?: Array<{ id: string; confidence: string; url?: string }>;
+}
+
+interface OWASPDCReport {
+  reportSchema: string;
+  projectInfo: { name: string; reportDate: string };
+  dependencies: OWASPDCDependency[];
+}
+
 /**
  * 静的解析オーケストレータークラス
  */
@@ -485,6 +535,12 @@ export class StaticAnalyzer {
 
       case AnalyzerTool.SonarQube:
         return this.runSonarQube(repoPath, options);
+
+      case AnalyzerTool.PMD:
+        return this.runPMD(repoPath, options);
+
+      case AnalyzerTool.DependencyCheck:
+        return this.runDependencyCheck(repoPath, options);
 
       default:
         // その他のツールは未実装
@@ -1972,6 +2028,255 @@ export class StaticAnalyzer {
   /**
    * Semgrep実行（多言語SAST）
    */
+  // --- OWASP Dependency-Check ---
+
+  private async runDependencyCheck(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      const reportFileName = `dependency-check-report-${Date.now()}.json`;
+      const reportPath = path.join(repoPath, reportFileName);
+      // OWASP DC はNVD DBダウンロードで時間がかかるため長めのtimeout
+      const timeout = Math.max(options.timeout || DEFAULT_TIMEOUT, 600000);
+
+      let command: string;
+      let args: string[];
+
+      if (options.useDocker) {
+        const repoPathForDocker = repoPath.replace(/\\/g, '/');
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPathForDocker}:/src:ro`,
+          '-v', `${repoPathForDocker}:/output`,
+          'owasp/dependency-check:latest',
+          '--scan', '/src',
+          '--format', 'JSON',
+          '--out', '/output',
+          '--project', 'audit',
+          '--disableAssembly',
+        ];
+
+        // NVD API Key がある場合は追加
+        if (process.env.NVD_API_KEY) {
+          args.push('--nvdApiKey', process.env.NVD_API_KEY);
+        }
+      } else {
+        command = 'dependency-check';
+        args = [
+          '--scan', repoPath,
+          '--format', 'JSON',
+          '--out', repoPath,
+          '--project', 'audit',
+          '--disableAssembly',
+        ];
+        if (process.env.NVD_API_KEY) {
+          args.push('--nvdApiKey', process.env.NVD_API_KEY);
+        }
+      }
+
+      await execFileAsync(command, args, {
+        cwd: options.useDocker ? undefined : repoPath,
+        maxBuffer: 50 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        logger.warn('OWASP Dependency-Check finished with warnings:', error.message?.substring(0, 200));
+      });
+
+      // OWASP DC の出力ファイル名は固定: dependency-check-report.json
+      const owaspReportPath = path.join(repoPath, 'dependency-check-report.json');
+      const reportContent = await fs.readFile(owaspReportPath, 'utf-8').catch(() => '{"dependencies":[]}');
+
+      let report: OWASPDCReport;
+      try {
+        report = JSON.parse(reportContent) as OWASPDCReport;
+      } catch {
+        logger.error('Failed to parse OWASP DC output');
+        return [];
+      }
+
+      const issues = this.parseOWASPDCResults(report, repoPath);
+
+      // レポートファイル削除
+      await fs.unlink(owaspReportPath).catch(() => {});
+
+      return issues;
+    } catch (error) {
+      logger.error('OWASP Dependency-Check execution failed:', error);
+      return [];
+    }
+  }
+
+  private parseOWASPDCResults(report: OWASPDCReport, _repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    for (const dep of report.dependencies || []) {
+      if (!dep.vulnerabilities || dep.vulnerabilities.length === 0) continue;
+
+      for (const vuln of dep.vulnerabilities) {
+        // CVSSスコアから severity を決定
+        const cvssScore = vuln.cvssV3?.baseScore || vuln.cvssV2?.score || 0;
+        let severity: Severity;
+        if (cvssScore >= 9.0) severity = Severity.Critical;
+        else if (cvssScore >= 7.0) severity = Severity.High;
+        else if (cvssScore >= 4.0) severity = Severity.Medium;
+        else severity = Severity.Low;
+
+        const cweList = vuln.cwes?.map(c => c.toString()) || [];
+
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.DependencyCheck,
+          severity,
+          category: IssueCategory.Security,
+          rule: vuln.name,
+          message: `${dep.fileName}: ${vuln.description || vuln.name} (CVSS: ${cvssScore})`,
+          file: dep.fileName || 'pom.xml',
+          references: vuln.references?.map(r => r.url),
+          cwe: cweList.length > 0 ? cweList : undefined,
+          cve: [vuln.name],
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  // --- PMD ---
+
+  private async runPMD(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      // pom.xml or build.gradle の存在確認
+      const hasPom = await this.fileExists(path.join(repoPath, 'pom.xml'));
+      const hasGradle = await this.fileExists(path.join(repoPath, 'build.gradle'));
+      const hasGradleKts = await this.fileExists(path.join(repoPath, 'build.gradle.kts'));
+      if (!hasPom && !hasGradle && !hasGradleKts) {
+        return [];
+      }
+
+      const reportFileName = `pmd-report-${Date.now()}.json`;
+      const reportPath = path.join(repoPath, reportFileName);
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      let command: string;
+      let args: string[];
+
+      if (options.useDocker) {
+        const repoPathForDocker = repoPath.replace(/\\/g, '/');
+        // PMD 7.x を JDK 17 上で実行
+        const pmdVersion = '7.9.0';
+        const pmdUrl = `https://github.com/pmd/pmd/releases/download/pmd_releases%2F${pmdVersion}/pmd-dist-${pmdVersion}-bin.zip`;
+        const script = [
+          `if [ ! -f /opt/pmd-bin-${pmdVersion}/bin/pmd ]; then`,
+          `  curl -sL '${pmdUrl}' -o /tmp/pmd.zip && unzip -q /tmp/pmd.zip -d /opt 2>/dev/null;`,
+          'fi;',
+          `/opt/pmd-bin-${pmdVersion}/bin/pmd check`,
+          '-d /src/src',
+          `-R rulesets/java/quickstart.xml`,
+          '-f json',
+          '--no-cache',
+          `> /output/${reportFileName} 2>/dev/null; true`
+        ].join(' ');
+
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPathForDocker}:/src:ro`,
+          '-v', `${repoPathForDocker}:/output`,
+          'openjdk:17-slim',
+          'sh', '-c', script
+        ];
+      } else {
+        command = 'pmd';
+        args = ['check', '-d', path.join(repoPath, 'src'), '-R', 'rulesets/java/quickstart.xml', '-f', 'json', '--no-cache'];
+      }
+
+      await execFileAsync(command, args, {
+        cwd: options.useDocker ? undefined : repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(() => {
+        // PMDは問題を検出するとexit code 4を返す
+      });
+
+      const reportContent = await fs.readFile(reportPath, 'utf-8').catch(() => '{"files":[]}');
+
+      let report: PMDReport;
+      try {
+        report = JSON.parse(reportContent) as PMDReport;
+      } catch {
+        logger.error('Failed to parse PMD output');
+        return [];
+      }
+
+      const issues = this.parsePMDResults(report, repoPath);
+
+      // レポートファイル削除
+      await fs.unlink(reportPath).catch(() => {});
+
+      return issues;
+    } catch (error) {
+      logger.error('PMD execution failed:', error);
+      return [];
+    }
+  }
+
+  private parsePMDResults(report: PMDReport, repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    for (const file of report.files || []) {
+      const relativePath = path.relative(repoPath, file.filename).replace(/\\/g, '/');
+
+      for (const v of file.violations || []) {
+        let severity: Severity;
+        switch (v.priority) {
+          case 1: severity = Severity.Critical; break;
+          case 2: severity = Severity.High; break;
+          case 3: severity = Severity.Medium; break;
+          case 4: severity = Severity.Low; break;
+          default: severity = Severity.Info;
+        }
+
+        let category: IssueCategory;
+        const rs = v.ruleset?.toLowerCase() || '';
+        if (rs.includes('security')) {
+          category = IssueCategory.Security;
+        } else if (rs.includes('performance')) {
+          category = IssueCategory.Performance;
+        } else if (rs.includes('design') || rs.includes('codesize')) {
+          category = IssueCategory.Complexity;
+        } else if (rs.includes('errorprone')) {
+          category = IssueCategory.CodeQuality;
+        } else {
+          category = IssueCategory.BestPractice;
+        }
+
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.PMD,
+          severity,
+          category,
+          rule: v.rule,
+          message: v.description,
+          file: relativePath,
+          line: v.beginline,
+          column: v.begincolumn,
+          endLine: v.endline,
+          endColumn: v.endcolumn,
+          references: v.externalInfoUrl ? [v.externalInfoUrl] : undefined,
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  // --- Semgrep ---
+
   private async runSemgrep(
     repoPath: string,
     options: AnalysisOptions
@@ -2221,24 +2526,41 @@ export class StaticAnalyzer {
     repoPath: string,
     options: AnalysisOptions
   ): Promise<AnalysisIssue[]> {
-    const reportPath = path.join(repoPath, 'gitleaks-report.json');
+    const reportFileName = `gitleaks-report-${Date.now()}.json`;
+    const reportPath = path.join(repoPath, reportFileName);
 
     try {
       // .gitディレクトリの存在確認
       await fs.access(path.join(repoPath, '.git'));
 
-      // Gitleaksコマンド実行
-      const command = 'gitleaks';
-      const args = [
-        'detect',
-        '--report-format', 'json',
-        '--report-path', 'gitleaks-report.json'
-      ];
-
+      let command: string;
+      let args: string[];
       const timeout = options.timeout || DEFAULT_TIMEOUT;
 
+      if (options.useDocker) {
+        const repoPathForDocker = repoPath.replace(/\\/g, '/');
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPathForDocker}:/repo:ro`,
+          '-v', `${repoPathForDocker}:/output`,
+          'zricethezav/gitleaks:latest',
+          'detect',
+          '--source', '/repo',
+          '--report-format', 'json',
+          '--report-path', `/output/${reportFileName}`
+        ];
+      } else {
+        command = 'gitleaks';
+        args = [
+          'detect',
+          '--report-format', 'json',
+          '--report-path', reportFileName
+        ];
+      }
+
       await execFileAsync(command, args, {
-        cwd: repoPath,
+        cwd: options.useDocker ? undefined : repoPath,
         timeout
       }).catch(() => {
         // Gitleaksは検出があるとexit code 1を返す
@@ -2839,7 +3161,7 @@ export class StaticAnalyzer {
             if (rule.pattern.test(line)) {
               issues.push({
                 id: randomUUID(),
-                tool: AnalyzerTool.RoslynAnalyzer,
+                tool: this.resolveToolFromRuleId(rule.id),
                 severity: rule.severity,
                 category: rule.category,
                 rule: rule.id,
@@ -3128,7 +3450,14 @@ export class StaticAnalyzer {
         category: IssueCategory.Security,
         message: 'nativeQuery使用時はSQLインジェクションのリスクがあります。パラメータバインディングを使用してください',
         filePattern: /\.java$/,
-        fileCondition: (content) => /nativeQuery\s*=\s*true/.test(content) && /"\s*\+\s*\w+/.test(content)
+      },
+      {
+        id: 'JAVA-SEC-001b',
+        pattern: /["']\s*\+\s*\w+.*(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE)/i,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'SQL文内で文字列連結が使用されています。SQLインジェクション脆弱性のリスクがあります',
+        filePattern: /\.java$/,
       },
       {
         id: 'JAVA-SEC-002',
@@ -3154,6 +3483,143 @@ export class StaticAnalyzer {
         message: '機密情報（パスワード等）がログに出力されています。ログからの除外が必要です',
         filePattern: /\.java$/
       },
+      // --- 追加ルール: セキュリティ ---
+      {
+        id: 'JAVA-SEC-005',
+        pattern: /\.permitAll\s*\(\)/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '全ユーザーにアクセスが許可されています。最小権限の原則に基づき、適切なロール制限を検討してください',
+        filePattern: /\.java$/,
+        fileCondition: (content) => /SecurityConfig|WebSecurityConfigurerAdapter|SecurityFilterChain/.test(content)
+      },
+      {
+        id: 'JAVA-SEC-006',
+        pattern: /(?:password|passwd)\s*=\s*"[^"]+"/i,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'パスワードがソースコードにハードコーディングされています。環境変数またはシークレット管理サービスを使用してください',
+        filePattern: /\.java$/,
+      },
+      {
+        id: 'JAVA-SEC-007',
+        pattern: /spring\.datasource\.password\s*=\s*\S+/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'データベースパスワードが設定ファイルにハードコーディングされています。環境変数（${DB_PASSWORD}）を使用してください',
+        filePattern: /\.properties$/,
+      },
+      {
+        id: 'JAVA-SEC-008',
+        pattern: /(?:api[._-]?key|secret[._-]?key|access[._-]?key)\s*=\s*\S+/i,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'APIキー/シークレットが設定ファイルにハードコーディングされています。環境変数を使用してください',
+        filePattern: /\.properties$/,
+      },
+      // --- 追加ルール: パフォーマンス ---
+      {
+        id: 'JAVA-PERF-001',
+        pattern: /@OneToMany/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: '@OneToManyリレーションはN+1クエリ問題を引き起こす可能性があります。@EntityGraphまたはJOIN FETCHの使用を検討してください',
+        filePattern: /\.java$/,
+      },
+      {
+        id: 'JAVA-PERF-002',
+        pattern: /FetchType\.LAZY/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: 'FetchType.LAZYはトランザクション外アクセスでLazyInitializationExceptionを引き起こす可能性があります。@Transactionalの適切な設定を確認してください',
+        filePattern: /\.java$/,
+      },
+      {
+        id: 'JAVA-PERF-003',
+        pattern: /maximum-pool-size\s*[=:]\s*[1-5]\s*$/,
+        severity: Severity.High,
+        category: IssueCategory.Performance,
+        message: 'コネクションプールサイズが小さすぎます。本番環境では10以上を推奨します',
+        filePattern: /\.(?:properties|yml|yaml)$/,
+      },
+      // --- 追加ルール: コード品質 ---
+      {
+        id: 'JAVA-CQ-001',
+        pattern: /catch\s*\(\s*Exception\s+\w+\s*\)/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: '汎用的なException型でキャッチしています。具体的な例外型（IOException, SQLException等）を使用してください',
+        filePattern: /\.java$/,
+      },
+      {
+        id: 'JAVA-CQ-003',
+        pattern: /(?:@Autowired|@Inject)[\s\S]*(?:Repository|JpaRepository)/,
+        severity: Severity.Medium,
+        category: IssueCategory.Maintainability,
+        message: 'Controller層でRepositoryを直接使用しています。Service層を介したアクセスを推奨します',
+        filePattern: /Controller\.java$/,
+      },
+      {
+        id: 'JAVA-CQ-004',
+        pattern: /new\s+Date\s*\(\)/,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: 'java.util.Dateは非推奨です。java.time.LocalDateTime等のjava.time APIを使用してください',
+        filePattern: /\.java$/,
+      },
+      {
+        id: 'JAVA-TX-001',
+        pattern: /public\s+\w+\s+\w+\s*\([^)]*\)\s*\{/,
+        severity: Severity.Medium,
+        category: IssueCategory.BestPractice,
+        message: 'Serviceクラスのpublicメソッドに@Transactionalが設定されていない可能性があります。トランザクション管理を確認してください',
+        filePattern: /Service\.java$/,
+        fileCondition: (content) => !/@Transactional/.test(content)
+      },
+      // --- 追加ルール: 依存関係（pom.xml） ---
+      {
+        id: 'DEP-JAVA-001',
+        pattern: /spring-framework\.version.*4\./,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'Spring Framework 4.xはEOL済みです。Spring 5.x以上へのアップグレードを強く推奨します',
+        filePattern: /pom\.xml$/,
+      },
+      {
+        id: 'DEP-JAVA-002',
+        pattern: /<java\.version>\s*(?:1\.[0-8]|[0-8])\s*<\//,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '古いJavaバージョンが使用されています。Java 17以上（LTS）へのアップグレードを推奨します',
+        filePattern: /pom\.xml$/,
+      },
+      {
+        id: 'DEP-JAVA-003',
+        pattern: /jackson-databind/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'jackson-databindのバージョンを確認してください。2.12未満には重大な脆弱性（CVE-2019-14540等）があります',
+        filePattern: /pom\.xml$/,
+        fileCondition: (content) => /jackson-databind[\s\S]*?<version>\s*2\.[0-9]\./.test(content)
+      },
+      {
+        id: 'DEP-JAVA-004',
+        pattern: /log4j-core/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'log4j-coreのバージョンを確認してください。2.17未満にはLog4Shell脆弱性（CVE-2021-44228）があります',
+        filePattern: /pom\.xml$/,
+        fileCondition: (content) => /log4j-core[\s\S]*?<version>\s*2\.(?:[0-9]|1[0-6])\./.test(content) || /log4j[\s\S]*?<version>\s*1\./.test(content)
+      },
+      {
+        id: 'DEP-JAVA-005',
+        pattern: /<version>\s*1\.\d+\.\d+/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'Spring Boot 1.xはEOL済みです。Spring Boot 2.7以上へのアップグレードを強く推奨します',
+        filePattern: /pom\.xml$/,
+        fileCondition: (content) => /spring-boot-starter-parent[\s\S]*?<version>\s*1\./.test(content)
+      },
     ];
   }
 
@@ -3162,7 +3628,7 @@ export class StaticAnalyzer {
    */
   private async findFilesByExtension(dirPath: string, extension: string): Promise<string[]> {
     const results: string[] = [];
-    const skipDirs = new Set(['node_modules', '.git', 'bin', 'obj', 'packages', '.vs', '.vscode', '.venv', 'venv', 'env', '__pycache__', 'migrations', '.mypy_cache', '.pytest_cache']);
+    const skipDirs = new Set(['node_modules', '.git', 'bin', 'obj', 'packages', '.vs', '.vscode', '.venv', 'venv', 'env', '__pycache__', 'migrations', '.mypy_cache', '.pytest_cache', 'target', 'build', '.gradle', '.mvn', '.settings', '.idea']);
 
     const walk = async (dir: string): Promise<void> => {
       let entries: string[];
@@ -3189,6 +3655,20 @@ export class StaticAnalyzer {
 
     await walk(dirPath);
     return results;
+  }
+
+  /**
+   * ルールIDプレフィックスからツールを解決
+   */
+  private resolveToolFromRuleId(ruleId: string): AnalyzerTool {
+    if (ruleId.startsWith('JAVA-')) return AnalyzerTool.Semgrep;
+    if (ruleId.startsWith('CS-')) return AnalyzerTool.RoslynAnalyzer;
+    if (ruleId.startsWith('PHP-')) return AnalyzerTool.PHPCodeSniffer;
+    if (ruleId.startsWith('PY-')) return AnalyzerTool.Bandit;
+    if (ruleId.startsWith('JS-')) return AnalyzerTool.ESLint;
+    if (ruleId.startsWith('CONFIG-')) return AnalyzerTool.Gitleaks;
+    if (ruleId.startsWith('DEP-')) return AnalyzerTool.DependencyCheck;
+    return AnalyzerTool.RoslynAnalyzer; // fallback
   }
 
   /**
@@ -3314,6 +3794,18 @@ export class StaticAnalyzer {
       tools.push(AnalyzerTool.RoslynAnalyzer);
     }
 
+    // Java / Spring Boot 検出
+    const hasPomXml = await this.fileExists(path.join(repoPath, 'pom.xml'));
+    const hasBuildGradle = await this.fileExists(path.join(repoPath, 'build.gradle'));
+    const hasGradleKts = await this.fileExists(path.join(repoPath, 'build.gradle.kts'));
+    const isJavaProject = hasPomXml || hasBuildGradle || hasGradleKts;
+
+    if (isJavaProject) {
+      tools.push(AnalyzerTool.Semgrep);
+      tools.push(AnalyzerTool.PMD);
+      tools.push(AnalyzerTool.DependencyCheck);
+    }
+
     // Python / Django 検出
     const hasRequirementsTxt = await this.fileExists(path.join(repoPath, 'requirements.txt'));
     const hasPyprojectToml = await this.fileExists(path.join(repoPath, 'pyproject.toml'));
@@ -3423,7 +3915,8 @@ export class StaticAnalyzer {
       [AnalyzerTool.Opengrep]: 0,
       [AnalyzerTool.Pylint]: 0,
       [AnalyzerTool.Radon]: 0,
-      [AnalyzerTool.DjangoCheckDeploy]: 0
+      [AnalyzerTool.DjangoCheckDeploy]: 0,
+      [AnalyzerTool.PMD]: 0
     };
 
     allIssues.forEach(issue => {
@@ -3544,6 +4037,27 @@ export class StaticAnalyzer {
       args: ['progpilot.phar', '.'],
       dockerImage: 'php:8.2-cli',
       languages: ['PHP'],
+      categories: [IssueCategory.Security],
+      enabled: true
+    });
+
+    // Java ツール
+    configs.set(AnalyzerTool.PMD, {
+      tool: AnalyzerTool.PMD,
+      command: 'pmd',
+      args: ['check', '-f', 'json'],
+      dockerImage: 'openjdk:17-slim',
+      languages: ['Java'],
+      categories: [IssueCategory.CodeQuality, IssueCategory.Complexity, IssueCategory.Security],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.DependencyCheck, {
+      tool: AnalyzerTool.DependencyCheck,
+      command: 'dependency-check',
+      args: ['--format', 'JSON'],
+      dockerImage: 'owasp/dependency-check:latest',
+      languages: ['Java', 'JavaScript', 'C#'],
       categories: [IssueCategory.Security],
       enabled: true
     });

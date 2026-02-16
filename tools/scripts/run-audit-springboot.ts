@@ -152,6 +152,10 @@ async function main() {
   if (languageNames.includes('c#')) {
     tools.push(AnalyzerTool.RoslynAnalyzer);
   }
+  if (languageNames.includes('java')) {
+    tools.push(AnalyzerTool.PMD);
+    tools.push(AnalyzerTool.DependencyCheck);
+  }
 
   // 共通セキュリティ・品質ツール
   tools.push(AnalyzerTool.Gitleaks);
@@ -180,8 +184,9 @@ async function main() {
       {
         tools,
         parallel: true,
-        timeout: 300000,
+        timeout: 600000,
         removeDuplicates: true,
+        useDocker: true,
         excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__', 'target', 'build'],
       },
       (progress) => {
@@ -196,8 +201,9 @@ async function main() {
       {
         tools,
         parallel: true,
-        timeout: 600000,
+        timeout: 900000,
         removeDuplicates: true,
+        useDocker: true,
         excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__', 'target', 'build'],
       },
       (progress) => {
@@ -274,8 +280,8 @@ async function main() {
         `**ツール**: ${issue.tool}`,
         issue.snippet ? `\n\`\`\`\n${issue.snippet}\n\`\`\`` : '',
         issue.fix?.description ? `\n**修正案**: ${issue.fix.description}` : '',
-        issue.cwe?.length ? `\n**CWE**: ${issue.cwe.join(', ')}` : '',
-        issue.cve?.length ? `\n**CVE**: ${issue.cve.join(', ')}` : '',
+        issue.cwe && Array.isArray(issue.cwe) && issue.cwe.length ? `\n**CWE**: ${issue.cwe.join(', ')}` : '',
+        issue.cve && Array.isArray(issue.cve) && issue.cve.length ? `\n**CVE**: ${issue.cve.join(', ')}` : '',
       ]
         .filter(Boolean)
         .join('\n'),
