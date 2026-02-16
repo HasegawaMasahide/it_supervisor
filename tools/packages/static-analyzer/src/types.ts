@@ -35,9 +35,20 @@ export enum AnalyzerTool {
   RoslynAnalyzer = 'roslyn',
   StyleCop = 'stylecop',
   SonarQube = 'sonarqube',
-  Snyk = 'snyk',
   Gitleaks = 'gitleaks',
-  DependencyCheck = 'owasp-dependency-check'
+  DependencyCheck = 'owasp-dependency-check',
+  // PHP 追加ツール
+  Semgrep = 'semgrep',
+  Progpilot = 'progpilot',
+  PHPCPD = 'phpcpd',
+  ComposerAudit = 'composer-audit',
+  // Python / Django
+  Bandit = 'bandit',
+  PipAudit = 'pip-audit',
+  Opengrep = 'opengrep',
+  Pylint = 'pylint',
+  Radon = 'radon',
+  DjangoCheckDeploy = 'django-check-deploy'
 }
 
 /**

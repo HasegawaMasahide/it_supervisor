@@ -164,13 +164,24 @@ if (languageNames.includes('c#')) {
   tools.push(AnalyzerTool.RoslynAnalyzer);
 }
 
+// Python/Django
+if (languageNames.includes('python')) {
+  tools.push(
+    AnalyzerTool.Bandit,
+    AnalyzerTool.PipAudit,
+    AnalyzerTool.Opengrep,
+    AnalyzerTool.Pylint,
+    AnalyzerTool.Radon,
+  );
+  // Django プロジェクトの場合は追加
+  const frameworks = repoResult.techStack.frameworks.map(f => f.name.toLowerCase());
+  if (frameworks.includes('django')) {
+    tools.push(AnalyzerTool.DjangoCheckDeploy);
+  }
+}
+
 // 共通セキュリティツール（常に実行）
 tools.push(AnalyzerTool.Gitleaks);
-
-// 依存関係がある場合はSnykも実行
-if (repoResult.techStack.dependencies.length > 0) {
-  tools.push(AnalyzerTool.Snyk);
-}
 ```
 
 #### 解析実行
@@ -213,7 +224,7 @@ for (const severity of severities) {
 
 ```
 [静的解析完了]
-  実行ツール: eslint, gitleaks, snyk
+  実行ツール: eslint, gitleaks, bandit, pylint, radon, pip-audit
   総問題数: 138
     Critical: 2
     High: 12
@@ -651,7 +662,9 @@ MetricCategory.TechnicalDebt | MetricCategory.Custom
 AnalyzerTool.ESLint | AnalyzerTool.TypeScriptCompiler
 AnalyzerTool.PHPCodeSniffer | AnalyzerTool.PHPStan | AnalyzerTool.Psalm | AnalyzerTool.PHPMessDetector
 AnalyzerTool.RoslynAnalyzer | AnalyzerTool.StyleCop
-AnalyzerTool.SonarQube | AnalyzerTool.Snyk | AnalyzerTool.Gitleaks | AnalyzerTool.DependencyCheck
+AnalyzerTool.Bandit | AnalyzerTool.PipAudit | AnalyzerTool.Opengrep
+AnalyzerTool.Pylint | AnalyzerTool.Radon | AnalyzerTool.DjangoCheckDeploy
+AnalyzerTool.SonarQube | AnalyzerTool.Gitleaks | AnalyzerTool.DependencyCheck
 
 // Issue重要度
 IssueSeverity.Critical | IssueSeverity.High | IssueSeverity.Medium | IssueSeverity.Low

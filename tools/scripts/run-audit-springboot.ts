@@ -1,9 +1,9 @@
 /**
- * IT資産監査パイプライン
+ * IT資産監査パイプライン（Spring Boot CRM App）
  *
  * 使用方法:
  *   cd tools
- *   npx tsx scripts/run-audit.ts
+ *   npx tsx scripts/run-audit-springboot.ts
  */
 
 import { createLogger, LogLevel } from '@it-supervisor/logger';
@@ -21,10 +21,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // ── 入力パラメータ ──────────────────────────────────────
-const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system`;
+const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\springboot-crm-app`;
 const PROJECT_NAME = '顧客Webアプリ';
 const CUSTOMER_NAME = '株式会社サンプル';
-const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system_output`;
+const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\springboot-crm-app_output`;
 
 // ── メイン処理 ──────────────────────────────────────────
 async function main() {
@@ -66,7 +66,7 @@ async function main() {
     repoResult = await repoAnalyzer.analyzeLocal(TARGET_REPO_PATH, {
       includeGitHistory: true,
       includeDependencies: true,
-      excludePatterns: ['node_modules', '.git', 'dist', 'vendor', 'coverage'],
+      excludePatterns: ['node_modules', '.git', 'dist', 'vendor', 'coverage', 'target', 'build'],
     });
   } catch (error) {
     // Gitリポジトリではない場合のフォールバック
@@ -74,7 +74,7 @@ async function main() {
     repoResult = await repoAnalyzer.analyzeLocal(TARGET_REPO_PATH, {
       includeGitHistory: false,
       includeDependencies: true,
-      excludePatterns: ['node_modules', '.git', 'dist', 'vendor', 'coverage'],
+      excludePatterns: ['node_modules', '.git', 'dist', 'vendor', 'coverage', 'target', 'build'],
     });
   }
 
@@ -168,7 +168,7 @@ async function main() {
         parallel: true,
         timeout: 300000,
         removeDuplicates: true,
-        excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__'],
+        excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__', 'target', 'build'],
       },
       (progress) => {
         logger.info(`解析中: ${progress.tool} (${progress.current}/${progress.total})`);
@@ -184,7 +184,7 @@ async function main() {
         parallel: true,
         timeout: 600000,
         removeDuplicates: true,
-        excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__'],
+        excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__', 'target', 'build'],
       },
       (progress) => {
         logger.info(`解析中: ${progress.tool} (${progress.current}/${progress.total})`);
@@ -376,6 +376,63 @@ async function main() {
     });
   }
 
+  // テストコード不在（Java/Spring Boot向け）
+  const testDirCandidates = [
+    path.join(TARGET_REPO_PATH, 'src', 'test'),
+    path.join(TARGET_REPO_PATH, 'Tests'),
+    path.join(TARGET_REPO_PATH, 'tests'),
+    path.join(TARGET_REPO_PATH, '__tests__'),
+  ];
+  const hasTestDir = testDirCandidates.some((d) => fs.existsSync(d));
+  if (!hasTestDir) {
+    recommendations.push({
+      priority: 'high',
+      title: 'テストコードの追加',
+      description: 'テストコードが検出されませんでした。JUnit/Mockitoによるユニットテスト・統合テストの導入により、リグレッションの防止と品質保証を強化することを推奨します。',
+      effort: '1-2週間',
+      impact: '品質保証・リグレッション防止',
+    });
+  }
+
+  // Spring Boot / Spring Framework のEOLチェック
+  const springFw = repoResult.techStack.frameworks.find((f) =>
+    f.name.toLowerCase().includes('spring'),
+  );
+  if (springFw && springFw.version && /^1\.|^2\.[0-4]\./.test(springFw.version)) {
+    recommendations.push({
+      priority: 'critical',
+      title: 'Spring Bootのバージョンアップ',
+      description: `${springFw.name} ${springFw.version} はサポート終了(EOL)済みです。セキュリティパッチが提供されないため、Spring Boot 3.x (LTS)への移行を強く推奨します。`,
+      effort: '2-4週間',
+      impact: 'セキュリティリスクの根本的解決',
+    });
+  }
+
+  // Java バージョンのEOLチェック
+  const javaLang = repoResult.techStack.languages.find((l) =>
+    l.name.toLowerCase() === 'java',
+  );
+  if (javaLang) {
+    // pom.xmlからJavaバージョンを確認
+    const pomPath = path.join(TARGET_REPO_PATH, 'pom.xml');
+    if (fs.existsSync(pomPath)) {
+      const pomContent = fs.readFileSync(pomPath, 'utf-8');
+      const javaVersionMatch = pomContent.match(/<java\.version>([\d.]+)<\/java\.version>/);
+      if (javaVersionMatch) {
+        const javaVersion = javaVersionMatch[1];
+        if (javaVersion === '1.8' || javaVersion === '8' || javaVersion === '11') {
+          recommendations.push({
+            priority: 'high',
+            title: `Java ${javaVersion} からのバージョンアップ`,
+            description: `Java ${javaVersion} はLTSサポートが限定的です。Java 17 または Java 21 (LTS) への移行を推奨します。`,
+            effort: '1-2週間',
+            impact: 'パフォーマンス向上・セキュリティ強化・最新APIの活用',
+          });
+        }
+      }
+    }
+  }
+
   console.log(`  改善提案数: ${recommendations.length}件`);
   for (const rec of recommendations) {
     console.log(`    [${rec.priority.toUpperCase()}] ${rec.title}`);
@@ -397,7 +454,7 @@ async function main() {
     version: '1.0',
     data: {
       repository: {
-        name: repoResult.metadata.hasReadme ? PROJECT_NAME : PROJECT_NAME,
+        name: PROJECT_NAME,
         path: TARGET_REPO_PATH,
         hasGit: repoResult.metadata.hasGit,
         hasCI: repoResult.metadata.hasCI,

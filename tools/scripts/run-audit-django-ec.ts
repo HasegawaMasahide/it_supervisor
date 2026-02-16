@@ -1,9 +1,9 @@
 /**
- * IT資産監査パイプライン
+ * IT資産監査パイプライン - Django ECアプリ
  *
  * 使用方法:
  *   cd tools
- *   npx tsx scripts/run-audit.ts
+ *   npx tsx scripts/run-audit-django-ec.ts
  */
 
 import { createLogger, LogLevel } from '@it-supervisor/logger';
@@ -21,10 +21,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // ── 入力パラメータ ──────────────────────────────────────
-const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system`;
+const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\django-ec-app`;
 const PROJECT_NAME = '顧客Webアプリ';
 const CUSTOMER_NAME = '株式会社サンプル';
-const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system_output`;
+const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\django-ec-app_output`;
 
 // ── メイン処理 ──────────────────────────────────────────
 async function main() {
@@ -66,7 +66,7 @@ async function main() {
     repoResult = await repoAnalyzer.analyzeLocal(TARGET_REPO_PATH, {
       includeGitHistory: true,
       includeDependencies: true,
-      excludePatterns: ['node_modules', '.git', 'dist', 'vendor', 'coverage'],
+      excludePatterns: ['node_modules', '.git', 'dist', 'vendor', 'coverage', '__pycache__', '.venv', 'venv', 'env'],
     });
   } catch (error) {
     // Gitリポジトリではない場合のフォールバック
@@ -74,7 +74,7 @@ async function main() {
     repoResult = await repoAnalyzer.analyzeLocal(TARGET_REPO_PATH, {
       includeGitHistory: false,
       includeDependencies: true,
-      excludePatterns: ['node_modules', '.git', 'dist', 'vendor', 'coverage'],
+      excludePatterns: ['node_modules', '.git', 'dist', 'vendor', 'coverage', '__pycache__', '.venv', 'venv', 'env'],
     });
   }
 
@@ -168,7 +168,7 @@ async function main() {
         parallel: true,
         timeout: 300000,
         removeDuplicates: true,
-        excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__'],
+        excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__', '__pycache__', '.venv', 'venv', 'migrations'],
       },
       (progress) => {
         logger.info(`解析中: ${progress.tool} (${progress.current}/${progress.total})`);
@@ -184,7 +184,7 @@ async function main() {
         parallel: true,
         timeout: 600000,
         removeDuplicates: true,
-        excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__'],
+        excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__', '__pycache__', '.venv', 'venv', 'migrations'],
       },
       (progress) => {
         logger.info(`解析中: ${progress.tool} (${progress.current}/${progress.total})`);
@@ -376,6 +376,51 @@ async function main() {
     });
   }
 
+  // テストコード不在
+  const hasTestableCode = repoResult.fileStats.totalFiles > 0 &&
+    repoResult.techStack.languages.some((l) =>
+      ['c#', 'typescript', 'javascript', 'php', 'python'].includes(l.name.toLowerCase())
+    );
+  if (hasTestableCode && !fs.existsSync(path.join(TARGET_REPO_PATH, 'Tests')) &&
+      !fs.existsSync(path.join(TARGET_REPO_PATH, 'tests')) &&
+      !fs.existsSync(path.join(TARGET_REPO_PATH, '__tests__'))) {
+    recommendations.push({
+      priority: 'high',
+      title: 'テストコードの追加',
+      description: 'テストコードが検出されませんでした。ユニットテスト・統合テストの導入により、リグレッションの防止と品質保証を強化することを推奨します。',
+      effort: '1-2週間',
+      impact: '品質保証・リグレッション防止',
+    });
+  }
+
+  // Django固有: フレームワークのEOLチェック
+  const djangoFramework = repoResult.techStack.frameworks.find((f) =>
+    f.name.toLowerCase().includes('django')
+  );
+  if (djangoFramework && djangoFramework.version && /^1\.|^2\.[0-1]/.test(djangoFramework.version)) {
+    recommendations.push({
+      priority: 'critical',
+      title: 'Djangoフレームワークのバージョンアップ',
+      description: `${djangoFramework.name} ${djangoFramework.version} はサポート終了(EOL)済みです。セキュリティパッチが提供されないため、最新のLTSバージョンへの移行を強く推奨します。`,
+      effort: '2-4週間',
+      impact: 'セキュリティリスクの根本的解決',
+    });
+  }
+
+  // Python固有: requirements.txtまたはPipfileの有無
+  const hasRequirements = fs.existsSync(path.join(TARGET_REPO_PATH, 'requirements.txt'));
+  const hasPipfile = fs.existsSync(path.join(TARGET_REPO_PATH, 'Pipfile'));
+  const hasPoetry = fs.existsSync(path.join(TARGET_REPO_PATH, 'pyproject.toml'));
+  if (!hasRequirements && !hasPipfile && !hasPoetry) {
+    recommendations.push({
+      priority: 'medium',
+      title: '依存関係管理ファイルの整備',
+      description: 'requirements.txt / Pipfile / pyproject.toml が検出されませんでした。依存関係の明示的管理を推奨します。',
+      effort: '1日',
+      impact: '再現可能なビルド環境の確保',
+    });
+  }
+
   console.log(`  改善提案数: ${recommendations.length}件`);
   for (const rec of recommendations) {
     console.log(`    [${rec.priority.toUpperCase()}] ${rec.title}`);
@@ -397,7 +442,7 @@ async function main() {
     version: '1.0',
     data: {
       repository: {
-        name: repoResult.metadata.hasReadme ? PROJECT_NAME : PROJECT_NAME,
+        name: PROJECT_NAME,
         path: TARGET_REPO_PATH,
         hasGit: repoResult.metadata.hasGit,
         hasCI: repoResult.metadata.hasCI,

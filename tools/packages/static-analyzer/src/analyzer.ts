@@ -92,32 +92,6 @@ interface PHPCSResult {
   files?: Record<string, PHPCSFile>;
 }
 
-interface SnykVulnerability {
-  id: string;
-  title: string;
-  severity: string;
-  packageName?: string;
-  version?: string;
-  from?: string[];
-  upgradePath?: unknown[];
-  isUpgradable?: boolean;
-  isPatchable?: boolean;
-  CVSSv3?: string;
-  credit?: string[];
-  description?: string;
-  fixedIn?: string[];
-  identifiers?: {
-    CVE?: string[];
-    CWE?: string[];
-  };
-  url?: string;
-}
-
-interface SnykResult {
-  vulnerabilities?: SnykVulnerability[];
-  error?: string;
-  ok?: boolean;
-}
 
 interface GitleaksFinding {
   Description?: string;
@@ -149,6 +123,139 @@ interface PatternRule {
   message: string;
   filePattern?: RegExp;
   fileCondition?: (content: string) => boolean;
+}
+
+// --- 追加ツール出力の型定義 ---
+
+interface PsalmIssue {
+  severity: string;
+  line_from: number;
+  line_to: number;
+  type: string;
+  message: string;
+  file_name: string;
+  file_path: string;
+  snippet: string;
+  selected_text: string;
+  from: number;
+  to: number;
+  snippet_from: number;
+  snippet_to: number;
+  column_from: number;
+  column_to: number;
+  taint_trace?: Array<{
+    file_name: string;
+    file_path: string;
+    line_from: number;
+    line_to: number;
+    snippet: string;
+  }>;
+}
+
+interface PHPMDViolation {
+  beginLine: number;
+  endLine: number;
+  package: string;
+  function?: string;
+  class?: string;
+  method?: string;
+  description: string;
+  rule: string;
+  ruleSet: string;
+  externalInfoUrl: string;
+  priority: number;
+}
+
+interface PHPMDFile {
+  file: string;
+  violations: PHPMDViolation[];
+}
+
+interface PHPMDResult {
+  version: string;
+  package: string;
+  timestamp: string;
+  files: PHPMDFile[];
+}
+
+interface ComposerAuditAdvisory {
+  advisoryId: string;
+  packageName: string;
+  affectedVersions: string;
+  title: string;
+  cve?: string;
+  link: string;
+  reportedAt: string;
+  sources?: Array<{ name: string; remoteId: string }>;
+}
+
+interface ComposerAuditResult {
+  advisories: Record<string, ComposerAuditAdvisory[]>;
+}
+
+interface SemgrepFinding {
+  check_id: string;
+  path: string;
+  start: { line: number; col: number };
+  end: { line: number; col: number };
+  extra: {
+    message: string;
+    severity: string;
+    metadata?: {
+      category?: string;
+      cwe?: string[];
+      owasp?: string[];
+      confidence?: string;
+      references?: string[];
+    };
+    lines?: string;
+    fix?: string;
+  };
+}
+
+interface SemgrepResult {
+  results: SemgrepFinding[];
+  errors?: Array<{ message: string }>;
+}
+
+interface ProgpilotVuln {
+  source_name: string;
+  source_file: string;
+  source_line: number;
+  source_column: number;
+  source_type: string;
+  sink_name: string;
+  sink_file: string;
+  sink_line: number;
+  sink_column: number;
+  vuln_name: string;
+  vuln_cwe: string;
+  vuln_id: string;
+  vuln_type: string;
+}
+
+interface SonarQubeIssue {
+  key: string;
+  rule: string;
+  severity: string;
+  component: string;
+  message: string;
+  line?: number;
+  type: string;
+  tags?: string[];
+  effort?: string;
+  textRange?: {
+    startLine: number;
+    endLine: number;
+    startOffset: number;
+    endOffset: number;
+  };
+}
+
+interface SonarQubeIssuesResponse {
+  total: number;
+  issues: SonarQubeIssue[];
+  paging: { pageIndex: number; pageSize: number; total: number };
 }
 
 /**
@@ -328,11 +435,26 @@ export class StaticAnalyzer {
       case AnalyzerTool.ESLint:
         return this.runESLint(repoPath, options);
 
-      case AnalyzerTool.Snyk:
-        return this.runSnyk(repoPath, options);
-
       case AnalyzerTool.Gitleaks:
         return this.runGitleaks(repoPath, options);
+
+      case AnalyzerTool.Bandit:
+        return this.runBandit(repoPath, options);
+
+      case AnalyzerTool.PipAudit:
+        return this.runPipAudit(repoPath, options);
+
+      case AnalyzerTool.Opengrep:
+        return this.runOpengrep(repoPath, options);
+
+      case AnalyzerTool.Pylint:
+        return this.runPylint(repoPath, options);
+
+      case AnalyzerTool.Radon:
+        return this.runRadon(repoPath, options);
+
+      case AnalyzerTool.DjangoCheckDeploy:
+        return this.runDjangoCheckDeploy(repoPath, options);
 
       case AnalyzerTool.PHPStan:
         return this.runPHPStan(repoPath, options);
@@ -342,6 +464,27 @@ export class StaticAnalyzer {
 
       case AnalyzerTool.RoslynAnalyzer:
         return this.runRoslynAnalyzer(repoPath, options);
+
+      case AnalyzerTool.Psalm:
+        return this.runPsalm(repoPath, options);
+
+      case AnalyzerTool.PHPMessDetector:
+        return this.runPHPMD(repoPath, options);
+
+      case AnalyzerTool.PHPCPD:
+        return this.runPHPCPD(repoPath, options);
+
+      case AnalyzerTool.ComposerAudit:
+        return this.runComposerAudit(repoPath, options);
+
+      case AnalyzerTool.Semgrep:
+        return this.runSemgrep(repoPath, options);
+
+      case AnalyzerTool.Progpilot:
+        return this.runProgpilot(repoPath, options);
+
+      case AnalyzerTool.SonarQube:
+        return this.runSonarQube(repoPath, options);
 
       default:
         // その他のツールは未実装
@@ -787,30 +930,35 @@ export class StaticAnalyzer {
     return IssueCategory.CodeQuality;
   }
 
+  // ========================================
+  // Python / Django ツール実装
+  // ========================================
+
   /**
-   * Snyk実行（実装版）
+   * Bandit実行（Pythonセキュリティリンター）
    */
-  private async runSnyk(
+  private async runBandit(
     repoPath: string,
     options: AnalysisOptions
   ): Promise<AnalysisIssue[]> {
     try {
-      // package.jsonまたはcomposer.jsonの存在確認
-      const hasPackageJson = await fs.access(path.join(repoPath, 'package.json'))
-        .then(() => true)
-        .catch(() => false);
+      let command: string;
+      let args: string[];
 
-      const hasComposerJson = await fs.access(path.join(repoPath, 'composer.json'))
-        .then(() => true)
-        .catch(() => false);
-
-      if (!hasPackageJson && !hasComposerJson) {
-        return [];
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app:ro`,
+          '-w', '/app',
+          'python:3.11',
+          'sh', '-c',
+          'pip install bandit -q 2>/dev/null && bandit -r . -f json --exclude .venv,venv,env,__pycache__,migrations 2>/dev/null || true'
+        ];
+      } else {
+        command = 'bandit';
+        args = ['-r', repoPath, '-f', 'json', '--exclude', '.venv,venv,env,__pycache__,migrations'];
       }
-
-      // Snykコマンド実行
-      const command = 'snyk';
-      const args = ['test', '--json'];
 
       const timeout = options.timeout || DEFAULT_TIMEOUT;
 
@@ -819,73 +967,1251 @@ export class StaticAnalyzer {
         maxBuffer: 10 * 1024 * 1024,
         timeout
       }).catch(error => {
-        // Snykは脆弱性があるとexit code 1を返す
-        return { stdout: error.stdout || '{}', stderr: error.stderr || '' };
+        // Banditは問題検出時にexit code 1を返す
+        return { stdout: error.stdout || '{"results":[]}', stderr: error.stderr || '' };
       });
 
-      // 結果をパース
-      let result: SnykResult;
+      let result: { results?: Array<{
+        filename: string;
+        test_id: string;
+        test_name: string;
+        severity: string;
+        confidence: string;
+        line_number: number;
+        line_range: number[];
+        code: string;
+        issue_text: string;
+        issue_cwe?: { id: number; link: string };
+      }> };
       try {
-        result = JSON.parse(stdout || '{}') as SnykResult;
-      } catch (parseError) {
-        logger.error('Failed to parse Snyk output:', parseError);
+        result = JSON.parse(stdout || '{"results":[]}');
+      } catch {
+        logger.error('Failed to parse Bandit output');
         return [];
       }
 
-      return this.parseSnykResults(result, repoPath);
+      return this.parseBanditResults(result.results || [], repoPath);
     } catch (error) {
-      logger.error('Snyk execution failed:', error);
+      logger.error('Bandit execution failed:', error);
       return [];
     }
   }
 
+  private parseBanditResults(
+    results: Array<{
+      filename: string;
+      test_id: string;
+      test_name: string;
+      severity: string;
+      confidence: string;
+      line_number: number;
+      line_range: number[];
+      code: string;
+      issue_text: string;
+      issue_cwe?: { id: number; link: string };
+    }>,
+    repoPath: string
+  ): AnalysisIssue[] {
+    return results.map(r => ({
+      id: randomUUID(),
+      tool: AnalyzerTool.Bandit,
+      severity: r.severity === 'HIGH' ? Severity.High
+        : r.severity === 'MEDIUM' ? Severity.Medium
+        : Severity.Low,
+      category: IssueCategory.Security,
+      rule: r.test_id,
+      message: r.issue_text,
+      file: path.relative(repoPath, r.filename),
+      line: r.line_number,
+      snippet: r.code,
+      cwe: r.issue_cwe ? [`CWE-${r.issue_cwe.id}`] : undefined
+    }));
+  }
+
   /**
-   * Snyk結果をパース
+   * pip-audit実行（Python依存関係脆弱性チェック）
    */
-  private parseSnykResults(result: SnykResult, _repoPath: string): AnalysisIssue[] {
+  private async runPipAudit(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      const requirementsPath = path.join(repoPath, 'requirements.txt');
+      if (!(await this.fileExists(requirementsPath))) {
+        return [];
+      }
+
+      let command: string;
+      let args: string[];
+
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app:ro`,
+          '-w', '/app',
+          'python:3.11',
+          'sh', '-c',
+          'pip install pip-audit -q 2>/dev/null && pip-audit -r requirements.txt --format json --desc 2>/dev/null || echo "[]"'
+        ];
+      } else {
+        command = 'pip-audit';
+        args = ['-r', requirementsPath, '--format', 'json', '--desc'];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '[]', stderr: error.stderr || '' };
+      });
+
+      let dependencies: Array<{
+        name: string;
+        version: string;
+        vulns: Array<{
+          id: string;
+          fix_versions: string[];
+          description: string;
+        }>;
+      }>;
+      try {
+        const parsed = JSON.parse(stdout || '[]');
+        dependencies = Array.isArray(parsed) ? parsed : (parsed.dependencies || []);
+      } catch {
+        logger.error('Failed to parse pip-audit output');
+        return [];
+      }
+
+      return this.parsePipAuditResults(dependencies);
+    } catch (error) {
+      logger.error('pip-audit execution failed:', error);
+      return [];
+    }
+  }
+
+  private parsePipAuditResults(
+    dependencies: Array<{
+      name: string;
+      version: string;
+      vulns: Array<{
+        id: string;
+        fix_versions: string[];
+        description: string;
+      }>;
+    }>
+  ): AnalysisIssue[] {
     const issues: AnalysisIssue[] = [];
 
-    if (!result.vulnerabilities) return issues;
+    for (const dep of dependencies) {
+      if (!dep.vulns || dep.vulns.length === 0) continue;
 
-    for (const vuln of result.vulnerabilities) {
-      const severity = this.mapSnykSeverity(vuln.severity);
-
-      issues.push({
-        id: randomUUID(),
-        tool: AnalyzerTool.Snyk,
-        severity,
-        category: IssueCategory.Security,
-        rule: vuln.id,
-        message: `${vuln.title} in ${vuln.packageName}@${vuln.version}`,
-        file: 'package.json',
-        cve: vuln.identifiers?.CVE || [],
-        references: [vuln.url].filter((url): url is string => Boolean(url)),
-        fix: vuln.fixedIn && vuln.fixedIn.length > 0 ? {
-          available: true,
-          description: `Upgrade to ${vuln.packageName}@${vuln.fixedIn[0]}`
-        } : undefined
-      });
+      for (const vuln of dep.vulns) {
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.PipAudit,
+          severity: Severity.High,
+          category: IssueCategory.Security,
+          rule: vuln.id,
+          message: `${vuln.description || vuln.id} in ${dep.name}@${dep.version}`,
+          file: 'requirements.txt',
+          cve: vuln.id.startsWith('CVE-') ? [vuln.id] : undefined,
+          fix: vuln.fix_versions && vuln.fix_versions.length > 0 ? {
+            available: true,
+            description: `Upgrade ${dep.name} to ${vuln.fix_versions[0]}`
+          } : undefined
+        });
+      }
     }
 
     return issues;
   }
 
   /**
-   * Snykの重要度をマッピング
+   * Opengrep実行（Semgrep互換オープンソースSAST）
    */
-  private mapSnykSeverity(snykSeverity: string): Severity {
-    switch (snykSeverity.toLowerCase()) {
-      case 'critical':
-        return Severity.Critical;
-      case 'high':
-        return Severity.High;
-      case 'medium':
-        return Severity.Medium;
-      case 'low':
-        return Severity.Low;
-      default:
-        return Severity.Info;
+  private async runOpengrep(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      let command: string;
+      let args: string[];
+
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app:ro`,
+          '-w', '/app',
+          'wollomatic/opengrep:latest',
+          'opengrep', 'scan', '--config', 'auto', '--json', '.'
+        ];
+      } else {
+        command = 'opengrep';
+        args = ['scan', '--config', 'auto', '--json', repoPath];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '{"results":[]}', stderr: error.stderr || '' };
+      });
+
+      let output: {
+        results?: Array<{
+          path: string;
+          check_id: string;
+          extra: {
+            message: string;
+            severity: string;
+            metadata?: {
+              category?: string;
+              cwe?: string[];
+              confidence?: string;
+            };
+            lines: string;
+            fix?: string;
+          };
+          start: { line: number; col: number };
+          end: { line: number; col: number };
+        }>;
+      };
+      try {
+        output = JSON.parse(stdout || '{"results":[]}');
+      } catch {
+        logger.error('Failed to parse Opengrep output');
+        return [];
+      }
+
+      return this.parseOpengrepResults(output.results || [], repoPath);
+    } catch (error) {
+      logger.error('Opengrep execution failed:', error);
+      return [];
     }
+  }
+
+  private parseOpengrepResults(
+    results: Array<{
+      path: string;
+      check_id: string;
+      extra: {
+        message: string;
+        severity: string;
+        metadata?: {
+          category?: string;
+          cwe?: string[];
+          confidence?: string;
+        };
+        lines: string;
+        fix?: string;
+      };
+      start: { line: number; col: number };
+      end: { line: number; col: number };
+    }>,
+    repoPath: string
+  ): AnalysisIssue[] {
+    return results.map(r => {
+      const metaCategory = r.extra.metadata?.category?.toLowerCase() || '';
+      const category = metaCategory.includes('security') ? IssueCategory.Security
+        : metaCategory.includes('performance') ? IssueCategory.Performance
+        : metaCategory.includes('correctness') ? IssueCategory.CodeQuality
+        : IssueCategory.Security;
+
+      return {
+        id: randomUUID(),
+        tool: AnalyzerTool.Opengrep,
+        severity: r.extra.severity === 'ERROR' ? Severity.High
+          : r.extra.severity === 'WARNING' ? Severity.Medium
+          : Severity.Low,
+        category,
+        rule: r.check_id,
+        message: r.extra.message,
+        file: path.relative(repoPath, r.path),
+        line: r.start.line,
+        column: r.start.col,
+        endLine: r.end.line,
+        endColumn: r.end.col,
+        snippet: r.extra.lines,
+        cwe: r.extra.metadata?.cwe,
+        fix: r.extra.fix ? {
+          available: true,
+          description: r.extra.fix
+        } : undefined
+      };
+    });
+  }
+
+  /**
+   * pylint実行（Pythonコード品質リンター）
+   */
+  private async runPylint(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      let command: string;
+      let args: string[];
+
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app:ro`,
+          '-w', '/app',
+          'python:3.11',
+          'sh', '-c',
+          'pip install pylint -q 2>/dev/null && pylint --output-format=json --recursive=y --ignore=.venv,venv,env,__pycache__,migrations . 2>/dev/null || true'
+        ];
+      } else {
+        command = 'pylint';
+        args = [
+          '--output-format=json',
+          '--recursive=y',
+          '--ignore=.venv,venv,env,__pycache__,migrations',
+          repoPath
+        ];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        // pylintは問題検出時にexit code 1-31を返す
+        return { stdout: error.stdout || '[]', stderr: error.stderr || '' };
+      });
+
+      let results: Array<{
+        type: string;
+        symbol: string;
+        message: string;
+        path: string;
+        line: number;
+        column: number;
+        'message-id': string;
+      }>;
+      try {
+        results = JSON.parse(stdout || '[]');
+      } catch {
+        logger.error('Failed to parse pylint output');
+        return [];
+      }
+
+      return this.parsePylintResults(results, repoPath);
+    } catch (error) {
+      logger.error('pylint execution failed:', error);
+      return [];
+    }
+  }
+
+  private parsePylintResults(
+    results: Array<{
+      type: string;
+      symbol: string;
+      message: string;
+      path: string;
+      line: number;
+      column: number;
+      'message-id': string;
+    }>,
+    repoPath: string
+  ): AnalysisIssue[] {
+    return results.map(r => {
+      const severity = (r.type === 'F' || r.type === 'E') ? Severity.High
+        : r.type === 'W' ? Severity.Medium
+        : Severity.Low;
+
+      const category = r.type === 'R' ? IssueCategory.Complexity
+        : r.type === 'C' ? IssueCategory.BestPractice
+        : IssueCategory.CodeQuality;
+
+      return {
+        id: randomUUID(),
+        tool: AnalyzerTool.Pylint,
+        severity,
+        category,
+        rule: r['message-id'],
+        message: `[${r.symbol}] ${r.message}`,
+        file: path.relative(repoPath, r.path),
+        line: r.line,
+        column: r.column
+      };
+    });
+  }
+
+  /**
+   * radon実行（Python循環的複雑度）
+   */
+  private async runRadon(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      let command: string;
+      let args: string[];
+
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app:ro`,
+          '-w', '/app',
+          'python:3.11',
+          'sh', '-c',
+          'pip install radon -q 2>/dev/null && radon cc . -j -n C --exclude ".venv,venv,env,__pycache__,migrations" 2>/dev/null || echo "{}"'
+        ];
+      } else {
+        command = 'radon';
+        args = ['cc', repoPath, '-j', '-n', 'C', '--exclude', '.venv,venv,env,__pycache__,migrations'];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '{}', stderr: error.stderr || '' };
+      });
+
+      let result: Record<string, Array<{
+        name: string;
+        type: string;
+        complexity: number;
+        rank: string;
+        lineno: number;
+        endline: number;
+        col_offset: number;
+        classname?: string;
+      }>>;
+      try {
+        result = JSON.parse(stdout || '{}');
+      } catch {
+        logger.error('Failed to parse radon output');
+        return [];
+      }
+
+      return this.parseRadonResults(result, repoPath);
+    } catch (error) {
+      logger.error('radon execution failed:', error);
+      return [];
+    }
+  }
+
+  private parseRadonResults(
+    result: Record<string, Array<{
+      name: string;
+      type: string;
+      complexity: number;
+      rank: string;
+      lineno: number;
+      endline: number;
+      col_offset: number;
+      classname?: string;
+    }>>,
+    repoPath: string
+  ): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    for (const [filePath, functions] of Object.entries(result)) {
+      for (const fn of functions) {
+        const severity = (fn.rank === 'F' || fn.rank === 'E') ? Severity.High
+          : fn.rank === 'D' ? Severity.Medium
+          : Severity.Low;
+
+        const displayName = fn.classname ? `${fn.classname}.${fn.name}` : fn.name;
+
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.Radon,
+          severity,
+          category: IssueCategory.Complexity,
+          rule: `CC-${fn.rank}`,
+          message: `${fn.type} '${displayName}' の循環的複雑度が ${fn.complexity} (ランク: ${fn.rank}) です。分割を検討してください`,
+          file: path.relative(repoPath, filePath),
+          line: fn.lineno,
+          endLine: fn.endline
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  /**
+   * Django check --deploy 実行（Django組込みセキュリティチェック）
+   */
+  private async runDjangoCheckDeploy(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      const managePyPath = path.join(repoPath, 'manage.py');
+      if (!(await this.fileExists(managePyPath))) {
+        return [];
+      }
+
+      let command: string;
+      let args: string[];
+
+      if (options.useDocker !== false) {
+        // Docker経由で実行（Django環境構築が必要なため）
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app:ro`,
+          'python:3.11',
+          'sh', '-c',
+          'cp -r /app /build && cd /build && pip install -r requirements.txt -q 2>/dev/null; python manage.py check --deploy 2>&1 || true'
+        ];
+      } else {
+        command = 'python';
+        args = ['manage.py', 'check', '--deploy'];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '', stderr: error.stderr || '' };
+      });
+
+      return this.parseDjangoCheckResults(stdout || '');
+    } catch (error) {
+      logger.error('Django check --deploy execution failed:', error);
+      return [];
+    }
+  }
+
+  private parseDjangoCheckResults(output: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    // Django check --deploy の出力パターン:
+    // ?: (security.W001) You do not have 'django.middleware.security.SecurityMiddleware' ...
+    const pattern = /\?(?::)?\s*\(security\.(W\d+)\)\s*(.+)/g;
+    let match;
+
+    while ((match = pattern.exec(output)) !== null) {
+      const checkId = match[1];
+      const message = match[2].trim();
+
+      // CSRF/XSS/セッション関連はHighに格上げ
+      const highPriorityChecks = ['W004', 'W008', 'W012', 'W016', 'W017', 'W018', 'W019', 'W020', 'W021', 'W022'];
+      const severity = highPriorityChecks.includes(checkId) ? Severity.High : Severity.Medium;
+
+      issues.push({
+        id: randomUUID(),
+        tool: AnalyzerTool.DjangoCheckDeploy,
+        severity,
+        category: IssueCategory.Security,
+        rule: `security.${checkId}`,
+        message,
+        file: 'settings.py'
+      });
+    }
+
+    return issues;
+  }
+
+  // ========================================
+  // PHP 追加ツール (Psalm, PHPMD, PHPCPD, ComposerAudit, Progpilot)
+  // ========================================
+
+  /**
+   * Psalm実行（テイント解析）
+   */
+  private async runPsalm(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      if (!await this.fileExists(path.join(repoPath, 'composer.json'))) {
+        return [];
+      }
+
+      let command: string;
+      let args: string[];
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app`,
+          '-w', '/app',
+          'vimeo/psalm',
+          '--taint-analysis', '--output-format=json', '--no-progress'
+        ];
+      } else {
+        command = './vendor/bin/psalm';
+        args = ['--taint-analysis', '--output-format=json', '--no-progress'];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '[]', stderr: error.stderr || '' };
+      });
+
+      let result: PsalmIssue[];
+      try {
+        result = JSON.parse(stdout || '[]') as PsalmIssue[];
+      } catch {
+        logger.error('Failed to parse Psalm output');
+        return [];
+      }
+
+      return this.parsePsalmResults(result, repoPath);
+    } catch (error) {
+      logger.error('Psalm execution failed:', error);
+      return [];
+    }
+  }
+
+  private parsePsalmResults(issues: PsalmIssue[], repoPath: string): AnalysisIssue[] {
+    return issues.map(issue => {
+      const isTaint = issue.taint_trace && issue.taint_trace.length > 0;
+      let severity: Severity;
+      switch (issue.severity) {
+        case 'error':
+          severity = isTaint ? Severity.Critical : Severity.High;
+          break;
+        case 'info':
+          severity = Severity.Low;
+          break;
+        default:
+          severity = Severity.Medium;
+      }
+
+      const category = isTaint ? IssueCategory.Security : IssueCategory.CodeQuality;
+      const filePath = path.relative(repoPath, issue.file_path);
+
+      return {
+        id: randomUUID(),
+        tool: AnalyzerTool.Psalm,
+        severity,
+        category,
+        rule: issue.type,
+        message: issue.message,
+        file: filePath,
+        line: issue.line_from,
+        column: issue.column_from,
+        endLine: issue.line_to,
+        endColumn: issue.column_to,
+        snippet: issue.snippet || undefined,
+      };
+    });
+  }
+
+  /**
+   * PHPMD実行（複雑度・メソッド長）
+   */
+  private async runPHPMD(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      if (!await this.fileExists(path.join(repoPath, 'composer.json'))) {
+        return [];
+      }
+
+      let command: string;
+      let args: string[];
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app`,
+          '-w', '/app',
+          'phpmd/phpmd',
+          '.', 'json', 'cleancode,codesize,design,unusedcode',
+          '--exclude', 'vendor,node_modules'
+        ];
+      } else {
+        command = './vendor/bin/phpmd';
+        args = ['.', 'json', 'cleancode,codesize,design,unusedcode', '--exclude', 'vendor,node_modules'];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '{"files":[]}', stderr: error.stderr || '' };
+      });
+
+      let result: PHPMDResult;
+      try {
+        result = JSON.parse(stdout || '{"files":[]}') as PHPMDResult;
+      } catch {
+        logger.error('Failed to parse PHPMD output');
+        return [];
+      }
+
+      return this.parsePHPMDResults(result, repoPath);
+    } catch (error) {
+      logger.error('PHPMD execution failed:', error);
+      return [];
+    }
+  }
+
+  private parsePHPMDResults(result: PHPMDResult, repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+    if (!result.files) return issues;
+
+    for (const file of result.files) {
+      const filePath = path.relative(repoPath, file.file);
+
+      for (const v of file.violations) {
+        let severity: Severity;
+        switch (v.priority) {
+          case 1: severity = Severity.Critical; break;
+          case 2: severity = Severity.High; break;
+          case 3: severity = Severity.Medium; break;
+          default: severity = Severity.Low;
+        }
+
+        let category: IssueCategory;
+        switch (v.ruleSet) {
+          case 'Code Size Rules':
+            category = IssueCategory.Complexity;
+            break;
+          case 'Unused Code Rules':
+          case 'Clean Code Rules':
+            category = IssueCategory.CodeQuality;
+            break;
+          case 'Design Rules':
+            category = IssueCategory.Maintainability;
+            break;
+          default:
+            category = IssueCategory.CodeQuality;
+        }
+
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.PHPMessDetector,
+          severity,
+          category,
+          rule: v.rule,
+          message: v.description,
+          file: filePath,
+          line: v.beginLine,
+          endLine: v.endLine,
+          references: v.externalInfoUrl ? [v.externalInfoUrl] : undefined,
+        });
+      }
+    }
+    return issues;
+  }
+
+  /**
+   * PHPCPD実行（重複コード検出）
+   */
+  private async runPHPCPD(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      if (!await this.fileExists(path.join(repoPath, 'composer.json'))) {
+        return [];
+      }
+
+      let command: string;
+      let args: string[];
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app`,
+          '-w', '/app',
+          'php:8.2-cli',
+          'bash', '-c',
+          'composer global require systemsdk/phpcpd 2>/dev/null && phpcpd --min-lines=5 --min-tokens=70 . --exclude vendor --exclude node_modules || true'
+        ];
+      } else {
+        command = './vendor/bin/phpcpd';
+        args = ['--min-lines=5', '--min-tokens=70', '.', '--exclude', 'vendor', '--exclude', 'node_modules'];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '', stderr: error.stderr || '' };
+      });
+
+      return this.parsePHPCPDResults(stdout || '', repoPath);
+    } catch (error) {
+      logger.error('PHPCPD execution failed:', error);
+      return [];
+    }
+  }
+
+  private parsePHPCPDResults(output: string, _repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+    // PHPCPD テキスト出力パターン: "  - /path/to/file.php:10-20 (30 lines)"
+    const duplicationPattern = /^\s+-\s+(.+?):(\d+)-(\d+)\s+\((\d+)\s+lines?\)/gm;
+    let match;
+    const fileGroups: Array<{ file: string; startLine: number; endLine: number; lines: number }> = [];
+
+    while ((match = duplicationPattern.exec(output)) !== null) {
+      fileGroups.push({
+        file: match[1],
+        startLine: parseInt(match[2], 10),
+        endLine: parseInt(match[3], 10),
+        lines: parseInt(match[4], 10),
+      });
+    }
+
+    // 2つずつペアにして報告（PHPCPD は重複元と重複先を出力）
+    for (let i = 0; i < fileGroups.length; i += 2) {
+      const first = fileGroups[i];
+      const second = fileGroups[i + 1];
+      if (!first) continue;
+
+      const message = second
+        ? `${first.lines}行の重複コード: ${first.file}:${first.startLine} と ${second.file}:${second.startLine}`
+        : `${first.lines}行の重複コードが検出されました`;
+
+      issues.push({
+        id: randomUUID(),
+        tool: AnalyzerTool.PHPCPD,
+        severity: first.lines > 30 ? Severity.High : Severity.Medium,
+        category: IssueCategory.Maintainability,
+        rule: 'duplicate-code',
+        message,
+        file: first.file,
+        line: first.startLine,
+        endLine: first.endLine,
+      });
+    }
+    return issues;
+  }
+
+  /**
+   * Composer audit実行（依存関係脆弱性）
+   */
+  private async runComposerAudit(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      const hasComposerLock = await this.fileExists(path.join(repoPath, 'composer.lock'));
+      const hasComposerJson = await this.fileExists(path.join(repoPath, 'composer.json'));
+      if (!hasComposerLock && !hasComposerJson) {
+        return [];
+      }
+
+      let command: string;
+      let args: string[];
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app`,
+          '-w', '/app',
+          'composer:latest',
+          'audit', '--format=json'
+        ];
+      } else {
+        command = 'composer';
+        args = ['audit', '--format=json'];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        // composer audit は脆弱性があると exit code 非ゼロ
+        return { stdout: error.stdout || '{"advisories":{}}', stderr: error.stderr || '' };
+      });
+
+      let result: ComposerAuditResult;
+      try {
+        result = JSON.parse(stdout || '{"advisories":{}}') as ComposerAuditResult;
+      } catch {
+        logger.error('Failed to parse Composer audit output');
+        return [];
+      }
+
+      return this.parseComposerAuditResults(result);
+    } catch (error) {
+      logger.error('Composer audit execution failed:', error);
+      return [];
+    }
+  }
+
+  private parseComposerAuditResults(result: ComposerAuditResult): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+    if (!result.advisories) return issues;
+
+    for (const [packageName, advisories] of Object.entries(result.advisories)) {
+      for (const adv of advisories) {
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.ComposerAudit,
+          severity: adv.cve ? Severity.High : Severity.Medium,
+          category: IssueCategory.Security,
+          rule: adv.advisoryId,
+          message: `[${packageName}] ${adv.title} (${adv.affectedVersions})`,
+          file: 'composer.json',
+          references: adv.link ? [adv.link] : undefined,
+          cve: adv.cve ? [adv.cve] : undefined,
+        });
+      }
+    }
+    return issues;
+  }
+
+  /**
+   * Progpilot実行（PHP SAST）
+   */
+  private async runProgpilot(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      if (!await this.fileExists(path.join(repoPath, 'composer.json'))) {
+        return [];
+      }
+
+      let command: string;
+      let args: string[];
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/app`,
+          '-w', '/app',
+          'php:8.2-cli',
+          'bash', '-c',
+          'curl -sL https://github.com/designsecurity/progpilot/releases/latest/download/progpilot.phar -o /tmp/progpilot.phar && php /tmp/progpilot.phar .'
+        ];
+      } else {
+        command = 'php';
+        args = ['progpilot.phar', '.'];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '[]', stderr: error.stderr || '' };
+      });
+
+      let result: ProgpilotVuln[];
+      try {
+        result = JSON.parse(stdout || '[]') as ProgpilotVuln[];
+      } catch {
+        logger.error('Failed to parse Progpilot output');
+        return [];
+      }
+
+      return this.parseProgpilotResults(result, repoPath);
+    } catch (error) {
+      logger.error('Progpilot execution failed:', error);
+      return [];
+    }
+  }
+
+  private parseProgpilotResults(vulns: ProgpilotVuln[], repoPath: string): AnalysisIssue[] {
+    return vulns.map(v => {
+      let severity: Severity;
+      const type = v.vuln_name.toLowerCase();
+      if (type.includes('injection') || type.includes('exec') || type.includes('eval')) {
+        severity = Severity.Critical;
+      } else if (type.includes('xss') || type.includes('traversal') || type.includes('include')) {
+        severity = Severity.High;
+      } else {
+        severity = Severity.Medium;
+      }
+
+      const filePath = path.relative(repoPath, v.sink_file);
+
+      return {
+        id: randomUUID(),
+        tool: AnalyzerTool.Progpilot,
+        severity,
+        category: IssueCategory.Security,
+        rule: v.vuln_name,
+        message: `${v.vuln_name}: ${v.source_name} → ${v.sink_name}`,
+        file: filePath,
+        line: v.sink_line,
+        column: v.sink_column,
+        cwe: v.vuln_cwe ? [v.vuln_cwe] : undefined,
+      };
+    });
+  }
+
+  // ========================================
+  // 汎用ツール (Semgrep, SonarQube)
+  // ========================================
+
+  /**
+   * Semgrep実行（多言語SAST）
+   */
+  private async runSemgrep(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      let command: string;
+      let args: string[];
+      if (options.useDocker) {
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPath}:/src`,
+          'semgrep/semgrep',
+          'semgrep', 'scan', '--config=auto', '--json', '--quiet'
+        ];
+      } else {
+        command = 'semgrep';
+        args = ['scan', '--config=auto', '--json', '--quiet'];
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '{"results":[]}', stderr: error.stderr || '' };
+      });
+
+      let result: SemgrepResult;
+      try {
+        result = JSON.parse(stdout || '{"results":[]}') as SemgrepResult;
+      } catch {
+        logger.error('Failed to parse Semgrep output');
+        return [];
+      }
+
+      return this.parseSemgrepResults(result, repoPath);
+    } catch (error) {
+      logger.error('Semgrep execution failed:', error);
+      return [];
+    }
+  }
+
+  private parseSemgrepResults(result: SemgrepResult, repoPath: string): AnalysisIssue[] {
+    if (!result.results) return [];
+
+    return result.results.map(finding => {
+      let severity: Severity;
+      switch (finding.extra.severity.toUpperCase()) {
+        case 'ERROR':
+          severity = Severity.High;
+          break;
+        case 'WARNING':
+          severity = Severity.Medium;
+          break;
+        default:
+          severity = Severity.Low;
+      }
+
+      const meta = finding.extra.metadata;
+      let category: IssueCategory;
+      if (meta?.category === 'security') {
+        category = IssueCategory.Security;
+        // セキュリティ問題は severity を格上げ
+        if (severity === Severity.High) severity = Severity.Critical;
+      } else if (meta?.category === 'performance') {
+        category = IssueCategory.Performance;
+      } else {
+        category = IssueCategory.CodeQuality;
+      }
+
+      const filePath = path.relative(repoPath, finding.path);
+
+      return {
+        id: randomUUID(),
+        tool: AnalyzerTool.Semgrep,
+        severity,
+        category,
+        rule: finding.check_id,
+        message: finding.extra.message,
+        file: filePath,
+        line: finding.start.line,
+        column: finding.start.col,
+        endLine: finding.end.line,
+        endColumn: finding.end.col,
+        snippet: finding.extra.lines || undefined,
+        references: meta?.references,
+        cwe: meta?.cwe,
+      };
+    });
+  }
+
+  /**
+   * SonarQube実行（Docker Community Edition）
+   */
+  private async runSonarQube(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    const sonarUrl = process.env.SONARQUBE_URL || 'http://localhost:9000';
+    const sonarToken = process.env.SONARQUBE_TOKEN || '';
+    const projectKey = `audit-${path.basename(repoPath)}-${Date.now()}`;
+
+    try {
+      // SonarQubeサーバーの起動確認
+      try {
+        const healthCheck = await execFileAsync('curl', ['-sf', `${sonarUrl}/api/system/health`], {
+          timeout: 5000
+        });
+        if (!healthCheck.stdout.includes('"health":"GREEN"') && !healthCheck.stdout.includes('"status":"UP"')) {
+          logger.warn('SonarQube server is not healthy, skipping');
+          return [];
+        }
+      } catch {
+        logger.warn('SonarQube server not reachable, skipping');
+        return [];
+      }
+
+      // sonar-scanner 実行
+      const scannerArgs = [
+        'run', '--rm',
+        '-v', `${repoPath}:/usr/src`,
+        '--network=host',
+        'sonarsource/sonar-scanner-cli',
+        `-Dsonar.projectKey=${projectKey}`,
+        `-Dsonar.sources=.`,
+        `-Dsonar.host.url=${sonarUrl}`,
+        '-Dsonar.exclusions=vendor/**,node_modules/**,.git/**',
+      ];
+      if (sonarToken) {
+        scannerArgs.push(`-Dsonar.token=${sonarToken}`);
+      }
+
+      const timeout = options.timeout || DEFAULT_TIMEOUT;
+      await execFileAsync('docker', scannerArgs, {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        logger.warn('SonarQube scanner warning:', error.stderr || '');
+        return { stdout: '', stderr: error.stderr || '' };
+      });
+
+      // 解析完了を待機（最大60秒）
+      for (let i = 0; i < 12; i++) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        try {
+          const { stdout: ceOutput } = await execFileAsync('curl', [
+            '-sf',
+            `${sonarUrl}/api/ce/component?component=${projectKey}`,
+            ...(sonarToken ? ['-u', `${sonarToken}:`] : [])
+          ], { timeout: 5000 });
+
+          const ce = JSON.parse(ceOutput);
+          if (ce.current?.status === 'SUCCESS') break;
+          if (ce.current?.status === 'FAILED') {
+            logger.warn('SonarQube analysis failed');
+            return [];
+          }
+        } catch {
+          // まだ結果が無い場合は続行
+        }
+      }
+
+      // 結果取得
+      const { stdout: issuesOutput } = await execFileAsync('curl', [
+        '-sf',
+        `${sonarUrl}/api/issues/search?componentKeys=${projectKey}&ps=500`,
+        ...(sonarToken ? ['-u', `${sonarToken}:`] : [])
+      ], { timeout: 10000 });
+
+      let result: SonarQubeIssuesResponse;
+      try {
+        result = JSON.parse(issuesOutput) as SonarQubeIssuesResponse;
+      } catch {
+        logger.error('Failed to parse SonarQube issues');
+        return [];
+      }
+
+      return this.parseSonarQubeResults(result, projectKey);
+    } catch (error) {
+      logger.error('SonarQube execution failed:', error);
+      return [];
+    }
+  }
+
+  private parseSonarQubeResults(result: SonarQubeIssuesResponse, projectKey: string): AnalysisIssue[] {
+    if (!result.issues) return [];
+
+    return result.issues.map(issue => {
+      let severity: Severity;
+      switch (issue.severity) {
+        case 'BLOCKER':
+        case 'CRITICAL':
+          severity = Severity.Critical;
+          break;
+        case 'MAJOR':
+          severity = Severity.High;
+          break;
+        case 'MINOR':
+          severity = Severity.Medium;
+          break;
+        default:
+          severity = Severity.Low;
+      }
+
+      let category: IssueCategory;
+      switch (issue.type) {
+        case 'VULNERABILITY':
+        case 'SECURITY_HOTSPOT':
+          category = IssueCategory.Security;
+          break;
+        case 'BUG':
+          category = IssueCategory.CodeQuality;
+          break;
+        case 'CODE_SMELL':
+          category = issue.tags?.includes('complexity')
+            ? IssueCategory.Complexity
+            : IssueCategory.Maintainability;
+          break;
+        default:
+          category = IssueCategory.CodeQuality;
+      }
+
+      // component は "projectKey:path/to/file" 形式
+      const file = issue.component.replace(`${projectKey}:`, '');
+
+      return {
+        id: randomUUID(),
+        tool: AnalyzerTool.SonarQube,
+        severity,
+        category,
+        rule: issue.rule,
+        message: issue.message,
+        file,
+        line: issue.line || issue.textRange?.startLine,
+        endLine: issue.textRange?.endLine,
+      };
+    });
   }
 
   /**
@@ -1836,7 +3162,7 @@ export class StaticAnalyzer {
    */
   private async findFilesByExtension(dirPath: string, extension: string): Promise<string[]> {
     const results: string[] = [];
-    const skipDirs = new Set(['node_modules', '.git', 'bin', 'obj', 'packages', '.vs', '.vscode']);
+    const skipDirs = new Set(['node_modules', '.git', 'bin', 'obj', 'packages', '.vs', '.vscode', '.venv', 'venv', 'env', '__pycache__', 'migrations', '.mypy_cache', '.pytest_cache']);
 
     const walk = async (dir: string): Promise<void> => {
       let entries: string[];
@@ -1967,28 +3293,47 @@ export class StaticAnalyzer {
     // 常に実行するツール
     tools.push(AnalyzerTool.Gitleaks);
 
-    // package.json存在確認
+    // package.json存在確認 (JavaScript/TypeScript)
     if (await this.fileExists(path.join(repoPath, 'package.json'))) {
       tools.push(AnalyzerTool.ESLint);
-      tools.push(AnalyzerTool.Snyk);
 
-      // TypeScript判定
       if (await this.fileExists(path.join(repoPath, 'tsconfig.json'))) {
         tools.push(AnalyzerTool.TypeScriptCompiler);
       }
     }
 
-    // composer.json存在確認
+    // composer.json存在確認 (PHP)
     if (await this.fileExists(path.join(repoPath, 'composer.json'))) {
       tools.push(AnalyzerTool.PHPCodeSniffer);
       tools.push(AnalyzerTool.PHPStan);
-      tools.push(AnalyzerTool.Snyk);
     }
 
-    // .csproj存在確認
+    // .csproj存在確認 (C#)
     const files = await fs.readdir(repoPath).catch(() => []);
     if (files.some(f => f.endsWith('.csproj'))) {
       tools.push(AnalyzerTool.RoslynAnalyzer);
+    }
+
+    // Python / Django 検出
+    const hasRequirementsTxt = await this.fileExists(path.join(repoPath, 'requirements.txt'));
+    const hasPyprojectToml = await this.fileExists(path.join(repoPath, 'pyproject.toml'));
+    const hasPipfile = await this.fileExists(path.join(repoPath, 'Pipfile'));
+    const hasSetupPy = await this.fileExists(path.join(repoPath, 'setup.py'));
+    const isPythonProject = hasRequirementsTxt || hasPyprojectToml || hasPipfile || hasSetupPy;
+
+    if (isPythonProject) {
+      tools.push(AnalyzerTool.Bandit);
+      tools.push(AnalyzerTool.Pylint);
+      tools.push(AnalyzerTool.Radon);
+      tools.push(AnalyzerTool.Opengrep);
+
+      if (hasRequirementsTxt) {
+        tools.push(AnalyzerTool.PipAudit);
+      }
+
+      if (await this.fileExists(path.join(repoPath, 'manage.py'))) {
+        tools.push(AnalyzerTool.DjangoCheckDeploy);
+      }
     }
 
     return tools;
@@ -2067,9 +3412,14 @@ export class StaticAnalyzer {
       [AnalyzerTool.RoslynAnalyzer]: 0,
       [AnalyzerTool.StyleCop]: 0,
       [AnalyzerTool.SonarQube]: 0,
-      [AnalyzerTool.Snyk]: 0,
       [AnalyzerTool.Gitleaks]: 0,
-      [AnalyzerTool.DependencyCheck]: 0
+      [AnalyzerTool.DependencyCheck]: 0,
+      [AnalyzerTool.Bandit]: 0,
+      [AnalyzerTool.PipAudit]: 0,
+      [AnalyzerTool.Opengrep]: 0,
+      [AnalyzerTool.Pylint]: 0,
+      [AnalyzerTool.Radon]: 0,
+      [AnalyzerTool.DjangoCheckDeploy]: 0
     };
 
     allIssues.forEach(issue => {
@@ -2103,16 +3453,6 @@ export class StaticAnalyzer {
       args: ['--format', 'json'],
       languages: ['JavaScript', 'TypeScript'],
       categories: [IssueCategory.CodeQuality, IssueCategory.BestPractice],
-      enabled: true
-    });
-
-    configs.set(AnalyzerTool.Snyk, {
-      tool: AnalyzerTool.Snyk,
-      command: 'snyk',
-      args: ['test', '--json'],
-      dockerImage: 'snyk/snyk:node',
-      languages: ['JavaScript', 'TypeScript', 'PHP', 'Python', 'Java'],
-      categories: [IssueCategory.Security],
       enabled: true
     });
 
@@ -2151,6 +3491,138 @@ export class StaticAnalyzer {
       dockerImage: 'mcr.microsoft.com/dotnet/sdk:8.0-alpine',
       languages: ['C#'],
       categories: [IssueCategory.Security, IssueCategory.CodeQuality, IssueCategory.Performance],
+      enabled: true
+    });
+
+    // PHP 追加ツール
+    configs.set(AnalyzerTool.Psalm, {
+      tool: AnalyzerTool.Psalm,
+      command: 'psalm',
+      args: ['--taint-analysis', '--output-format=json', '--no-progress'],
+      dockerImage: 'vimeo/psalm',
+      languages: ['PHP'],
+      categories: [IssueCategory.Security, IssueCategory.CodeQuality],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.PHPMessDetector, {
+      tool: AnalyzerTool.PHPMessDetector,
+      command: 'phpmd',
+      args: ['.', 'json', 'cleancode,codesize,design,unusedcode'],
+      dockerImage: 'phpmd/phpmd',
+      languages: ['PHP'],
+      categories: [IssueCategory.Complexity, IssueCategory.CodeQuality, IssueCategory.Maintainability],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.PHPCPD, {
+      tool: AnalyzerTool.PHPCPD,
+      command: 'phpcpd',
+      args: ['--min-lines=5', '--min-tokens=70', '.'],
+      languages: ['PHP'],
+      categories: [IssueCategory.Maintainability],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.ComposerAudit, {
+      tool: AnalyzerTool.ComposerAudit,
+      command: 'composer',
+      args: ['audit', '--format=json'],
+      dockerImage: 'composer:latest',
+      languages: ['PHP'],
+      categories: [IssueCategory.Security],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.Progpilot, {
+      tool: AnalyzerTool.Progpilot,
+      command: 'php',
+      args: ['progpilot.phar', '.'],
+      dockerImage: 'php:8.2-cli',
+      languages: ['PHP'],
+      categories: [IssueCategory.Security],
+      enabled: true
+    });
+
+    // 汎用ツール
+    configs.set(AnalyzerTool.Semgrep, {
+      tool: AnalyzerTool.Semgrep,
+      command: 'semgrep',
+      args: ['scan', '--config=auto', '--json', '--quiet'],
+      dockerImage: 'semgrep/semgrep',
+      languages: ['*'],
+      categories: [IssueCategory.Security, IssueCategory.CodeQuality],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.SonarQube, {
+      tool: AnalyzerTool.SonarQube,
+      command: 'sonar-scanner',
+      args: [],
+      dockerImage: 'sonarsource/sonar-scanner-cli',
+      languages: ['*'],
+      categories: [IssueCategory.Security, IssueCategory.CodeQuality, IssueCategory.Complexity, IssueCategory.Maintainability],
+      enabled: true
+    });
+
+    // Python / Django ツール
+    configs.set(AnalyzerTool.Bandit, {
+      tool: AnalyzerTool.Bandit,
+      command: 'bandit',
+      args: ['-r', '.', '-f', 'json', '--exclude', '.venv,venv,env,__pycache__,migrations'],
+      dockerImage: 'python:3.11',
+      languages: ['Python'],
+      categories: [IssueCategory.Security],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.PipAudit, {
+      tool: AnalyzerTool.PipAudit,
+      command: 'pip-audit',
+      args: ['-r', 'requirements.txt', '--format', 'json', '--desc'],
+      dockerImage: 'python:3.11',
+      languages: ['Python'],
+      categories: [IssueCategory.Security],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.Opengrep, {
+      tool: AnalyzerTool.Opengrep,
+      command: 'opengrep',
+      args: ['scan', '--config', 'auto', '--json'],
+      dockerImage: 'wollomatic/opengrep:latest',
+      languages: ['Python'],
+      categories: [IssueCategory.Security, IssueCategory.CodeQuality],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.Pylint, {
+      tool: AnalyzerTool.Pylint,
+      command: 'pylint',
+      args: ['--output-format=json', '--recursive=y'],
+      dockerImage: 'python:3.11',
+      languages: ['Python'],
+      categories: [IssueCategory.CodeQuality, IssueCategory.BestPractice],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.Radon, {
+      tool: AnalyzerTool.Radon,
+      command: 'radon',
+      args: ['cc', '.', '-j', '-n', 'C'],
+      dockerImage: 'python:3.11',
+      languages: ['Python'],
+      categories: [IssueCategory.Complexity],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.DjangoCheckDeploy, {
+      tool: AnalyzerTool.DjangoCheckDeploy,
+      command: 'python',
+      args: ['manage.py', 'check', '--deploy'],
+      dockerImage: 'python:3.11',
+      languages: ['Python'],
+      categories: [IssueCategory.Security],
       enabled: true
     });
 

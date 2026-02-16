@@ -1,9 +1,9 @@
 /**
- * IT資産監査パイプライン
+ * IT資産監査パイプライン（Laravel Todo App）
  *
  * 使用方法:
  *   cd tools
- *   npx tsx scripts/run-audit.ts
+ *   npx tsx scripts/run-audit-laravel.ts
  */
 
 import { createLogger, LogLevel } from '@it-supervisor/logger';
@@ -21,10 +21,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // ── 入力パラメータ ──────────────────────────────────────
-const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system`;
+const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\laravel-todo-app`;
 const PROJECT_NAME = '顧客Webアプリ';
 const CUSTOMER_NAME = '株式会社サンプル';
-const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system_output`;
+const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\laravel-todo-app_output`;
 
 // ── メイン処理 ──────────────────────────────────────────
 async function main() {
@@ -376,6 +376,37 @@ async function main() {
     });
   }
 
+  // テストコード不在
+  const hasTests = repoResult.fileStats.totalFiles > 0 &&
+    repoResult.techStack.languages.some((l) =>
+      ['c#', 'typescript', 'javascript', 'php', 'python'].includes(l.name.toLowerCase())
+    );
+  if (hasTests && !fs.existsSync(path.join(TARGET_REPO_PATH, 'Tests')) &&
+      !fs.existsSync(path.join(TARGET_REPO_PATH, 'tests')) &&
+      !fs.existsSync(path.join(TARGET_REPO_PATH, '__tests__'))) {
+    recommendations.push({
+      priority: 'high',
+      title: 'テストコードの追加',
+      description: 'テストコードが検出されませんでした。ユニットテスト・統合テストの導入により、リグレッションの防止と品質保証を強化することを推奨します。',
+      effort: '1-2週間',
+      impact: '品質保証・リグレッション防止',
+    });
+  }
+
+  // Laravelフレームワークのバージョンチェック
+  const laravelFw = repoResult.techStack.frameworks.find((f) =>
+    f.name.toLowerCase().includes('laravel')
+  );
+  if (laravelFw && laravelFw.version && /^[4-7]\./.test(laravelFw.version)) {
+    recommendations.push({
+      priority: 'critical',
+      title: 'Laravelフレームワークのバージョンアップ',
+      description: `${laravelFw.name} ${laravelFw.version} はサポート終了(EOL)済み、またはまもなく終了予定です。セキュリティパッチが提供されないため、最新のLTSバージョンへの移行を強く推奨します。`,
+      effort: '2-4週間',
+      impact: 'セキュリティリスクの根本的解決',
+    });
+  }
+
   console.log(`  改善提案数: ${recommendations.length}件`);
   for (const rec of recommendations) {
     console.log(`    [${rec.priority.toUpperCase()}] ${rec.title}`);
@@ -397,7 +428,7 @@ async function main() {
     version: '1.0',
     data: {
       repository: {
-        name: repoResult.metadata.hasReadme ? PROJECT_NAME : PROJECT_NAME,
+        name: PROJECT_NAME,
         path: TARGET_REPO_PATH,
         hasGit: repoResult.metadata.hasGit,
         hasCI: repoResult.metadata.hasCI,

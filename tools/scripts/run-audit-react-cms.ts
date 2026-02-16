@@ -1,9 +1,9 @@
 /**
- * IT資産監査パイプライン
+ * IT資産監査パイプライン - React CMS App
  *
  * 使用方法:
  *   cd tools
- *   npx tsx scripts/run-audit.ts
+ *   npx tsx scripts/run-audit-react-cms.ts
  */
 
 import { createLogger, LogLevel } from '@it-supervisor/logger';
@@ -21,10 +21,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // ── 入力パラメータ ──────────────────────────────────────
-const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system`;
+const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\react-cms-app`;
 const PROJECT_NAME = '顧客Webアプリ';
 const CUSTOMER_NAME = '株式会社サンプル';
-const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system_output`;
+const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\react-cms-app_output`;
 
 // ── メイン処理 ──────────────────────────────────────────
 async function main() {
@@ -376,6 +376,58 @@ async function main() {
     });
   }
 
+  // テストコード不在
+  const hasTestableLanguages = repoResult.fileStats.totalFiles > 0 &&
+    repoResult.techStack.languages.some((l) =>
+      ['c#', 'typescript', 'javascript', 'php', 'python'].includes(l.name.toLowerCase())
+    );
+  if (hasTestableLanguages && !fs.existsSync(path.join(TARGET_REPO_PATH, 'Tests')) &&
+      !fs.existsSync(path.join(TARGET_REPO_PATH, 'tests')) &&
+      !fs.existsSync(path.join(TARGET_REPO_PATH, '__tests__')) &&
+      !fs.existsSync(path.join(TARGET_REPO_PATH, 'src', '__tests__'))) {
+    recommendations.push({
+      priority: 'high',
+      title: 'テストコードの追加',
+      description: 'テストコードが検出されませんでした。ユニットテスト・統合テストの導入により、リグレッションの防止と品質保証を強化することを推奨します。',
+      effort: '1-2週間',
+      impact: '品質保証・リグレッション防止',
+    });
+  }
+
+  // Reactバージョンのチェック
+  const reactDep = repoResult.techStack.dependencies.find((d) =>
+    d.name.toLowerCase() === 'react'
+  );
+  if (reactDep && reactDep.version && /^1[0-6]\./.test(reactDep.version)) {
+    recommendations.push({
+      priority: 'high',
+      title: 'Reactのバージョンアップ',
+      description: `React ${reactDep.version} が使用されています。最新のReact 18以降への移行を推奨します。パフォーマンス改善、Concurrent Features、自動バッチングなどの恩恵を受けられます。`,
+      effort: '1-2週間',
+      impact: 'パフォーマンス改善・最新機能の活用',
+    });
+  }
+
+  // 古い依存関係の脆弱性チェック
+  const vulnerableDeps = repoResult.techStack.dependencies.filter((d) => {
+    const name = d.name.toLowerCase();
+    const ver = d.version || '';
+    return (
+      (name === 'axios' && /^0\./.test(ver)) ||
+      (name === 'lodash' && /^4\.17\.(1[0-9]|[0-9])$/.test(ver)) ||
+      (name === 'moment' && ver.length > 0)
+    );
+  });
+  if (vulnerableDeps.length > 0) {
+    recommendations.push({
+      priority: 'high',
+      title: '脆弱性のある依存パッケージの更新',
+      description: `${vulnerableDeps.map(d => `${d.name}@${d.version}`).join(', ')} など、既知の脆弱性を含む可能性のあるパッケージが検出されました。最新バージョンへの更新を推奨します。`,
+      effort: '1-3日',
+      impact: 'セキュリティリスクの低減',
+    });
+  }
+
   console.log(`  改善提案数: ${recommendations.length}件`);
   for (const rec of recommendations) {
     console.log(`    [${rec.priority.toUpperCase()}] ${rec.title}`);
@@ -397,7 +449,7 @@ async function main() {
     version: '1.0',
     data: {
       repository: {
-        name: repoResult.metadata.hasReadme ? PROJECT_NAME : PROJECT_NAME,
+        name: PROJECT_NAME,
         path: TARGET_REPO_PATH,
         hasGit: repoResult.metadata.hasGit,
         hasCI: repoResult.metadata.hasCI,

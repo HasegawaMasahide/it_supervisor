@@ -1,9 +1,9 @@
 /**
- * IT資産監査パイプライン
+ * IT資産監査パイプライン（第4回実行）
  *
  * 使用方法:
  *   cd tools
- *   npx tsx scripts/run-audit.ts
+ *   npx tsx scripts/run-audit-4.ts
  */
 
 import { createLogger, LogLevel } from '@it-supervisor/logger';
@@ -24,7 +24,7 @@ import * as fs from 'fs';
 const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system`;
 const PROJECT_NAME = '顧客Webアプリ';
 const CUSTOMER_NAME = '株式会社サンプル';
-const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system_output`;
+const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system_output_4`;
 
 // ── メイン処理 ──────────────────────────────────────────
 async function main() {
@@ -397,7 +397,7 @@ async function main() {
     version: '1.0',
     data: {
       repository: {
-        name: repoResult.metadata.hasReadme ? PROJECT_NAME : PROJECT_NAME,
+        name: PROJECT_NAME,
         path: TARGET_REPO_PATH,
         hasGit: repoResult.metadata.hasGit,
         hasCI: repoResult.metadata.hasCI,

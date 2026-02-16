@@ -54,7 +54,7 @@ describe('StaticAnalyzer', () => {
       expect(tools).toContain(AnalyzerTool.Gitleaks);
     });
 
-    it('should select ESLint and Snyk when package.json exists', async () => {
+    it('should select ESLint when package.json exists', async () => {
       vi.mocked(fs.access).mockImplementation(async (path: any) => {
         const pathStr = String(path);
         if (pathStr.includes('package.json')) {
@@ -67,7 +67,6 @@ describe('StaticAnalyzer', () => {
       const tools = await (analyzer as any).selectTools('/test/repo');
 
       expect(tools).toContain(AnalyzerTool.ESLint);
-      expect(tools).toContain(AnalyzerTool.Snyk);
       expect(tools).toContain(AnalyzerTool.Gitleaks);
     });
 
@@ -101,7 +100,6 @@ describe('StaticAnalyzer', () => {
 
       expect(tools).toContain(AnalyzerTool.PHPCodeSniffer);
       expect(tools).toContain(AnalyzerTool.PHPStan);
-      expect(tools).toContain(AnalyzerTool.Snyk);
       expect(tools).toContain(AnalyzerTool.Gitleaks);
     });
 
@@ -294,12 +292,12 @@ describe('StaticAnalyzer', () => {
       const issues: AnalysisIssue[] = [
         {
           id: '1',
-          tool: AnalyzerTool.Snyk,
+          tool: AnalyzerTool.Gitleaks,
           severity: Severity.Critical,
           category: IssueCategory.Security,
-          rule: 'CVE-2021-1234',
+          rule: 'generic-api-key',
           message: 'Security vulnerability',
-          file: 'package.json'
+          file: '.env'
         },
         {
           id: '2',
@@ -351,19 +349,19 @@ describe('StaticAnalyzer', () => {
         },
         {
           id: '3',
-          tool: AnalyzerTool.Snyk,
+          tool: AnalyzerTool.Bandit,
           severity: Severity.Critical,
           category: IssueCategory.Security,
-          rule: 'CVE-2021-1234',
-          message: 'Security vulnerability',
-          file: 'package.json'
+          rule: 'B608',
+          message: 'SQL injection',
+          file: 'views.py'
         }
       ];
 
       const summary = (analyzer as any).createSummary(toolResults, issues, 1500);
 
       expect(summary.byTool[AnalyzerTool.ESLint]).toBe(2);
-      expect(summary.byTool[AnalyzerTool.Snyk]).toBe(1);
+      expect(summary.byTool[AnalyzerTool.Bandit]).toBe(1);
     });
 
     it('should count unique files analyzed', () => {
@@ -637,24 +635,16 @@ describe('StaticAnalyzer', () => {
       expect(result).toEqual([]);
     });
 
-    it('should handle tool execution errors gracefully in Snyk', async () => {
-      vi.mocked(fs.access).mockImplementation(async (path: any) => {
-        const pathStr = String(path);
-        if (pathStr.includes('package.json')) {
-          return Promise.resolve();
-        }
-        return Promise.reject(new Error('File not found'));
-      });
+    it('should handle tool execution errors gracefully in Bandit', async () => {
       vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
-        const error = new Error('Command failed') as any;
-        error.stdout = '{}';
+        const error = new Error('Command not found') as any;
+        error.stdout = '';
         callback(error, '', '');
         return {} as any;
       });
 
-      const result = await (analyzer as any).runSnyk('/test/repo', {});
+      const result = await (analyzer as any).runBandit('/test/repo', {});
 
-      // エラーでも stdout がある場合はパースを試みる
       expect(result).toEqual([]);
     });
 
@@ -858,200 +848,345 @@ describe('StaticAnalyzer', () => {
         ({ tool }) => { progressCalls.push(tool); }
       );
 
-      // package.json があるので ESLint, Snyk, Gitleaks が選択される
+      // package.json があるので ESLint, Gitleaks が選択される
       expect(progressCalls).toContain(AnalyzerTool.ESLint);
-      expect(progressCalls).toContain(AnalyzerTool.Snyk);
       expect(progressCalls).toContain(AnalyzerTool.Gitleaks);
     });
   });
 
-  describe('Snyk with multiple package managers', () => {
-    it('should run Snyk for composer.json projects', async () => {
+  describe('Python tool selection', () => {
+    it('should select Python tools when requirements.txt exists', async () => {
       vi.mocked(fs.access).mockImplementation(async (path: any) => {
         const pathStr = String(path);
-        if (pathStr.includes('composer.json')) {
+        if (pathStr.includes('requirements.txt')) return Promise.resolve();
+        return Promise.reject(new Error('File not found'));
+      });
+      vi.mocked(fs.readdir).mockResolvedValue([]);
+
+      const tools = await (analyzer as any).selectTools('/test/repo');
+
+      expect(tools).toContain(AnalyzerTool.Bandit);
+      expect(tools).toContain(AnalyzerTool.Pylint);
+      expect(tools).toContain(AnalyzerTool.Radon);
+      expect(tools).toContain(AnalyzerTool.Opengrep);
+      expect(tools).toContain(AnalyzerTool.PipAudit);
+      expect(tools).toContain(AnalyzerTool.Gitleaks);
+      expect(tools).not.toContain(AnalyzerTool.DjangoCheckDeploy);
+    });
+
+    it('should select DjangoCheckDeploy when manage.py exists', async () => {
+      vi.mocked(fs.access).mockImplementation(async (path: any) => {
+        const pathStr = String(path);
+        if (pathStr.includes('requirements.txt') || pathStr.includes('manage.py')) {
           return Promise.resolve();
         }
         return Promise.reject(new Error('File not found'));
       });
-      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
-        callback(null, '{"vulnerabilities":[]}', '');
-        return {} as any;
-      });
+      vi.mocked(fs.readdir).mockResolvedValue([]);
 
-      const result = await (analyzer as any).runSnyk('/test/repo', {});
+      const tools = await (analyzer as any).selectTools('/test/repo');
 
-      expect(result).toEqual([]);
-      expect(execFile).toHaveBeenCalledWith(
-        'snyk',
-        ['test', '--json'],
-        expect.objectContaining({
-          cwd: '/test/repo',
-          timeout: 300000
-        }),
-        expect.any(Function)
-      );
+      expect(tools).toContain(AnalyzerTool.DjangoCheckDeploy);
+      expect(tools).toContain(AnalyzerTool.Bandit);
     });
 
-    it('should run Snyk for package.json projects', async () => {
+    it('should detect Python project via pyproject.toml without PipAudit', async () => {
       vi.mocked(fs.access).mockImplementation(async (path: any) => {
         const pathStr = String(path);
-        if (pathStr.includes('package.json')) {
-          return Promise.resolve();
-        }
+        if (pathStr.includes('pyproject.toml')) return Promise.resolve();
         return Promise.reject(new Error('File not found'));
       });
-      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
-        callback(null, '{"vulnerabilities":[]}', '');
-        return {} as any;
-      });
+      vi.mocked(fs.readdir).mockResolvedValue([]);
 
-      const result = await (analyzer as any).runSnyk('/test/repo', {});
+      const tools = await (analyzer as any).selectTools('/test/repo');
 
-      expect(result).toEqual([]);
-      expect(execFile).toHaveBeenCalledWith(
-        'snyk',
-        ['test', '--json'],
-        expect.objectContaining({
-          cwd: '/test/repo'
-        }),
-        expect.any(Function)
-      );
+      expect(tools).toContain(AnalyzerTool.Bandit);
+      expect(tools).toContain(AnalyzerTool.Pylint);
+      expect(tools).not.toContain(AnalyzerTool.PipAudit);
     });
+  });
 
-    it('should skip Snyk if no package manager files found', async () => {
-      vi.mocked(fs.access).mockRejectedValue(new Error('File not found'));
+  describe('Bandit parsing', () => {
+    it('should parse Bandit results with severity mapping', () => {
+      const results = [
+        {
+          filename: '/test/repo/views.py',
+          test_id: 'B608',
+          test_name: 'hardcoded_sql_expressions',
+          severity: 'HIGH',
+          confidence: 'MEDIUM',
+          line_number: 15,
+          line_range: [15, 16],
+          code: 'cursor.execute("SELECT * FROM users WHERE id = %s" % user_id)',
+          issue_text: 'Possible SQL injection via string-based query construction.',
+          issue_cwe: { id: 89, link: 'https://cwe.mitre.org/data/definitions/89.html' }
+        },
+        {
+          filename: '/test/repo/auth.py',
+          test_id: 'B303',
+          test_name: 'blacklist',
+          severity: 'MEDIUM',
+          confidence: 'HIGH',
+          line_number: 42,
+          line_range: [42],
+          code: 'hashlib.md5(password.encode())',
+          issue_text: 'Use of insecure MD5 hash function.'
+        }
+      ];
 
-      const result = await (analyzer as any).runSnyk('/test/repo', {});
-
-      expect(result).toEqual([]);
-      expect(execFile).not.toHaveBeenCalled();
-    });
-
-    it('should parse Snyk vulnerabilities with severity mapping', async () => {
-      const snykResult = {
-        vulnerabilities: [
-          {
-            id: 'SNYK-JS-LODASH-1234',
-            title: 'Prototype Pollution',
-            packageName: 'lodash',
-            version: '4.17.15',
-            severity: 'critical',
-            url: 'https://snyk.io/vuln/SNYK-JS-LODASH-1234',
-            identifiers: {
-              CVE: ['CVE-2020-1234']
-            },
-            fixedIn: ['4.17.21']
-          },
-          {
-            id: 'SNYK-JS-AXIOS-5678',
-            title: 'SSRF',
-            packageName: 'axios',
-            version: '0.19.0',
-            severity: 'high',
-            url: 'https://snyk.io/vuln/SNYK-JS-AXIOS-5678',
-            fixedIn: []
-          }
-        ]
-      };
-
-      const issues = (analyzer as any).parseSnykResults(snykResult, '/test');
+      const issues = (analyzer as any).parseBanditResults(results, '/test/repo');
 
       expect(issues).toHaveLength(2);
       expect(issues[0]).toMatchObject({
-        tool: AnalyzerTool.Snyk,
-        severity: Severity.Critical,
-        category: IssueCategory.Security,
-        rule: 'SNYK-JS-LODASH-1234',
-        message: 'Prototype Pollution in lodash@4.17.15',
-        file: 'package.json',
-        cve: ['CVE-2020-1234']
-      });
-      expect(issues[0].fix).toBeDefined();
-      expect(issues[0].fix?.description).toBe('Upgrade to lodash@4.17.21');
-      expect(issues[0].references).toContain('https://snyk.io/vuln/SNYK-JS-LODASH-1234');
-
-      expect(issues[1]).toMatchObject({
+        tool: AnalyzerTool.Bandit,
         severity: Severity.High,
-        rule: 'SNYK-JS-AXIOS-5678'
+        category: IssueCategory.Security,
+        rule: 'B608',
+        file: 'views.py',
+        line: 15,
+        cwe: ['CWE-89']
       });
-      expect(issues[1].fix).toBeUndefined();
+      expect(issues[1]).toMatchObject({
+        severity: Severity.Medium,
+        rule: 'B303'
+      });
     });
 
-    it('should map all Snyk severity levels correctly', async () => {
-      const snykResult = {
-        vulnerabilities: [
-          {
-            id: 'SNYK-CRITICAL',
-            title: 'Critical vulnerability',
-            packageName: 'pkg1',
-            version: '1.0.0',
-            severity: 'critical',
-            url: 'https://snyk.io/vuln/1'
-          },
-          {
-            id: 'SNYK-HIGH',
-            title: 'High vulnerability',
-            packageName: 'pkg2',
-            version: '2.0.0',
-            severity: 'high',
-            url: 'https://snyk.io/vuln/2'
-          },
-          {
-            id: 'SNYK-MEDIUM',
-            title: 'Medium vulnerability',
-            packageName: 'pkg3',
-            version: '3.0.0',
-            severity: 'medium',
-            url: 'https://snyk.io/vuln/3'
-          },
-          {
-            id: 'SNYK-LOW',
-            title: 'Low vulnerability',
-            packageName: 'pkg4',
-            version: '4.0.0',
-            severity: 'low',
-            url: 'https://snyk.io/vuln/4'
-          },
-          {
-            id: 'SNYK-UNKNOWN',
-            title: 'Unknown severity',
-            packageName: 'pkg5',
-            version: '5.0.0',
-            severity: 'unknown',
-            url: 'https://snyk.io/vuln/5'
-          }
-        ]
-      };
-
-      const issues = (analyzer as any).parseSnykResults(snykResult, '/test');
-
-      expect(issues).toHaveLength(5);
-      expect(issues[0].severity).toBe(Severity.Critical);
-      expect(issues[1].severity).toBe(Severity.High);
-      expect(issues[2].severity).toBe(Severity.Medium);
-      expect(issues[3].severity).toBe(Severity.Low);
-      expect(issues[4].severity).toBe(Severity.Info);
-    });
-
-    it('should handle invalid JSON in Snyk output', async () => {
-      vi.mocked(fs.access).mockImplementation(async (path: any) => {
-        const pathStr = String(path);
-        if (pathStr.includes('package.json')) {
-          return Promise.resolve();
-        }
-        return Promise.reject(new Error('File not found'));
-      });
+    it('should handle invalid Bandit JSON output', async () => {
       vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
         const error = new Error('Command failed') as any;
-        error.stdout = 'invalid json {{{';
+        error.stdout = 'invalid json';
         callback(error, '', '');
         return {} as any;
       });
 
-      const result = await (analyzer as any).runSnyk('/test/repo', {});
-
+      const result = await (analyzer as any).runBandit('/test/repo', {});
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('pip-audit parsing', () => {
+    it('should parse pip-audit results with CVE and fix info', () => {
+      const dependencies = [
+        {
+          name: 'Django',
+          version: '2.2.28',
+          vulns: [
+            {
+              id: 'CVE-2023-12345',
+              fix_versions: ['4.2.7'],
+              description: 'SQL injection vulnerability in Django'
+            }
+          ]
+        },
+        {
+          name: 'requests',
+          version: '2.25.1',
+          vulns: [
+            {
+              id: 'PYSEC-2023-456',
+              fix_versions: [],
+              description: 'SSRF in requests'
+            }
+          ]
+        },
+        { name: 'safe-package', version: '1.0.0', vulns: [] }
+      ];
+
+      const issues = (analyzer as any).parsePipAuditResults(dependencies);
+
+      expect(issues).toHaveLength(2);
+      expect(issues[0]).toMatchObject({
+        tool: AnalyzerTool.PipAudit,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        rule: 'CVE-2023-12345',
+        file: 'requirements.txt',
+        cve: ['CVE-2023-12345']
+      });
+      expect(issues[0].fix?.available).toBe(true);
+      expect(issues[0].fix?.description).toBe('Upgrade Django to 4.2.7');
+
+      expect(issues[1].fix).toBeUndefined();
+    });
+
+    it('should skip pip-audit when requirements.txt does not exist', async () => {
+      vi.mocked(fs.access).mockRejectedValue(new Error('File not found'));
+
+      const result = await (analyzer as any).runPipAudit('/test/repo', {});
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('Opengrep parsing', () => {
+    it('should parse Opengrep results with severity and category mapping', () => {
+      const results = [
+        {
+          path: '/test/repo/views.py',
+          check_id: 'python.django.security.injection.sql',
+          extra: {
+            message: 'Detected SQL injection',
+            severity: 'ERROR',
+            metadata: { category: 'security', cwe: ['CWE-89'] },
+            lines: 'cursor.execute(query)'
+          },
+          start: { line: 10, col: 5 },
+          end: { line: 10, col: 30 }
+        },
+        {
+          path: '/test/repo/utils.py',
+          check_id: 'python.correctness.useless-comparison',
+          extra: {
+            message: 'Useless comparison',
+            severity: 'WARNING',
+            metadata: { category: 'correctness' },
+            lines: 'if x == x:'
+          },
+          start: { line: 5, col: 1 },
+          end: { line: 5, col: 15 }
+        }
+      ];
+
+      const issues = (analyzer as any).parseOpengrepResults(results, '/test/repo');
+
+      expect(issues).toHaveLength(2);
+      expect(issues[0]).toMatchObject({
+        tool: AnalyzerTool.Opengrep,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        rule: 'python.django.security.injection.sql',
+        cwe: ['CWE-89']
+      });
+      expect(issues[1]).toMatchObject({
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality
+      });
+    });
+
+    it('should handle Opengrep execution failure', async () => {
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('opengrep not found') as any;
+        error.stdout = '';
+        callback(error, '', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runOpengrep('/test/repo', {});
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('pylint parsing', () => {
+    it('should parse pylint results with type-based severity', () => {
+      const results = [
+        { type: 'E', symbol: 'no-member', message: 'has no member', path: '/test/repo/app.py', line: 10, column: 5, 'message-id': 'E1101' },
+        { type: 'W', symbol: 'unused-import', message: 'Unused import os', path: '/test/repo/app.py', line: 1, column: 0, 'message-id': 'W0611' },
+        { type: 'C', symbol: 'missing-docstring', message: 'Missing docstring', path: '/test/repo/app.py', line: 5, column: 0, 'message-id': 'C0114' },
+        { type: 'R', symbol: 'too-many-branches', message: 'Too many branches', path: '/test/repo/app.py', line: 20, column: 0, 'message-id': 'R0912' },
+        { type: 'F', symbol: 'fatal-error', message: 'Fatal error', path: '/test/repo/broken.py', line: 1, column: 0, 'message-id': 'F0001' }
+      ];
+
+      const issues = (analyzer as any).parsePylintResults(results, '/test/repo');
+
+      expect(issues).toHaveLength(5);
+      expect(issues[0]).toMatchObject({ severity: Severity.High, category: IssueCategory.CodeQuality, rule: 'E1101' });
+      expect(issues[1]).toMatchObject({ severity: Severity.Medium, category: IssueCategory.CodeQuality, rule: 'W0611' });
+      expect(issues[2]).toMatchObject({ severity: Severity.Low, category: IssueCategory.BestPractice, rule: 'C0114' });
+      expect(issues[3]).toMatchObject({ severity: Severity.Low, category: IssueCategory.Complexity, rule: 'R0912' });
+      expect(issues[4]).toMatchObject({ severity: Severity.High, category: IssueCategory.CodeQuality, rule: 'F0001' });
+    });
+
+    it('should handle invalid pylint JSON output', async () => {
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        const error = new Error('') as any;
+        error.stdout = 'not json';
+        callback(error, '', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runPylint('/test/repo', {});
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('radon parsing', () => {
+    it('should parse radon complexity results', () => {
+      const result = {
+        '/test/repo/views.py': [
+          { name: 'checkout', type: 'function', complexity: 25, rank: 'D', lineno: 52, endline: 86, col_offset: 0 },
+          { name: 'process_payment', type: 'method', complexity: 45, rank: 'F', lineno: 89, endline: 107, col_offset: 4, classname: 'PaymentService' }
+        ],
+        '/test/repo/models.py': [
+          { name: 'total_price', type: 'method', complexity: 12, rank: 'C', lineno: 39, endline: 43, col_offset: 4, classname: 'Cart' }
+        ]
+      };
+
+      const issues = (analyzer as any).parseRadonResults(result, '/test/repo');
+
+      expect(issues).toHaveLength(3);
+      expect(issues[0]).toMatchObject({
+        tool: AnalyzerTool.Radon,
+        severity: Severity.Medium,
+        category: IssueCategory.Complexity,
+        rule: 'CC-D',
+        line: 52
+      });
+      expect(issues[0].message).toContain('checkout');
+      expect(issues[0].message).toContain('25');
+
+      expect(issues[1]).toMatchObject({ severity: Severity.High, rule: 'CC-F' });
+      expect(issues[1].message).toContain('PaymentService.process_payment');
+
+      expect(issues[2]).toMatchObject({ severity: Severity.Low, rule: 'CC-C' });
+    });
+
+    it('should handle empty radon output', async () => {
+      vi.mocked(execFile).mockImplementation((cmd, args, options, callback: any) => {
+        callback(null, '{}', '');
+        return {} as any;
+      });
+
+      const result = await (analyzer as any).runRadon('/test/repo', {});
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('Django check --deploy parsing', () => {
+    it('should parse Django security check output', () => {
+      const output = `System check identified some issues:
+
+WARNINGS:
+?: (security.W004) You have not set a value for the SECURE_HSTS_SECONDS setting.
+?: (security.W008) Your SECURE_SSL_REDIRECT setting is not set to True.
+?: (security.W018) You should not have DEBUG set to True in deployment.
+?: (security.W019) You have ALLOWED_HOSTS set to ['*'].
+
+System check identified 4 issues (0 silenced).`;
+
+      const issues = (analyzer as any).parseDjangoCheckResults(output);
+
+      expect(issues).toHaveLength(4);
+      expect(issues[0]).toMatchObject({
+        tool: AnalyzerTool.DjangoCheckDeploy,
+        category: IssueCategory.Security,
+        rule: 'security.W004',
+        severity: Severity.High
+      });
+      expect(issues[2]).toMatchObject({ rule: 'security.W018', severity: Severity.High });
+      expect(issues[3]).toMatchObject({ rule: 'security.W019', severity: Severity.High });
+    });
+
+    it('should skip when manage.py does not exist', async () => {
+      vi.mocked(fs.access).mockRejectedValue(new Error('File not found'));
+
+      const result = await (analyzer as any).runDjangoCheckDeploy('/test/repo', {});
+      expect(result).toEqual([]);
+    });
+
+    it('should handle empty Django check output', () => {
+      const output = 'System check identified no issues.';
+      const issues = (analyzer as any).parseDjangoCheckResults(output);
+      expect(issues).toEqual([]);
     });
   });
 
