@@ -24,7 +24,7 @@ Handlebars.registerHelper('formatNumber', (value: unknown) => {
   return String(value ?? '');
 });
 
-Handlebars.registerHelper('percentage', (value: unknown, total: unknown) => {
+Handlebars.registerHelper('calcPercent', (value: unknown, total: unknown) => {
   const v = Number(value);
   const t = Number(total);
   if (!t || isNaN(v) || isNaN(t)) return '0.0';
@@ -208,17 +208,23 @@ export class ReportGenerator {
         path: outputPath,
         format: 'A4',
         margin: {
-          top: '20mm',
-          right: '15mm',
-          bottom: '20mm',
-          left: '15mm'
+          top: '25mm',
+          right: '18mm',
+          bottom: '25mm',
+          left: '18mm'
         },
         printBackground: true,
         displayHeaderFooter: true,
-        headerTemplate: '<div></div>',
+        headerTemplate: `
+          <div style="font-size: 8px; color: #718096; width: 100%; padding: 8px 24px; display: flex; justify-content: space-between; font-family: 'Noto Sans JP', sans-serif;">
+            <span>${report.config.projectName} — ${report.config.customerName}</span>
+            <span>CONFIDENTIAL</span>
+          </div>
+        `,
         footerTemplate: `
-          <div style="font-size: 10px; text-align: center; width: 100%; padding: 5px;">
-            <span class="pageNumber"></span> / <span class="totalPages"></span>
+          <div style="font-size: 8px; color: #718096; width: 100%; padding: 8px 24px; display: flex; justify-content: space-between; font-family: 'Noto Sans JP', sans-serif;">
+            <span>IT Supervisor</span>
+            <span><span class="pageNumber"></span> / <span class="totalPages"></span></span>
           </div>
         `
       });
@@ -331,10 +337,17 @@ export class ReportGenerator {
 
 {{#if summary}}| 重要度 | 件数 | 割合 |
 |--------|------|------|
-| Critical | {{summary.criticalIssues}} | {{percentage summary.criticalIssues summary.totalIssues}}% |
-| High | {{summary.highIssues}} | {{percentage summary.highIssues summary.totalIssues}}% |
-| Medium | {{summary.mediumIssues}} | {{percentage summary.mediumIssues summary.totalIssues}}% |
-| Low | {{summary.lowIssues}} | {{percentage summary.lowIssues summary.totalIssues}}% |{{else}}静的解析結果がありません。{{/if}}
+| Critical | {{summary.criticalIssues}} | {{calcPercent summary.criticalIssues summary.totalIssues}}% |
+| High | {{summary.highIssues}} | {{calcPercent summary.highIssues summary.totalIssues}}% |
+| Medium | {{summary.mediumIssues}} | {{calcPercent summary.mediumIssues summary.totalIssues}}% |
+| Low | {{summary.lowIssues}} | {{calcPercent summary.lowIssues summary.totalIssues}}% |{{else}}静的解析結果がありません。{{/if}}
+
+{{#if categoryCounts}}#### カテゴリ別
+
+| カテゴリ | 件数 |
+|---------|------|
+{{#each categoryCounts}}| {{name}} | {{count}} |
+{{/each}}{{/if}}
 
 {{#if securityIssues}}### Critical/High問題の詳細
 
@@ -392,6 +405,7 @@ export class ReportGenerator {
 ---
 
 *このレポートは IT Supervisor により自動生成されました*
+*生成日時: {{generatedAt}}*
 `;
 
       case ReportType.Diagnosis:
@@ -460,8 +474,17 @@ export class ReportGenerator {
       date: config.date.toLocaleDateString('ja-JP'),
       author: config.author,
       version: config.version,
+      generatedAt: new Date().toLocaleString('ja-JP'),
       ...data
     };
+
+    // 言語の percentage を小数1桁にフォーマット
+    if (Array.isArray(variables.languages)) {
+      variables.languages = (variables.languages as Array<Record<string, unknown>>).map(lang => ({
+        ...lang,
+        percentage: typeof lang.percentage === 'number' ? (lang.percentage as number).toFixed(1) : lang.percentage,
+      }));
+    }
 
     // スコア計算（summary データがある場合）
     const summary = data.summary as Record<string, number> | undefined;
@@ -493,6 +516,75 @@ export class ReportGenerator {
         maintainability: maintainabilityScore,
         technicalDebt: debtScore,
       };
+    }
+
+    // toolsUsed: securityIssues や issues から使用ツール一覧を自動生成
+    if (!variables.toolsUsed) {
+      const toolSet = new Set<string>();
+      const securityIssues = data.securityIssues as Array<Record<string, string>> | undefined;
+      if (securityIssues) {
+        for (const issue of securityIssues) {
+          const tool = issue.tool || issue.description;
+          if (tool) toolSet.add(tool);
+        }
+      }
+      const issues = data.issues;
+      if (Array.isArray(issues)) {
+        for (const issue of issues) {
+          const tags = (issue as Record<string, unknown>).tags as string[] | undefined;
+          if (tags && tags.length > 0) toolSet.add(tags[0]);
+        }
+      }
+      // フォールバック: languages から推測
+      if (toolSet.size === 0) {
+        const languages = data.languages as Array<Record<string, string>> | undefined;
+        if (languages) {
+          for (const lang of languages) {
+            const name = lang.name?.toLowerCase();
+            if (name === 'c#') toolSet.add('Roslyn Analyzer（C#静的解析）');
+            if (name === 'javascript' || name === 'typescript') toolSet.add('ESLint（JavaScript/TypeScript）');
+            if (name === 'php') toolSet.add('PHPStan（PHP静的解析）');
+          }
+        }
+        toolSet.add('Gitleaks（シークレット検出）');
+      }
+      if (toolSet.size > 0) {
+        variables.toolsUsed = Array.from(toolSet);
+      }
+    }
+
+    // categoryCounts: issues/securityIssues からカテゴリ別件数を集計
+    if (!variables.categoryCounts) {
+      const allIssues = Array.isArray(data.securityIssues) ? data.securityIssues as Array<Record<string, string>> : [];
+      const issuesArr = Array.isArray(data.issues) ? data.issues as Array<Record<string, unknown>> : [];
+      if (allIssues.length > 0 || issuesArr.length > 0) {
+        const categoryMap = new Map<string, number>();
+        const categoryLabels: Record<string, string> = {
+          security: 'セキュリティ',
+          performance: 'パフォーマンス',
+          code_quality: 'コード品質',
+          CodeQuality: 'コード品質',
+          Security: 'セキュリティ',
+          Performance: 'パフォーマンス',
+          TechnicalDebt: '技術的負債',
+        };
+        if (issuesArr.length > 0) {
+          for (const issue of issuesArr) {
+            const cat = String(issue.category || 'other');
+            const label = categoryLabels[cat] || cat;
+            categoryMap.set(label, (categoryMap.get(label) || 0) + 1);
+          }
+        } else {
+          for (const issue of allIssues) {
+            const cat = issue.category || 'other';
+            const label = categoryLabels[cat] || cat;
+            categoryMap.set(label, (categoryMap.get(label) || 0) + 1);
+          }
+        }
+        variables.categoryCounts = Array.from(categoryMap.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(([name, count]) => ({ name, count }));
+      }
     }
 
     return variables;
@@ -590,72 +682,354 @@ export class ReportGenerator {
       `;
     }).join('\n');
 
+    // テーブル内の重要度テキストをバッジに変換
+    const styledSectionsHtml = this.addSeverityBadges(sectionsHtml);
+
+    const reportTypeLabel: Record<string, string> = {
+      'system-overview': 'システム概要',
+      'analysis': '分析レポート',
+      'diagnosis': '診断レポート',
+      'proposal': '改善提案書',
+      'implementation': '実装報告書',
+      'measurement': '効果測定レポート',
+      'final-report': '最終報告書',
+    };
+    const typeLabel = reportTypeLabel[report.type] || report.type;
+
     return `<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${report.config.projectName} - ${report.type}</title>
+  <title>${report.config.projectName} - ${typeLabel}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
+    /* === Base === */
+    *, *::before, *::after { box-sizing: border-box; }
     body {
       font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       line-height: 1.8;
-      max-width: 1000px;
+      max-width: 960px;
       margin: 0 auto;
-      padding: 40px;
-      color: #333;
+      padding: 0;
+      color: #2d3748;
+      background: #fff;
+      font-size: 15px;
+      font-weight: 400;
     }
-    h1 { font-size: 2.5em; color: #1a1a1a; margin-top: 1em; }
-    h2 { font-size: 2em; color: #2a2a2a; margin-top: 1.5em; border-bottom: 2px solid #e0e0e0; padding-bottom: 0.5em; }
-    h3 { font-size: 1.5em; color: #3a3a3a; margin-top: 1.2em; }
+
+    /* === Cover Header === */
+    .report-header {
+      background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+      color: #fff;
+      padding: 48px 48px 40px;
+      margin-bottom: 0;
+    }
+    .report-header .report-type-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      font-size: 0.75em;
+      font-weight: 500;
+      padding: 4px 14px;
+      border-radius: 20px;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+    .report-header h1 {
+      font-size: 2em;
+      font-weight: 700;
+      margin: 0 0 24px 0;
+      letter-spacing: 0.02em;
+      line-height: 1.3;
+    }
+    .report-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      font-size: 0.9em;
+      opacity: 0.92;
+    }
+    .report-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .report-meta-item .label {
+      font-weight: 300;
+      opacity: 0.8;
+    }
+    .report-meta-item .value {
+      font-weight: 500;
+    }
+
+    /* === Content Area === */
+    .report-body {
+      padding: 0 48px 48px;
+    }
+
+    /* === Table of Contents === */
     .toc {
-      background: #f8f9fa;
-      padding: 20px;
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
       border-radius: 8px;
-      margin: 30px 0;
+      padding: 28px 32px;
+      margin: 32px 0 40px;
     }
-    .toc h2 { margin-top: 0; border: none; }
-    .toc ul { list-style: none; padding-left: 20px; }
-    .toc li { margin: 8px 0; }
-    .toc a { text-decoration: none; color: #0066cc; }
-    .toc a:hover { text-decoration: underline; }
-    section { margin: 40px 0; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th, td { padding: 12px; text-align: left; border: 1px solid #ddd; }
-    th { background: #f0f0f0; font-weight: bold; }
-    code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }
-    pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
-    .footer {
-      margin-top: 60px;
-      padding-top: 20px;
-      border-top: 1px solid #e0e0e0;
-      color: #666;
+    .toc h2 {
+      margin: 0 0 16px 0;
+      font-size: 1.1em;
+      font-weight: 700;
+      color: #1a365d;
+      border: none;
+      padding: 0;
+      letter-spacing: 0.04em;
+    }
+    .toc h2::before {
+      content: none;
+    }
+    .toc ul {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+    .toc ul ul { padding-left: 20px; }
+    .toc li { margin: 6px 0; }
+    .toc a {
+      text-decoration: none;
+      color: #2b6cb0;
+      font-size: 0.92em;
+      transition: color 0.15s;
+    }
+    .toc a:hover { color: #1a365d; text-decoration: underline; }
+
+    /* === Headings === */
+    h1 {
+      font-size: 1.75em;
+      color: #1a202c;
+      margin-top: 48px;
+      font-weight: 700;
+    }
+    h2 {
+      font-size: 1.4em;
+      color: #1a365d;
+      margin-top: 48px;
+      padding-bottom: 10px;
+      border-bottom: 3px solid #2b6cb0;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    h2::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 0.9em;
+      background: #2b6cb0;
+      margin-right: 10px;
+      border-radius: 2px;
+      vertical-align: baseline;
+    }
+    h3 {
+      font-size: 1.15em;
+      color: #2d3748;
+      margin-top: 32px;
+      font-weight: 700;
+      padding-left: 14px;
+      border-left: 3px solid #63b3ed;
+    }
+    h4 {
+      font-size: 1em;
+      color: #4a5568;
+      margin-top: 24px;
+      font-weight: 700;
+    }
+
+    /* === Sections === */
+    section { margin: 32px 0; }
+    section.level-2 { margin-top: 48px; }
+
+    /* === Tables === */
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 20px 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 0.93em;
+    }
+    thead th {
+      background: #1a365d;
+      color: #fff;
+      font-weight: 500;
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 0.92em;
+      letter-spacing: 0.03em;
+      border: none;
+    }
+    thead th:first-child { border-radius: 0; }
+    thead th:last-child  { border-radius: 0; }
+    tbody td {
+      padding: 10px 16px;
+      border-bottom: 1px solid #edf2f7;
+      border-right: none;
+      border-left: none;
+      vertical-align: top;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:nth-child(even) { background: #f7fafc; }
+    tbody tr:hover { background: #edf2f7; }
+
+    /* === Severity Badges === */
+    .badge {
+      display: inline-block;
+      font-size: 0.78em;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .badge-critical { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
+    .badge-high     { background: #fffaf0; color: #c05621; border: 1px solid #fbd38d; }
+    .badge-medium   { background: #fffff0; color: #975a16; border: 1px solid #f6e05e; }
+    .badge-low      { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; }
+    .badge-info     { background: #ebf8ff; color: #2b6cb0; border: 1px solid #90cdf4; }
+
+    /* === Score/Status indicators === */
+    .status-danger  { color: #c53030; font-weight: 700; }
+    .status-warning { color: #c05621; font-weight: 700; }
+    .status-good    { color: #276749; font-weight: 700; }
+    .status-info    { color: #2b6cb0; font-weight: 500; }
+
+    /* === Lists === */
+    ul, ol { padding-left: 24px; }
+    li { margin: 6px 0; }
+    li strong { color: #1a202c; }
+
+    /* === Horizontal Rule === */
+    hr {
+      border: none;
+      height: 1px;
+      background: #e2e8f0;
+      margin: 40px 0;
+    }
+
+    /* === Code === */
+    code {
+      background: #edf2f7;
+      color: #2d3748;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
       font-size: 0.9em;
     }
+    pre {
+      background: #1a202c;
+      color: #e2e8f0;
+      padding: 20px 24px;
+      border-radius: 8px;
+      overflow-x: auto;
+      line-height: 1.6;
+      font-size: 0.88em;
+    }
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+
+    /* === Blockquote === */
+    blockquote {
+      border-left: 4px solid #2b6cb0;
+      background: #ebf8ff;
+      margin: 20px 0;
+      padding: 16px 24px;
+      border-radius: 0 8px 8px 0;
+      color: #2a4365;
+    }
+    blockquote p { margin: 0; }
+
+    /* === Footer === */
+    .report-footer {
+      margin-top: 60px;
+      padding: 24px 48px;
+      background: #f7fafc;
+      border-top: 3px solid #1a365d;
+      color: #718096;
+      font-size: 0.85em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .report-footer .brand {
+      font-weight: 500;
+      color: #1a365d;
+    }
+
+    /* === Print / PDF === */
+    @media print {
+      body { padding: 0; font-size: 12pt; }
+      .report-header { break-after: avoid; }
+      .toc { break-after: page; }
+      section.level-2 { break-before: page; }
+      section.level-2:first-of-type { break-before: auto; }
+      table { break-inside: avoid; }
+      tbody tr { break-inside: avoid; }
+      .report-footer { break-before: avoid; }
+      a { color: inherit; text-decoration: none; }
+    }
+
     ${report.config.customCSS || ''}
   </style>
 </head>
 <body>
-  <header>
+  <div class="report-header">
+    <div class="report-type-badge">${typeLabel}</div>
     <h1>${report.config.projectName}</h1>
-    <p><strong>顧客:</strong> ${report.config.customerName}</p>
-    <p><strong>日付:</strong> ${report.config.date.toLocaleDateString('ja-JP')}</p>
-    ${report.config.author ? `<p><strong>作成者:</strong> ${report.config.author}</p>` : ''}
-  </header>
-
-  <div class="toc">
-    <h2>目次</h2>
-    ${tocHtml}
+    <div class="report-meta">
+      <div class="report-meta-item">
+        <span class="label">顧客</span>
+        <span class="value">${report.config.customerName}</span>
+      </div>
+      <div class="report-meta-item">
+        <span class="label">日付</span>
+        <span class="value">${report.config.date.toLocaleDateString('ja-JP')}</span>
+      </div>
+      ${report.config.author ? `
+      <div class="report-meta-item">
+        <span class="label">作成者</span>
+        <span class="value">${report.config.author}</span>
+      </div>` : ''}
+      ${report.config.version ? `
+      <div class="report-meta-item">
+        <span class="label">版</span>
+        <span class="value">${report.config.version}</span>
+      </div>` : ''}
+    </div>
   </div>
 
-  <main>
-    ${sectionsHtml}
-  </main>
+  <div class="report-body">
+    <div class="toc">
+      <h2>目次</h2>
+      ${tocHtml}
+    </div>
 
-  <footer class="footer">
-    <p>生成日時: ${report.generatedAt.toLocaleString('ja-JP')}</p>
-    <p>このレポートは IT Supervisor により自動生成されました</p>
-  </footer>
+    <main>
+      ${styledSectionsHtml}
+    </main>
+  </div>
+
+  <div class="report-footer">
+    <span class="brand">IT Supervisor</span>
+    <span>生成日時: ${report.generatedAt.toLocaleString('ja-JP')}</span>
+  </div>
 </body>
 </html>`;
   }
@@ -682,6 +1056,23 @@ export class ReportGenerator {
     html += '</ul>'.repeat(currentLevel);
 
     return html;
+  }
+
+  /**
+   * HTML内の重要度テキストをバッジ要素に変換
+   */
+  private addSeverityBadges(html: string): string {
+    const badgeMap: Record<string, string> = {
+      'CRITICAL': '<span class="badge badge-critical">CRITICAL</span>',
+      'HIGH':     '<span class="badge badge-high">HIGH</span>',
+      'MEDIUM':   '<span class="badge badge-medium">MEDIUM</span>',
+      'LOW':      '<span class="badge badge-low">LOW</span>',
+      'INFO':     '<span class="badge badge-info">INFO</span>',
+    };
+    // テーブルセル内の重要度テキストのみ置換（<td>CRITICAL</td> → <td><span ...>CRITICAL</span></td>）
+    return html.replace(/<td>(CRITICAL|HIGH|MEDIUM|LOW|INFO)<\/td>/g, (_match, severity) => {
+      return `<td>${badgeMap[severity] || severity}</td>`;
+    });
   }
 
   /**

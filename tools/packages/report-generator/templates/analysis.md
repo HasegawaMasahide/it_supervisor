@@ -2,8 +2,8 @@
 
 **顧客名**: {{customerName}}
 **作成日**: {{date}}
-**作成者**: {{author}}
-**バージョン**: {{version}}
+{{#if author}}**作成者**: {{author}}{{/if}}
+{{#if version}}**バージョン**: {{version}}{{/if}}
 
 ---
 
@@ -16,44 +16,54 @@
 
 | 評価項目 | スコア | 判定 |
 |---------|--------|------|
-| コード品質 | {{scores.codeQuality}}/100 | {{scores.codeQualityGrade}} |
-| セキュリティ | {{scores.security}}/100 | {{scores.securityGrade}} |
-| 保守性 | {{scores.maintainability}}/100 | {{scores.maintainabilityGrade}} |
-| 技術的負債 | {{scores.technicalDebt}}/100 | {{scores.technicalDebtGrade}} |
+{{#if scores}}| コード品質 | {{scores.codeQuality}}/100 | {{scoreLabel scores.codeQuality}} |
+| セキュリティ | {{scores.security}}/100 | {{scoreLabel scores.security}} |
+| 保守性 | {{scores.maintainability}}/100 | {{scoreLabel scores.maintainability}} |
+| 技術的負債 | {{scores.technicalDebt}}/100 | {{scoreLabel scores.technicalDebt}} |{{else}}| コード品質 | -/100 | 未評価 |
+| セキュリティ | -/100 | 未評価 |
+| 保守性 | -/100 | 未評価 |
+| 技術的負債 | -/100 | 未評価 |{{/if}}
 
 ### 重要な発見事項
 
-- **Critical問題**: {{summary.critical}}件
-- **High問題**: {{summary.high}}件
-- **Medium問題**: {{summary.medium}}件
-- **Low問題**: {{summary.low}}件
+{{#if summary}}- **Critical問題**: {{summary.criticalIssues}}件
+- **High問題**: {{summary.highIssues}}件
+- **Medium問題**: {{summary.mediumIssues}}件
+- **Low問題**: {{summary.lowIssues}}件
+- **合計**: {{summary.totalIssues}}件{{else}}- 問題の検出結果はありません。{{/if}}
 
 ---
 
 ## リポジトリ分析
 
+{{#if repository}}| 項目 | 内容 |
+|------|------|
+| リポジトリ名 | {{repository.name}} |
+| Gitリポジトリ | {{#if repository.hasGit}}はい{{else}}いいえ{{/if}} |
+| CI/CD | {{#if repository.hasCI}}設定済み{{else}}未設定{{/if}} |
+| Dockerfile | {{#if repository.hasDockerfile}}あり{{else}}なし{{/if}} |{{/if}}
+
 ### 技術スタック
 
-| カテゴリ | 内容 |
-|---------|------|
-| 主要言語 | {{techStack.primaryLanguage}} |
-| フレームワーク | {{techStack.frameworks}} |
-| パッケージマネージャー | {{techStack.packageManagers}} |
-| データベース | {{techStack.database}} |
+{{#if languages}}| 言語 | 割合 | 行数 |
+|------|------|------|
+{{#each languages}}| {{name}} | {{percentage}}% | {{formatNumber lines}} |
+{{/each}}{{else}}言語情報が取得できませんでした。{{/if}}
+
+### フレームワーク
+
+{{#if frameworks}}| フレームワーク | バージョン | 検出信頼度 |
+|--------------|----------|-----------|
+{{#each frameworks}}| {{name}} | {{version}} | {{confidence}} |
+{{/each}}{{else}}フレームワークは検出されませんでした。{{/if}}
 
 ### コード統計
 
-| 指標 | 値 |
+{{#if summary}}| 指標 | 値 |
 |------|-----|
-| 総ファイル数 | {{fileStats.totalFiles}} |
-| 総行数 | {{fileStats.totalLines}} |
-| コード行数 | {{fileStats.codeLines}} |
-| コメント行数 | {{fileStats.commentLines}} |
-| 空行数 | {{fileStats.blankLines}} |
-
-### 言語別構成
-
-{{languageBreakdown}}
+| 総ファイル数 | {{formatNumber summary.totalFiles}} |
+| 総行数 | {{formatNumber summary.totalLines}} |
+| コード行数 | {{formatNumber summary.totalCodeLines}} |{{/if}}
 
 ---
 
@@ -63,82 +73,58 @@
 
 #### 重要度別
 
-| 重要度 | 件数 | 割合 |
+{{#if summary}}| 重要度 | 件数 | 割合 |
 |--------|------|------|
-| Critical | {{issues.critical.count}} | {{issues.critical.percentage}}% |
-| High | {{issues.high.count}} | {{issues.high.percentage}}% |
-| Medium | {{issues.medium.count}} | {{issues.medium.percentage}}% |
-| Low | {{issues.low.count}} | {{issues.low.percentage}}% |
+| Critical | {{summary.criticalIssues}} | {{calcPercent summary.criticalIssues summary.totalIssues}}% |
+| High | {{summary.highIssues}} | {{calcPercent summary.highIssues summary.totalIssues}}% |
+| Medium | {{summary.mediumIssues}} | {{calcPercent summary.mediumIssues summary.totalIssues}}% |
+| Low | {{summary.lowIssues}} | {{calcPercent summary.lowIssues summary.totalIssues}}% |{{else}}静的解析結果がありません。{{/if}}
 
-#### カテゴリ別
+{{#if categoryCounts}}#### カテゴリ別
 
 | カテゴリ | 件数 |
 |---------|------|
-| セキュリティ | {{categories.security}} |
-| パフォーマンス | {{categories.performance}} |
-| コード品質 | {{categories.codeQuality}} |
-| スタイル | {{categories.style}} |
+{{#each categoryCounts}}| {{name}} | {{count}} |
+{{/each}}{{/if}}
 
-### Critical問題の詳細
+{{#if securityIssues}}### Critical/High問題の詳細
 
-{{criticalIssuesDetail}}
-
-### High問題の詳細
-
-{{highIssuesDetail}}
+| 重要度 | カテゴリ | 問題 | ファイル | 推奨対応 |
+|--------|---------|------|---------|---------|
+{{#each securityIssues}}| {{severityBadge severity}} | {{category}} | {{title}} | {{file}} | {{recommendation}} |
+{{/each}}{{/if}}
 
 ---
 
-## セキュリティ分析
+## 品質メトリクス
 
-### 脆弱性サマリー
-
-| 脆弱性タイプ | 件数 | リスクレベル |
-|--------------|------|--------------|
-{{securityVulnerabilities}}
-
-### 依存関係の脆弱性
-
-{{dependencyVulnerabilities}}
-
----
-
-## 技術的負債
-
-### 概要
-
-推定技術的負債: **{{technicalDebt.estimatedHours}}時間**（約{{technicalDebt.estimatedDays}}日）
-
-### 内訳
-
-| 項目 | 工数（時間） | 優先度 |
-|------|--------------|--------|
-{{technicalDebtBreakdown}}
+{{#if qualityMetrics}}| 指標 | 値 | 単位 | 状態 |
+|------|-----|------|------|
+{{#each qualityMetrics}}| {{name}} | {{formatNumber value}} | {{unit}} | {{status}} |
+{{/each}}{{/if}}
 
 ---
 
 ## 推奨事項
 
-### 即座に対応すべき項目（Critical/High）
+{{#if recommendations}}{{#each recommendations}}### {{priority}}: {{title}}
 
-{{immediateActions}}
+{{description}}
 
-### 短期的に対応すべき項目（Medium）
+- **想定工数**: {{effort}}
+- **期待効果**: {{impact}}
 
-{{shortTermActions}}
-
-### 中長期的に対応すべき項目（Low）
-
-{{longTermActions}}
+{{/each}}{{else}}改善提案はありません。{{/if}}
 
 ---
 
 ## 次のステップ
 
-1. Critical問題の修正計画策定
-2. セキュリティパッチの適用
-3. 詳細診断の実施（オプション）
-4. 改善提案書の作成
+{{#if summary}}{{#if (gt summary.criticalIssues 0)}}1. Critical問題の即時修正（{{summary.criticalIssues}}件）
+{{/if}}{{#if (gt summary.highIssues 0)}}1. High問題の早期修正計画策定（{{summary.highIssues}}件）
+{{/if}}1. 詳細診断の実施（オプション）
+1. 改善提案書の作成{{else}}1. 詳細な解析の実施
+1. 改善提案書の作成{{/if}}
 
 ---
 
@@ -146,15 +132,13 @@
 
 ### A. 使用した解析ツール
 
-- ESLint（JavaScript/TypeScript）
-- PHP_CodeSniffer（PHP）
-- PHPStan（PHP静的解析）
-- Snyk（セキュリティ・依存関係）
-- Gitleaks（シークレット検出）
+{{#if toolsUsed}}{{#each toolsUsed}}- {{this}}
+{{/each}}{{else}}- 情報がありません{{/if}}
 
-### B. 解析対象ファイル一覧
+### B. 解析対象サマリー
 
-{{analyzedFilesList}}
+{{#if summary}}- 対象ファイル数: {{formatNumber summary.totalFiles}}
+- 対象コード行数: {{formatNumber summary.totalCodeLines}}{{/if}}
 
 ---
 
