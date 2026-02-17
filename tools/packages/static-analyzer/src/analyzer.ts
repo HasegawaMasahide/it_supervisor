@@ -123,6 +123,8 @@ interface PatternRule {
   message: string;
   filePattern?: RegExp;
   fileCondition?: (content: string) => boolean;
+  /** 前後の行も含めたコンテキストチェック（trueを返した場合のみ問題として報告） */
+  contextCheck?: (lines: string[], matchLineIndex: number) => boolean;
 }
 
 // --- 追加ツール出力の型定義 ---
@@ -281,6 +283,66 @@ interface TrivyVulnerability {
   Title: string;
   Description?: string;
   PrimaryURL?: string;
+}
+
+// --- Bearer 出力の型定義 ---
+
+interface BearerResult {
+  findings?: BearerFinding[];
+}
+
+interface BearerFinding {
+  rule_id: string;
+  fingerprint?: string;
+  severity: string;
+  file: string;
+  filename?: string;
+  line_number?: number;
+  start_line_number?: number;
+  start_column_number?: number;
+  end_line_number?: number;
+  end_column_number?: number;
+  source?: string;
+  description?: string;
+  cwe?: string;
+  owasp_category?: string;
+}
+
+// --- njsscan 出力の型定義 ---
+
+interface NjsscanResult {
+  [ruleId: string]: NjsscanRule;
+}
+
+interface NjsscanRule {
+  metadata: {
+    description: string;
+    severity: string;
+    cwe?: string;
+    owasp?: string;
+  };
+  files: NjsscanFile[];
+}
+
+interface NjsscanFile {
+  file_path: string;
+  match_position: [number, number];
+  match_string: string;
+  match_lines: [number, number];
+}
+
+// --- SpotBugs XML 出力の型定義 ---
+
+interface SpotBugsBugInstance {
+  type: string;
+  priority: string;
+  category: string;
+  message: string;
+  sourceLine?: {
+    sourcepath?: string;
+    start?: string;
+    end?: string;
+  };
 }
 
 interface ProgpilotVuln {
@@ -635,6 +697,15 @@ export class StaticAnalyzer {
 
       case AnalyzerTool.Jscpd:
         return this.runJscpd(repoPath, options);
+
+      case AnalyzerTool.Bearer:
+        return this.runBearer(repoPath, options);
+
+      case AnalyzerTool.Njsscan:
+        return this.runNjsscan(repoPath, options);
+
+      case AnalyzerTool.SpotBugs:
+        return this.runSpotBugs(repoPath, options);
 
       default:
         // その他のツールは未実装
@@ -2392,6 +2463,59 @@ export class StaticAnalyzer {
 
   // --- Semgrep ---
 
+  /**
+   * Semgrep用のフレームワーク別ルールセットを構築
+   */
+  private async buildSemgrepConfigs(repoPath: string): Promise<string[]> {
+    const configs = ['auto'];
+
+    // Python / Django
+    if (await this.fileExists(path.join(repoPath, 'manage.py'))) {
+      configs.push('p/django');
+    }
+    const hasRequirements = await this.fileExists(path.join(repoPath, 'requirements.txt'));
+    const hasPyproject = await this.fileExists(path.join(repoPath, 'pyproject.toml'));
+    if (hasRequirements || hasPyproject) {
+      configs.push('p/python');
+    }
+
+    // PHP / Laravel
+    if (await this.fileExists(path.join(repoPath, 'composer.json'))) {
+      configs.push('p/php');
+      const composerContent = await fs.readFile(
+        path.join(repoPath, 'composer.json'), 'utf-8'
+      ).catch(() => '');
+      if (composerContent.includes('laravel/framework')) {
+        configs.push('p/laravel');
+      }
+    }
+
+    // Java / Spring Boot
+    if (await this.fileExists(path.join(repoPath, 'pom.xml')) ||
+        await this.fileExists(path.join(repoPath, 'build.gradle'))) {
+      configs.push('p/java');
+      configs.push('p/spring');
+    }
+
+    // JavaScript / TypeScript / React / Vue
+    if (await this.fileExists(path.join(repoPath, 'package.json'))) {
+      configs.push('p/javascript');
+      const pkgContent = await fs.readFile(
+        path.join(repoPath, 'package.json'), 'utf-8'
+      ).catch(() => '');
+      if (pkgContent.includes('"react"')) configs.push('p/react');
+      if (pkgContent.includes('"typescript"')) configs.push('p/typescript');
+    }
+
+    // C# / .NET
+    const dirFiles = await fs.readdir(repoPath).catch(() => []);
+    if (dirFiles.some(f => f.endsWith('.csproj'))) {
+      configs.push('p/csharp');
+    }
+
+    return configs;
+  }
+
   private async runSemgrep(
     repoPath: string,
     options: AnalysisOptions
@@ -2401,6 +2525,10 @@ export class StaticAnalyzer {
       let args: string[];
       const useDocker = await this.shouldUseDocker(AnalyzerTool.Semgrep, options);
 
+      // フレームワーク別ルールセットを構築
+      const configs = await this.buildSemgrepConfigs(repoPath);
+      const configArgs = configs.flatMap(c => ['--config', c]);
+
       if (useDocker) {
         const repoPathForDocker = repoPath.replace(/\\/g, '/');
         command = 'docker';
@@ -2408,17 +2536,20 @@ export class StaticAnalyzer {
           'run', '--rm',
           '-v', `${repoPathForDocker}:/src`,
           'semgrep/semgrep',
-          'semgrep', 'scan', '--config=auto', '--json', '--quiet'
+          'semgrep', 'scan', ...configArgs,
+          '--json', '--quiet',
+          '--max-target-bytes', '2000000'
         ];
       } else {
         command = 'semgrep';
-        args = ['scan', '--config=auto', '--json', '--quiet'];
+        args = ['scan', ...configArgs, '--json', '--quiet', '--max-target-bytes', '2000000'];
       }
 
-      const timeout = options.timeout || DEFAULT_TIMEOUT;
+      // Semgrep はルールダウンロード + 解析に時間がかかるため 10分タイムアウト
+      const timeout = options.timeout || 600_000;
       const { stdout } = await execFileAsync(command, args, {
         cwd: useDocker ? undefined : repoPath,
-        maxBuffer: 10 * 1024 * 1024,
+        maxBuffer: 20 * 1024 * 1024,
         timeout
       }).catch(error => {
         return { stdout: error.stdout || '{"results":[]}', stderr: error.stderr || '' };
@@ -3568,6 +3699,11 @@ export class StaticAnalyzer {
             }
 
             if (rule.pattern.test(line)) {
+              // contextCheck がある場合は前後の行も確認
+              if (rule.contextCheck && !rule.contextCheck(lines, i)) {
+                rule.pattern.lastIndex = 0;
+                continue;
+              }
               issues.push({
                 id: randomUUID(),
                 tool: this.resolveToolFromRuleId(rule.id),
@@ -3748,6 +3884,40 @@ export class StaticAnalyzer {
         message: '認証ミドルウェアが除外されています。意図的でない場合はセキュリティリスクです',
         filePattern: /\.php$/
       },
+      // --- N+1 クエリ検出 ---
+      {
+        id: 'PHP-PERF-001',
+        pattern: /foreach\s*\(\s*\$/,
+        severity: Severity.High,
+        category: IssueCategory.Performance,
+        message: 'ループ内でDBクエリが実行されている可能性があります（N+1問題）。Eagerロード（with）の使用を検討してください',
+        filePattern: /\.php$/,
+        contextCheck: (lines, i) => {
+          const block = lines.slice(i, Math.min(i + 10, lines.length)).join('\n');
+          return /(?:DB::(?:select|table)|->where\(|->find\(|->get\(\))/.test(block);
+        }
+      },
+      // --- レート制限チェック ---
+      {
+        id: 'PHP-SEC-006',
+        pattern: /Route::(?:post|put|patch|delete)\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: '状態変更ルートにthrottleミドルウェアが設定されていません。レート制限の追加を検討してください',
+        filePattern: /routes\/.*\.php$/,
+        fileCondition: (content) => !content.includes('throttle')
+      },
+      // --- 認証ミドルウェア確認 ---
+      {
+        id: 'PHP-SEC-007',
+        pattern: /Route::(?:post|put|patch|delete)\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '状態変更ルートにauthミドルウェアが設定されていない可能性があります。認証の設定を確認してください',
+        filePattern: /routes\/(?:web|api)\.php$/,
+        fileCondition: (content) => !content.includes("middleware('auth") &&
+          !content.includes("middleware(['auth") && !content.includes("middleware(\"auth")
+      },
     ];
   }
 
@@ -3820,6 +3990,47 @@ export class StaticAnalyzer {
         message: 'CORS設定で全オリジンが許可されています。本番環境では許可するオリジンを明示的に指定してください',
         filePattern: /\.(?:js|ts)$/
       },
+      // --- APIキーのハードコーディング検出 ---
+      {
+        id: 'JS-SEC-009',
+        pattern: /(?:api[_-]?key|apiKey|API_KEY|secret[_-]?key|secretKey)\s*[:=]\s*['"][A-Za-z0-9_\-]{16,}['"]/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'APIキー/シークレットがハードコーディングされています。環境変数を使用してください',
+        filePattern: /\.(?:js|ts|jsx|tsx|vue)$/
+      },
+      // --- HTTP通信の検出 ---
+      {
+        id: 'JS-SEC-010',
+        pattern: /['"]http:\/\/(?!localhost|127\.0\.0\.1)/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'HTTPプロトコルが使用されています。本番環境ではHTTPSを使用してください',
+        filePattern: /\.(?:js|ts|jsx|tsx|vue)$/
+      },
+      // --- N+1 クエリ検出 ---
+      {
+        id: 'JS-PERF-001',
+        pattern: /for\s*\(|\.forEach\s*\(|\.map\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.Performance,
+        message: 'ループ内でDBクエリまたはAPI呼び出しが実行されている可能性があります（N+1問題）。バッチ処理を検討してください',
+        filePattern: /\.(?:js|ts)$/,
+        contextCheck: (lines, i) => {
+          const block = lines.slice(i, Math.min(i + 10, lines.length)).join('\n');
+          return /await\s+.*\.(?:find|findOne|findById|query|fetch|get)\s*\(/.test(block);
+        }
+      },
+      // --- レート制限チェック ---
+      {
+        id: 'JS-SEC-011',
+        pattern: /app\.(?:post|put|patch|delete)\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'Express.jsの状態変更エンドポイントにレート制限が設定されていません。express-rate-limitの使用を検討してください',
+        filePattern: /\.(?:js|ts)$/,
+        fileCondition: (content) => !content.includes('rateLimit') && !content.includes('rate-limit') && !content.includes('rate_limit')
+      },
     ];
   }
 
@@ -3867,6 +4078,40 @@ export class StaticAnalyzer {
         category: IssueCategory.Security,
         message: 'mark_safe()の使用はXSS脆弱性のリスクがあります。入力値のサニタイズを確認してください',
         filePattern: /\.py$/
+      },
+      // --- N+1 クエリ検出 ---
+      {
+        id: 'PY-PERF-001',
+        pattern: /for\s+\w+\s+in\s+\w+/,
+        severity: Severity.High,
+        category: IssueCategory.Performance,
+        message: 'ループ内でORMクエリが実行されている可能性があります（N+1問題）。select_related/prefetch_relatedの使用を検討してください',
+        filePattern: /\.py$/,
+        contextCheck: (lines, i) => {
+          const block = lines.slice(i, Math.min(i + 10, lines.length)).join('\n');
+          return /\.objects\.(get|filter|all|exclude)\(/.test(block);
+        }
+      },
+      // --- レート制限チェック ---
+      {
+        id: 'PY-SEC-006',
+        pattern: /class\s+\w+.*(?:APIView|ViewSet|GenericAPIView)/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'APIビューにthrottle_classesが設定されていません。レート制限の設定を検討してください',
+        filePattern: /views\.py$/,
+        fileCondition: (content) => !content.includes('throttle_classes')
+      },
+      // --- 認証ミドルウェア確認 ---
+      {
+        id: 'PY-SEC-007',
+        pattern: /def\s+(?:post|put|patch|delete|create|update|destroy)\s*\(\s*self/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '状態変更メソッドに認証が設定されていない可能性があります。LoginRequiredMixinまたはIsAuthenticatedの使用を確認してください',
+        filePattern: /views\.py$/,
+        fileCondition: (content) => !content.includes('LoginRequiredMixin') &&
+          !content.includes('@login_required') && !content.includes('IsAuthenticated')
       },
     ];
   }
@@ -4212,6 +4457,9 @@ export class StaticAnalyzer {
       tools.push(AnalyzerTool.NpmAudit);
       tools.push(AnalyzerTool.NpmCheckUpdates);
       tools.push(AnalyzerTool.Jscpd);
+      tools.push(AnalyzerTool.Semgrep);
+      tools.push(AnalyzerTool.Bearer);
+      tools.push(AnalyzerTool.Njsscan);
 
       if (await this.fileExists(path.join(repoPath, 'tsconfig.json'))) {
         tools.push(AnalyzerTool.TypeScriptCompiler);
@@ -4222,12 +4470,15 @@ export class StaticAnalyzer {
     if (await this.fileExists(path.join(repoPath, 'composer.json'))) {
       tools.push(AnalyzerTool.PHPCodeSniffer);
       tools.push(AnalyzerTool.PHPStan);
+      tools.push(AnalyzerTool.Semgrep);
+      tools.push(AnalyzerTool.Bearer);
     }
 
     // .csproj存在確認 (C#)
     const files = await fs.readdir(repoPath).catch(() => []);
     if (files.some(f => f.endsWith('.csproj'))) {
       tools.push(AnalyzerTool.RoslynAnalyzer);
+      tools.push(AnalyzerTool.Semgrep);
     }
 
     // Java / Spring Boot 検出
@@ -4240,6 +4491,10 @@ export class StaticAnalyzer {
       tools.push(AnalyzerTool.Semgrep);
       tools.push(AnalyzerTool.PMD);
       tools.push(AnalyzerTool.DependencyCheck);
+      tools.push(AnalyzerTool.Bearer);
+      if (hasPomXml) {
+        tools.push(AnalyzerTool.SpotBugs);
+      }
     }
 
     // Python / Django 検出
@@ -4253,7 +4508,8 @@ export class StaticAnalyzer {
       tools.push(AnalyzerTool.Bandit);
       tools.push(AnalyzerTool.Pylint);
       tools.push(AnalyzerTool.Radon);
-      tools.push(AnalyzerTool.Opengrep);
+      tools.push(AnalyzerTool.Semgrep);
+      tools.push(AnalyzerTool.Bearer);
 
       if (hasRequirementsTxt) {
         tools.push(AnalyzerTool.PipAudit);
@@ -4264,7 +4520,8 @@ export class StaticAnalyzer {
       }
     }
 
-    return tools;
+    // 重複除去（複数言語プロジェクトで同一ツールが複数回追加される場合）
+    return [...new Set(tools)];
   }
 
   /**
@@ -4396,7 +4653,10 @@ export class StaticAnalyzer {
       [AnalyzerTool.Trivy]: 0,
       [AnalyzerTool.NpmAudit]: 0,
       [AnalyzerTool.NpmCheckUpdates]: 0,
-      [AnalyzerTool.Jscpd]: 0
+      [AnalyzerTool.Jscpd]: 0,
+      [AnalyzerTool.Bearer]: 0,
+      [AnalyzerTool.Njsscan]: 0,
+      [AnalyzerTool.SpotBugs]: 0
     };
 
     allIssues.forEach(issue => {
@@ -4527,6 +4787,344 @@ export class StaticAnalyzer {
           }
         });
       }
+    }
+
+    return issues;
+  }
+
+  /**
+   * Bearer実行
+   */
+  private async runBearer(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      let command: string;
+      let args: string[];
+      const timeout = options.timeout || 600_000;
+
+      const useDocker = await this.shouldUseDocker(AnalyzerTool.Bearer, options);
+
+      if (useDocker) {
+        const repoPathForDocker = repoPath.replace(/\\/g, '/');
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPathForDocker}:/src`,
+          'bearer/bearer',
+          'scan', '/src',
+          '--format', 'json',
+          '--quiet'
+        ];
+      } else {
+        command = 'bearer';
+        args = ['scan', repoPath, '--format', 'json', '--quiet'];
+      }
+
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: useDocker ? undefined : repoPath,
+        maxBuffer: 20 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '{"findings":[]}', stderr: error.stderr || '' };
+      });
+
+      let result: BearerResult;
+      try {
+        result = JSON.parse(stdout || '{"findings":[]}') as BearerResult;
+      } catch {
+        logger.error('Failed to parse Bearer output');
+        return [];
+      }
+
+      return this.parseBearerResults(result, repoPath);
+    } catch (error) {
+      logger.error('Bearer execution failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Bearer結果をパース
+   */
+  private parseBearerResults(result: BearerResult, repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    if (!result.findings) return issues;
+
+    for (const finding of result.findings) {
+      let severity: Severity;
+      switch (finding.severity?.toUpperCase()) {
+        case 'CRITICAL':
+          severity = Severity.Critical;
+          break;
+        case 'HIGH':
+          severity = Severity.High;
+          break;
+        case 'MEDIUM':
+          severity = Severity.Medium;
+          break;
+        case 'LOW':
+          severity = Severity.Low;
+          break;
+        default:
+          severity = Severity.Info;
+      }
+
+      // ファイルパスをリポジトリからの相対パスに変換
+      let filePath = finding.file || '';
+      if (filePath.startsWith('/src/')) {
+        filePath = filePath.substring(5);
+      }
+
+      issues.push({
+        id: randomUUID(),
+        tool: AnalyzerTool.Bearer,
+        severity,
+        category: IssueCategory.Security,
+        rule: finding.rule_id || 'bearer-finding',
+        message: finding.description || `Bearer: ${finding.rule_id}`,
+        file: filePath,
+        line: finding.line_number || finding.start_line_number,
+        column: finding.start_column_number,
+        endLine: finding.end_line_number,
+        endColumn: finding.end_column_number,
+        snippet: finding.source,
+        cwe: finding.cwe ? [finding.cwe] : undefined,
+        references: finding.owasp_category ? [`OWASP ${finding.owasp_category}`] : undefined
+      });
+    }
+
+    return issues;
+  }
+
+  /**
+   * njsscan実行
+   */
+  private async runNjsscan(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      let command: string;
+      let args: string[];
+      const timeout = options.timeout || 300_000;
+
+      const useDocker = await this.shouldUseDocker(AnalyzerTool.Njsscan, options);
+
+      if (useDocker) {
+        const repoPathForDocker = repoPath.replace(/\\/g, '/');
+        command = 'docker';
+        args = [
+          'run', '--rm',
+          '-v', `${repoPathForDocker}:/src`,
+          'opensecurity/njsscan',
+          '--json', '-o', '/dev/stdout', '/src'
+        ];
+      } else {
+        command = 'njsscan';
+        args = ['--json', '-o', '/dev/stdout', repoPath];
+      }
+
+      const { stdout } = await execFileAsync(command, args, {
+        cwd: useDocker ? undefined : repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        return { stdout: error.stdout || '{}', stderr: error.stderr || '' };
+      });
+
+      let result: NjsscanResult;
+      try {
+        result = JSON.parse(stdout || '{}') as NjsscanResult;
+      } catch {
+        logger.error('Failed to parse njsscan output');
+        return [];
+      }
+
+      return this.parseNjsscanResults(result, repoPath);
+    } catch (error) {
+      logger.error('njsscan execution failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * njsscan結果をパース
+   */
+  private parseNjsscanResults(result: NjsscanResult, _repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    for (const [ruleId, rule] of Object.entries(result)) {
+      // njsscanのトップレベルにはメタデータ以外のキーもある場合があるのでスキップ
+      if (!rule?.metadata || !rule?.files) continue;
+
+      let severity: Severity;
+      switch (rule.metadata.severity?.toUpperCase()) {
+        case 'ERROR':
+        case 'CRITICAL':
+          severity = Severity.Critical;
+          break;
+        case 'WARNING':
+        case 'HIGH':
+          severity = Severity.High;
+          break;
+        case 'INFO':
+        case 'MEDIUM':
+          severity = Severity.Medium;
+          break;
+        default:
+          severity = Severity.Low;
+      }
+
+      for (const file of rule.files) {
+        // ファイルパスをリポジトリからの相対パスに変換
+        let filePath = file.file_path || '';
+        if (filePath.startsWith('/src/')) {
+          filePath = filePath.substring(5);
+        }
+
+        issues.push({
+          id: randomUUID(),
+          tool: AnalyzerTool.Njsscan,
+          severity,
+          category: IssueCategory.Security,
+          rule: ruleId,
+          message: rule.metadata.description || `njsscan: ${ruleId}`,
+          file: filePath,
+          line: file.match_lines?.[0],
+          endLine: file.match_lines?.[1],
+          snippet: file.match_string,
+          cwe: rule.metadata.cwe ? [rule.metadata.cwe] : undefined
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  /**
+   * SpotBugs + Find Security Bugs 実行（Maven プロジェクト限定）
+   */
+  private async runSpotBugs(
+    repoPath: string,
+    options: AnalysisOptions
+  ): Promise<AnalysisIssue[]> {
+    try {
+      // pom.xml が必須
+      if (!await this.fileExists(path.join(repoPath, 'pom.xml'))) {
+        return [];
+      }
+
+      const timeout = options.timeout || 600_000;
+      const repoPathForDocker = repoPath.replace(/\\/g, '/');
+      const command = 'docker';
+
+      // Maven でコンパイル + SpotBugs + Find Security Bugs プラグイン実行
+      const mvnCommand = [
+        'mvn', 'compile',
+        'com.github.spotbugs:spotbugs-maven-plugin:4.8.3.1:spotbugs',
+        '-Dspotbugs.effort=Max',
+        '-Dspotbugs.threshold=Medium',
+        '-Dspotbugs.xmlOutput=true',
+        '-Dspotbugs.plugins.plugin.groupId=com.h3xstream.findsecbugs',
+        '-Dspotbugs.plugins.plugin.artifactId=findsecbugs-plugin',
+        '-Dspotbugs.plugins.plugin.version=1.13.0',
+        '-q', '-B'
+      ].join(' ');
+
+      const args = [
+        'run', '--rm',
+        '-v', `${repoPathForDocker}:/src`,
+        '-w', '/src',
+        'maven:3.9-eclipse-temurin-17',
+        'sh', '-c',
+        `${mvnCommand} && cat target/spotbugsXml.xml 2>/dev/null || echo '<BugCollection></BugCollection>'`
+      ];
+
+      const { stdout } = await execFileAsync(command, args, {
+        maxBuffer: 20 * 1024 * 1024,
+        timeout
+      }).catch(error => {
+        logger.warn('SpotBugs execution failed (build may have failed):', error.message);
+        return { stdout: '<BugCollection></BugCollection>', stderr: error.stderr || '' };
+      });
+
+      return this.parseSpotBugsResults(stdout || '', repoPath);
+    } catch (error) {
+      logger.error('SpotBugs execution failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * SpotBugs XML結果をパース
+   */
+  private parseSpotBugsResults(xmlOutput: string, _repoPath: string): AnalysisIssue[] {
+    const issues: AnalysisIssue[] = [];
+
+    // 簡易XMLパース（BugInstance 要素を抽出）
+    const bugInstanceRegex = /<BugInstance\s+([^>]*)>([\s\S]*?)<\/BugInstance>/g;
+    let match;
+
+    while ((match = bugInstanceRegex.exec(xmlOutput)) !== null) {
+      const attrs = match[1];
+      const content = match[2];
+
+      // 属性取得
+      const typeMatch = attrs.match(/type="([^"]*)"/);
+      const priorityMatch = attrs.match(/priority="([^"]*)"/);
+      const categoryMatch = attrs.match(/category="([^"]*)"/);
+
+      const bugType = typeMatch?.[1] || 'unknown';
+      const priority = priorityMatch?.[1] || '3';
+      const bugCategory = categoryMatch?.[1] || '';
+
+      // 重要度マッピング（SpotBugs priority: 1=high, 2=medium, 3=low）
+      let severity: Severity;
+      switch (priority) {
+        case '1':
+          severity = Severity.High;
+          break;
+        case '2':
+          severity = Severity.Medium;
+          break;
+        default:
+          severity = Severity.Low;
+      }
+
+      // Find Security Bugs のルールは Critical に引き上げ
+      const isSecurityBug = bugCategory === 'SECURITY' || bugType.startsWith('SQL_') ||
+        bugType.startsWith('XSS_') || bugType.startsWith('PATH_TRAVERSAL') ||
+        bugType.startsWith('COMMAND_INJECTION') || bugType.startsWith('CRYPTO_');
+      if (isSecurityBug && severity === Severity.High) {
+        severity = Severity.Critical;
+      }
+
+      // ShortMessage 取得
+      const shortMsgMatch = content.match(/<ShortMessage>([\s\S]*?)<\/ShortMessage>/);
+      const message = shortMsgMatch?.[1] || bugType;
+
+      // SourceLine 取得
+      const sourceLineMatch = content.match(
+        /<SourceLine[^>]*sourcepath="([^"]*)"[^>]*start="(\d+)"[^>]*end="(\d+)"/
+      );
+      const filePath = sourceLineMatch?.[1] || '';
+      const startLine = sourceLineMatch ? parseInt(sourceLineMatch[2]) : undefined;
+      const endLine = sourceLineMatch ? parseInt(sourceLineMatch[3]) : undefined;
+
+      issues.push({
+        id: randomUUID(),
+        tool: AnalyzerTool.SpotBugs,
+        severity,
+        category: isSecurityBug ? IssueCategory.Security : IssueCategory.CodeQuality,
+        rule: bugType,
+        message: message,
+        file: filePath,
+        line: startLine,
+        endLine: endLine
+      });
     }
 
     return issues;
@@ -4773,6 +5371,36 @@ export class StaticAnalyzer {
       args: ['-y', 'jscpd', '--reporters', 'json'],
       languages: ['*'],
       categories: [IssueCategory.Maintainability],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.Bearer, {
+      tool: AnalyzerTool.Bearer,
+      command: 'bearer',
+      args: ['scan', '--format', 'json', '--quiet'],
+      dockerImage: 'bearer/bearer',
+      languages: ['php', 'python', 'javascript', 'typescript', 'java', 'go', 'ruby'],
+      categories: [IssueCategory.Security],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.Njsscan, {
+      tool: AnalyzerTool.Njsscan,
+      command: 'njsscan',
+      args: ['--json'],
+      dockerImage: 'opensecurity/njsscan',
+      languages: ['javascript', 'typescript'],
+      categories: [IssueCategory.Security],
+      enabled: true
+    });
+
+    configs.set(AnalyzerTool.SpotBugs, {
+      tool: AnalyzerTool.SpotBugs,
+      command: 'mvn',
+      args: ['spotbugs:spotbugs'],
+      dockerImage: 'maven:3.9-eclipse-temurin-17',
+      languages: ['java'],
+      categories: [IssueCategory.Security, IssueCategory.CodeQuality],
       enabled: true
     });
 

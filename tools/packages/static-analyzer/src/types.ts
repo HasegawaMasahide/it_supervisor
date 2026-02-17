@@ -57,7 +57,13 @@ export enum AnalyzerTool {
   NpmAudit = 'npm-audit',
   NpmCheckUpdates = 'npm-check-updates',
   // コード重複検出
-  Jscpd = 'jscpd'
+  Jscpd = 'jscpd',
+  // クロスファンクション データフロー解析
+  Bearer = 'bearer',
+  // Node.js セキュリティスキャナー
+  Njsscan = 'njsscan',
+  // Java セキュリティ解析（SpotBugs + Find Security Bugs）
+  SpotBugs = 'spotbugs'
 }
 
 /**
