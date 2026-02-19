@@ -13,7 +13,9 @@ import {
   AnalyzerTool,
   Severity,
   IssueCategory,
-  ToolConfig
+  ToolConfig,
+  ToolExecutionStatus,
+  ToolExecutionStatusType
 } from './types.js';
 
 const execFileAsync = promisify(execFile);
@@ -520,6 +522,33 @@ export class StaticAnalyzer {
       duplicatesRemoved = removed;
     }
 
+    // ツール実行ステータス一覧を生成（Phase 1: ツール実行信頼性確保）
+    const toolExecutionStatuses: ToolExecutionStatus[] = toolResults.map(result => {
+      let status: ToolExecutionStatusType = result.success ? 'success' : 'failed';
+      if (result.error?.includes('not installed') || result.error?.includes('not found') || result.error?.includes('ToolNotInstalled')) {
+        status = 'not_installed';
+      } else if (result.error?.includes('timeout') || result.error?.includes('TIMEOUT') || result.error?.includes('timed out')) {
+        status = 'timeout';
+      } else if (result.error === 'Tool not configured or disabled') {
+        status = 'skipped';
+      }
+      return {
+        tool: result.tool,
+        status,
+        issueCount: result.issues.length,
+        executionTimeMs: result.executionTime,
+        errorMessage: result.error,
+        dockerFallback: result.warnings?.some(w => w.includes('Docker')) || false,
+      };
+    });
+
+    // 検出件数0件のツールに警告を出す
+    for (const ts of toolExecutionStatuses) {
+      if (ts.status === 'success' && ts.issueCount === 0) {
+        logger.warn(`[ツール実行警告] ${ts.tool}: 実行成功しましたが検出件数が0件です。ツールが正しく動作しているか確認してください。`);
+      }
+    }
+
     // サマリー作成
     const summary = this.createSummary(toolResults, allIssues, Date.now() - startTime);
 
@@ -529,7 +558,8 @@ export class StaticAnalyzer {
       toolResults,
       allIssues,
       summary,
-      duplicatesRemoved
+      duplicatesRemoved,
+      toolExecutionStatuses
     };
   }
 
@@ -3836,6 +3866,69 @@ export class StaticAnalyzer {
         message: 'EOL済みのLaravelバージョンが使用されています。最新のLTSバージョンにアップグレードしてください',
         filePattern: /composer\.json$/
       },
+      // ====================================================================
+      // Phase 1: Python 依存関係の既知脆弱バージョン検出（fallback）
+      // ====================================================================
+      {
+        id: 'DEP-PY-001',
+        pattern: /requests\s*[=<>!~]+\s*[12]\.\d+/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'requestsの古いバージョンが使用されています。CVE-2023-32681等の脆弱性があります。2.31以上にアップグレードしてください',
+        filePattern: /requirements.*\.txt$/,
+        contextCheck: (lines: string[], index: number) => {
+          const match = lines[index].match(/requests\s*[=<>!~]+\s*(\d+)\.(\d+)/);
+          if (match) {
+            const major = parseInt(match[1], 10);
+            const minor = parseInt(match[2], 10);
+            return major < 2 || (major === 2 && minor < 31);
+          }
+          return false;
+        },
+      },
+      {
+        id: 'DEP-PY-002',
+        pattern: /[Pp]illow\s*[=<>!~]+\s*[0-8]\./,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'Pillowの古いバージョンには複数のCVEがあります。9.0以上にアップグレードしてください',
+        filePattern: /requirements.*\.txt$/,
+      },
+      {
+        id: 'DEP-PY-003',
+        pattern: /urllib3\s*[=<>!~]+\s*1\.26\.[0-9]\b/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'urllib3の古いバージョンにはCVE-2023-43804等の脆弱性があります。1.26.18以上にアップグレードしてください',
+        filePattern: /requirements.*\.txt$/,
+      },
+      {
+        id: 'DEP-PY-004',
+        pattern: /Django\s*[=<>!~]+\s*[12]\.\d+/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'DjangoのEOL済みバージョンが使用されています。セキュリティパッチが提供されません。Django 4.2 LTS以上にアップグレードしてください',
+        filePattern: /requirements.*\.txt$/,
+      },
+      // ====================================================================
+      // Phase 1: PHP/Laravel 依存関係の既知脆弱バージョン検出（fallback）
+      // ====================================================================
+      {
+        id: 'DEP-PHP-001',
+        pattern: /"laravel\/framework"\s*:\s*"[~^]?8\./,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'Laravel 8.xは2023年にサポートが終了しています。セキュリティアップデートがありません。Laravel 10.x以上にアップグレードしてください',
+        filePattern: /composer\.json$/,
+      },
+      {
+        id: 'DEP-PHP-002',
+        pattern: /"guzzlehttp\/guzzle"\s*:\s*"[~^]?[0-6]\./,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'Guzzleの古いバージョンにはCVE-2022-31090等の脆弱性があります。7.0以上にアップグレードしてください',
+        filePattern: /composer\.json$/,
+      },
     ];
   }
 
@@ -3846,7 +3939,7 @@ export class StaticAnalyzer {
     return [
       {
         id: 'PHP-SEC-001',
-        pattern: /(?:DB::select|DB::raw|DB::statement)\s*\(.*\$/,
+        pattern: /(?:DB::(?:select|raw|statement|insert|update|delete))\s*\(.*\$/,
         severity: Severity.Critical,
         category: IssueCategory.Security,
         message: 'SQLインジェクションの脆弱性: 変数を直接SQL文に埋め込んでいます。パラメータバインディングを使用してください',
@@ -3917,6 +4010,138 @@ export class StaticAnalyzer {
         filePattern: /routes\/(?:web|api)\.php$/,
         fileCondition: (content) => !content.includes("middleware('auth") &&
           !content.includes("middleware(['auth") && !content.includes("middleware(\"auth")
+      },
+      // ====================================================================
+      // Phase 1: Laravel 固有の検出ルール強化（PHP-SEC-008 ～ PHP-CQ-002）
+      // ====================================================================
+      // --- eval() の使用 ---
+      {
+        id: 'PHP-SEC-008',
+        pattern: /\beval\s*\(/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'eval()の使用はコードインジェクションのリスクがあります',
+        filePattern: /\.(?:php|blade\.php)$/,
+      },
+      // --- phpinfo() の使用 ---
+      {
+        id: 'PHP-SEC-009',
+        pattern: /\bphpinfo\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'phpinfo()が使用されています。本番環境では削除してください',
+        filePattern: /\.php$/,
+      },
+      // --- パストラバーサル（ファイルダウンロード） ---
+      {
+        id: 'PHP-SEC-010',
+        pattern: /(?:file_get_contents|readfile|fopen|include|require)\s*\(\s*\$(?:request|_GET|_POST|_REQUEST)/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'ユーザー入力がファイルパスに直接使用されています。パストラバーサル脆弱性のリスクがあります',
+        filePattern: /\.php$/,
+      },
+      // --- CSRF 除外設定 ---
+      {
+        id: 'PHP-SEC-011',
+        pattern: /\$except\s*=\s*\[/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'CSRF保護の除外設定があります。除外ルートのセキュリティを確認してください',
+        filePattern: /VerifyCsrfToken\.php$/,
+      },
+      // --- 入力バリデーション欠如 ---
+      {
+        id: 'PHP-CQ-001',
+        pattern: /\$request->(?:input|get|post|all)\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.CodeQuality,
+        message: '入力値を直接取得しています。$request->validate()またはFormRequestによるバリデーションを検討してください',
+        filePattern: /Controller\.php$/,
+        contextCheck: (lines: string[], index: number) => {
+          // 前後20行以内に validate() がない場合のみ検出
+          const block = lines.slice(Math.max(0, index - 20), Math.min(index + 20, lines.length)).join('\n');
+          return !/->validate\s*\(/.test(block);
+        },
+      },
+      // --- デバッグ関数の残留 ---
+      {
+        id: 'PHP-CQ-002',
+        pattern: /\b(?:dd|dump|var_dump|print_r)\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'デバッグ関数が残っています。本番環境では削除してください',
+        filePattern: /\.php$/,
+      },
+      // ====================================================================
+      // Phase 1 追加: Laravel 固有パターン
+      // ====================================================================
+      // --- DB変数補間によるSQLインジェクション（ダブルクォート内変数展開）---
+      {
+        id: 'PHP-SEC-012',
+        pattern: /DB::(?:select|insert|update|delete|raw|statement)\s*\(\s*"/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'DB::クエリにダブルクォート文字列を使用しています。変数が展開されSQLインジェクションのリスクがあります。パラメータバインディングを使用してください',
+        filePattern: /\.php$/,
+      },
+      // --- HTMLを直接returnでXSS ---
+      {
+        id: 'PHP-SEC-013',
+        pattern: /return\s*"<\w+[^"]*\$/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'HTML文字列を直接返却しており、変数が含まれています。XSS脆弱性のリスクがあります。Bladeテンプレートを使用してください',
+        filePattern: /\.php$/,
+      },
+      // --- デバッグルートの検出 ---
+      {
+        id: 'PHP-SEC-014',
+        pattern: /Route::(?:get|post)\s*\(\s*['"]\/debug/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'デバッグエンドポイントが公開されています。本番環境では削除してください',
+        filePattern: /\.php$/,
+      },
+      // --- config()で機密情報を返却 ---
+      {
+        id: 'PHP-SEC-015',
+        pattern: /config\s*\(\s*['"](?:database|app\.key)/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '機密設定情報（database/app.key）がレスポンスに含まれています。情報漏洩のリスクがあります',
+        filePattern: /\.php$/,
+        contextCheck: (lines: string[], index: number) => {
+          const block = lines.slice(Math.max(0, index - 5), Math.min(index + 5, lines.length)).join('\n');
+          return /response\(\)|return/.test(block);
+        },
+      },
+      // --- session()に機密情報を直接保存 ---
+      {
+        id: 'PHP-SEC-016',
+        pattern: /session\s*\(\s*\[.*(?:password|token|secret)/i,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: '機密情報をセッションに直接保存しています。暗号化されたセッションドライバを使用してください',
+        filePattern: /\.php$/,
+      },
+      // --- 本番DB認証情報のハードコーディング ---
+      {
+        id: 'PHP-SEC-017',
+        pattern: /['"]password['"]\s*=>\s*['"][^'"]{4,}['"]/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'データベースパスワードがハードコーディングされています。環境変数を使用してください',
+        filePattern: /database\.php$/,
+      },
+      // --- パストラバーサル（storage_path/base_path でファイルアクセス） ---
+      {
+        id: 'PHP-SEC-018',
+        pattern: /(?:storage_path|base_path|public_path)\s*\([^)]*\.\s*\$/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'ユーザー入力がファイルパスの構築に使用されています。パストラバーサル脆弱性のリスクがあります。パスの検証を行ってください',
+        filePattern: /\.php$/,
       },
     ];
   }
@@ -4112,6 +4337,265 @@ export class StaticAnalyzer {
         filePattern: /views\.py$/,
         fileCondition: (content) => !content.includes('LoginRequiredMixin') &&
           !content.includes('@login_required') && !content.includes('IsAuthenticated')
+      },
+      // ====================================================================
+      // Phase 1: Django 固有の検出ルール強化（PY-SEC-008 ～ PY-SEC-016）
+      // ====================================================================
+      // --- @csrf_exempt デコレータの使用 ---
+      {
+        id: 'PY-SEC-008',
+        pattern: /@csrf_exempt/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '@csrf_exemptが使用されています。CSRF保護の無効化はセキュリティリスクです',
+        filePattern: /\.py$/,
+      },
+      // --- raw() によるSQLインジェクション ---
+      {
+        id: 'PY-SEC-009',
+        pattern: /\.raw\s*\([^)]*(%s|%d|\{|format|f['"]|['"].*\+)/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'raw()内で文字列フォーマットが使用されています。SQLインジェクションのリスクがあります。パラメータバインディングを使用してください',
+        filePattern: /\.py$/,
+      },
+      // --- extra() によるSQLインジェクション ---
+      {
+        id: 'PY-SEC-010',
+        pattern: /\.extra\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'extra()は非推奨でSQLインジェクションのリスクがあります。annotate()やF式を使用してください',
+        filePattern: /\.py$/,
+      },
+      // --- SESSION_COOKIE_HTTPONLY = False ---
+      {
+        id: 'PY-SEC-011',
+        pattern: /SESSION_COOKIE_HTTPONLY\s*=\s*False/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'SESSION_COOKIE_HTTPONLYがFalseに設定されています。JavaScriptからセッションCookieにアクセス可能になります',
+        filePattern: /settings\.py$/,
+      },
+      // --- CSRF_COOKIE_HTTPONLY = False ---
+      {
+        id: 'PY-SEC-012',
+        pattern: /CSRF_COOKIE_HTTPONLY\s*=\s*False/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'CSRF_COOKIE_HTTPONLYがFalseに設定されています',
+        filePattern: /settings\.py$/,
+      },
+      // --- AUTH_PASSWORD_VALIDATORS 無効化 ---
+      {
+        id: 'PY-SEC-013',
+        pattern: /AUTH_PASSWORD_VALIDATORS\s*=\s*\[/,
+        contextCheck: (lines: string[], index: number) => {
+          // AUTH_PASSWORD_VALIDATORS = [ の後に有効なバリデータがあるかチェック
+          const block = lines.slice(index, Math.min(index + 20, lines.length)).join('\n');
+          // 閉じ括弧 ] までの間に、コメントアウトされていない 'NAME' が無ければ問題
+          const afterOpen = block.split('[').slice(1).join('[');
+          const beforeClose = afterOpen.split(']')[0] || '';
+          // コメント以外の行で 'NAME' を含むものがあるか
+          const activeValidators = beforeClose.split('\n').filter(
+            line => !line.trim().startsWith('#') && line.includes('NAME')
+          );
+          return activeValidators.length === 0;
+        },
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'AUTH_PASSWORD_VALIDATORSが無効化されています。パスワード強度の検証が行われません',
+        filePattern: /settings\.py$/,
+      },
+      // --- debug_toolbar の本番環境使用 ---
+      {
+        id: 'PY-SEC-014',
+        pattern: /['"]debug_toolbar['"]/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'debug_toolbarが有効です。本番環境では無効化してください',
+        filePattern: /settings\.py$/,
+      },
+      // --- INTERNAL_IPS のワイルドカード ---
+      {
+        id: 'PY-SEC-015',
+        pattern: /INTERNAL_IPS\s*=\s*\[.*['"]\*['"]/,
+        severity: Severity.Low,
+        category: IssueCategory.Security,
+        message: 'INTERNAL_IPSにワイルドカード(*)が設定されています',
+        filePattern: /settings\.py$/,
+      },
+      // --- デバッグ情報公開エンドポイント ---
+      {
+        id: 'PY-SEC-016',
+        pattern: /def\s+\w*debug\w*\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'デバッグ情報を公開するエンドポイントの可能性があります',
+        filePattern: /views\.py$/,
+        contextCheck: (lines: string[], index: number) => {
+          const block = lines.slice(index, Math.min(index + 5, lines.length)).join('\n');
+          return /HttpResponse|JsonResponse|render/.test(block);
+        },
+      },
+      // ====================================================================
+      // Phase 1: Django テンプレート用ルール
+      // ====================================================================
+      // --- {% autoescape off %} の使用 ---
+      {
+        id: 'PY-TEMPLATE-001',
+        pattern: /\{%\s*autoescape\s+off\s*%\}/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'autoescape offが使用されています。XSS脆弱性のリスクがあります',
+        filePattern: /\.html$/,
+      },
+      // --- |safe フィルタの使用 ---
+      {
+        id: 'PY-TEMPLATE-002',
+        pattern: /\{\{.*\|\s*safe\s*\}\}/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '|safeフィルタが使用されています。ユーザー入力に使用するとXSS脆弱性のリスクがあります',
+        filePattern: /\.html$/,
+      },
+      // ====================================================================
+      // Phase 1 追加: SQLインジェクション・機密情報漏洩・その他
+      // ====================================================================
+      // --- f-string によるSQL構築 ---
+      {
+        id: 'PY-SEC-017',
+        pattern: /f["'](?:SELECT|INSERT|UPDATE|DELETE|DROP)\s/i,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'f-stringでSQL文を構築しています。SQLインジェクション脆弱性のリスクがあります。パラメータ化クエリを使用してください',
+        filePattern: /\.py$/,
+      },
+      // --- cursor.execute に変数を渡す ---
+      {
+        id: 'PY-SEC-018',
+        pattern: /cursor\.execute\s*\(\s*(?!['"])\w+/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'cursor.execute()に変数を直接渡しています。パラメータ化クエリを使用してください',
+        filePattern: /\.py$/,
+      },
+      // --- 機密情報のprint/log出力 ---
+      {
+        id: 'PY-SEC-019',
+        pattern: /(?:print|logging\.\w+)\s*\(.*(?:card|password|secret|token|credit)/i,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: '機密情報がprint/logで出力されています。本番環境では削除してください',
+        filePattern: /\.py$/,
+      },
+      // --- HTTP URLの使用（本番向け） ---
+      {
+        id: 'PY-SEC-020',
+        pattern: /['"]http:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0)/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'HTTPプロトコルが使用されています。本番環境ではHTTPSを使用してください',
+        filePattern: /\.py$/,
+      },
+      // --- X_FRAME_OPTIONS 不備 ---
+      {
+        id: 'PY-SEC-021',
+        pattern: /X_FRAME_OPTIONS\s*=\s*['"]ALLOWALL['"]/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'X_FRAME_OPTIONSがALLOWALLに設定されています。クリックジャッキング攻撃のリスクがあります。DENYまたはSAMEORIGINを設定してください',
+        filePattern: /settings\.py$/,
+      },
+      // --- SECURE_BROWSER_XSS_FILTER = False ---
+      {
+        id: 'PY-SEC-022',
+        pattern: /SECURE_BROWSER_XSS_FILTER\s*=\s*False/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'SECURE_BROWSER_XSS_FILTERがFalseに設定されています。XSS保護ヘッダーを有効にしてください',
+        filePattern: /settings\.py$/,
+      },
+      // --- EMAIL_HOST_PASSWORD のハードコーディング ---
+      {
+        id: 'PY-SEC-023',
+        pattern: /EMAIL_HOST_PASSWORD\s*=\s*['"][^'"]+['"]/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'メールパスワードがハードコーディングされています。環境変数を使用してください',
+        filePattern: /settings\.py$/,
+      },
+      // --- N+1 クエリ: プロパティ内でのリレーション呼び出し ---
+      {
+        id: 'PY-PERF-002',
+        pattern: /self\.\w+_set\.(?:all|filter|count|aggregate)\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.Performance,
+        message: 'プロパティ/メソッド内でリレーション先のクエリを実行しています。N+1クエリ問題が発生する可能性があります。annotateやprefetch_relatedの使用を検討してください',
+        filePattern: /models\.py$/,
+      },
+      // --- SESSION_COOKIE_AGE が長すぎる ---
+      {
+        id: 'PY-SEC-024',
+        pattern: /SESSION_COOKIE_AGE\s*=\s*\d{7,}/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'セッション有効期限が長すぎます。セキュリティのため適切な期間に設定してください',
+        filePattern: /settings\.py$/,
+      },
+      // --- SESSION_SAVE_EVERY_REQUEST = True (パフォーマンス問題) ---
+      {
+        id: 'PY-PERF-003',
+        pattern: /SESSION_SAVE_EVERY_REQUEST\s*=\s*True/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: 'SESSION_SAVE_EVERY_REQUEST=Trueは全リクエストでセッション保存が発生しDB負荷が増加します',
+        filePattern: /settings\.py$/,
+      },
+      // --- グローバル変数にAPIキー/シークレットをハードコード ---
+      {
+        id: 'PY-SEC-025',
+        pattern: /^[A-Z_]*(?:API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE_KEY)\s*=\s*['"]/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'APIキーやシークレットがグローバル変数にハードコーディングされています。settings.pyまたは環境変数を使用してください',
+        filePattern: /(?:views|utils|services|helpers)\.py$/,
+      },
+      // --- 手動セッション管理 (request.session['user_id']) ---
+      {
+        id: 'PY-CQ-001',
+        pattern: /request\.session\s*\[\s*['"]user_id['"]\s*\]/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'request.sessionで手動ユーザー管理をしています。Django組み込みの認証システム（login()/logout()）を使用してください',
+        filePattern: /\.py$/,
+      },
+      // --- GETパラメータからユーザーIDを取得（改ざん可能） ---
+      {
+        id: 'PY-SEC-026',
+        pattern: /request\.GET\.get\s*\(\s*['"]user_id['"]/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'GETパラメータからuser_idを取得しています。改ざん可能なため、request.userを使用してください',
+        filePattern: /\.py$/,
+      },
+      // --- SECURE_CONTENT_TYPE_NOSNIFF = False ---
+      {
+        id: 'PY-SEC-027',
+        pattern: /SECURE_CONTENT_TYPE_NOSNIFF\s*=\s*False/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'SECURE_CONTENT_TYPE_NOSNIFFがFalseです。MIMEタイプスニッフィング攻撃のリスクがあります',
+        filePattern: /settings\.py$/,
+      },
+      // --- CSRF_COOKIE_SECURE = False ---
+      {
+        id: 'PY-SEC-028',
+        pattern: /(?:SESSION_COOKIE_SECURE|CSRF_COOKIE_SECURE)\s*=\s*False/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'Cookie Secureフラグが無効です。HTTP経由でCookieが送信され盗聴のリスクがあります',
+        filePattern: /settings\.py$/,
       },
     ];
   }
@@ -4346,7 +4830,7 @@ export class StaticAnalyzer {
     if (ruleId.startsWith('JS-')) return AnalyzerTool.ESLint;
     if (ruleId.startsWith('CONFIG-')) return AnalyzerTool.Gitleaks;
     if (ruleId.startsWith('DEP-')) return AnalyzerTool.DependencyCheck;
-    return AnalyzerTool.RoslynAnalyzer; // fallback
+    return AnalyzerTool.Semgrep; // fallback（パターン解析）
   }
 
   /**
@@ -4430,6 +4914,33 @@ export class StaticAnalyzer {
       allIssues = unique;
     }
 
+    // ツール実行ステータス一覧を生成（Phase 1: ツール実行信頼性確保）
+    const toolExecutionStatuses: ToolExecutionStatus[] = toolResults.map(result => {
+      let status: ToolExecutionStatusType = result.success ? 'success' : 'failed';
+      if (result.error?.includes('not installed') || result.error?.includes('not found') || result.error?.includes('ToolNotInstalled')) {
+        status = 'not_installed';
+      } else if (result.error?.includes('timeout') || result.error?.includes('TIMEOUT') || result.error?.includes('timed out')) {
+        status = 'timeout';
+      } else if (result.error === 'Tool not configured or disabled') {
+        status = 'skipped';
+      }
+      return {
+        tool: result.tool,
+        status,
+        issueCount: result.issues.length,
+        executionTimeMs: result.executionTime,
+        errorMessage: result.error,
+        dockerFallback: result.warnings?.some(w => w.includes('Docker')) || false,
+      };
+    });
+
+    // 検出件数0件のツールに警告を出す
+    for (const ts of toolExecutionStatuses) {
+      if (ts.status === 'success' && ts.issueCount === 0) {
+        logger.warn(`[ツール実行警告] ${ts.tool}: 実行成功しましたが検出件数が0件です。ツールが正しく動作しているか確認してください。`);
+      }
+    }
+
     const summary = this.createSummary(toolResults, allIssues, 0);
 
     return {
@@ -4438,7 +4949,8 @@ export class StaticAnalyzer {
       toolResults,
       allIssues,
       summary,
-      duplicatesRemoved: 0
+      duplicatesRemoved: 0,
+      toolExecutionStatuses
     };
   }
 

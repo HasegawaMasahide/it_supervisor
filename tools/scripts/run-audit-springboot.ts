@@ -22,7 +22,7 @@ import * as fs from 'fs';
 
 // ── 入力パラメータ ──────────────────────────────────────
 const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\springboot-crm-app`;
-const PROJECT_NAME = '顧客Webアプリ';
+const PROJECT_NAME = '顧客Webアプリ_springboot-crm-app';
 const CUSTOMER_NAME = '株式会社サンプル';
 const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\springboot-crm-app_output`;
 

@@ -122,6 +122,20 @@ export interface AnalysisSummary {
 }
 
 /**
+ * ツール実行ステータス（Phase 1: ツール実行信頼性確保）
+ */
+export type ToolExecutionStatusType = 'success' | 'failed' | 'timeout' | 'skipped' | 'not_installed';
+
+export interface ToolExecutionStatus {
+  tool: AnalyzerTool;
+  status: ToolExecutionStatusType;
+  issueCount: number;
+  executionTimeMs: number;
+  errorMessage?: string;
+  dockerFallback?: boolean;
+}
+
+/**
  * 静的解析結果
  */
 export interface AnalysisResult {
@@ -131,6 +145,7 @@ export interface AnalysisResult {
   allIssues: AnalysisIssue[];
   summary: AnalysisSummary;
   duplicatesRemoved: number;
+  toolExecutionStatuses?: ToolExecutionStatus[];
 }
 
 /**

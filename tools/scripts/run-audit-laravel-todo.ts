@@ -1,9 +1,9 @@
 /**
- * IT資産監査パイプライン - React CMS App
+ * IT資産監査パイプライン（Laravel Todo App）
  *
  * 使用方法:
  *   cd tools
- *   npx tsx scripts/run-audit-react-cms.ts
+ *   npx tsx scripts/run-audit-laravel-todo.ts
  */
 
 import { createLogger, LogLevel } from '@it-supervisor/logger';
@@ -21,10 +21,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // ── 入力パラメータ ──────────────────────────────────────
-const TARGET_REPO_PATH = path.resolve('C:/workspace/new_business/it_supervisor/demo/react-cms-app');
-const PROJECT_NAME = '顧客Webアプリ_react-cms-app';
+const TARGET_REPO_PATH = path.resolve(`C:/workspace/new_business/it_supervisor/demo/laravel-todo-app`);
+const PROJECT_NAME = '顧客Webアプリ_laravel-todo-app';
 const CUSTOMER_NAME = '株式会社サンプル';
-const OUTPUT_DIR = path.resolve('C:/workspace/new_business/it_supervisor/demo/react-cms-app_output');
+const OUTPUT_DIR = path.resolve(`C:/workspace/new_business/it_supervisor/demo/laravel-todo-app_output`);
 
 // ── メイン処理 ──────────────────────────────────────────
 async function main() {
@@ -125,7 +125,7 @@ async function main() {
     .map((l) => `${l.name} (${l.percentage.toFixed(0)}%)`)
     .join(', ');
   const fwSummary = repoResult.techStack.frameworks.map((f) => f.name).join(', ') || 'なし';
-  console.log('  [リポジトリ解析完了]');
+  console.log(`  [リポジトリ解析完了]`);
   console.log(`    検出言語: ${langSummary}`);
   console.log(`    フレームワーク: ${fwSummary}`);
   console.log(`    総ファイル数: ${repoResult.fileStats.totalFiles}`);
@@ -147,12 +147,9 @@ async function main() {
   const tools: AnalyzerTool[] = [];
   const languageNames = repoResult.techStack.languages.map((l) => l.name.toLowerCase());
 
-  // JavaScript/TypeScript/React プロジェクト
   if (languageNames.some((l) => ['javascript', 'typescript'].includes(l))) {
     tools.push(AnalyzerTool.ESLint);
   }
-
-  // PHP
   if (languageNames.includes('php')) {
     tools.push(
       AnalyzerTool.PHPStan,
@@ -164,8 +161,6 @@ async function main() {
       AnalyzerTool.ComposerAudit,
     );
   }
-
-  // C#
   if (languageNames.includes('c#')) {
     tools.push(AnalyzerTool.RoslynAnalyzer);
   }
@@ -238,7 +233,7 @@ async function main() {
   }
 
   const toolNames = staticResult.toolResults.map((r) => r.tool).join(', ');
-  console.log('  [静的解析完了]');
+  console.log(`  [静的解析完了]`);
   console.log(`    実行ツール: ${toolNames}`);
   console.log(`    総問題数: ${staticResult.summary.totalIssues}`);
   console.log(`      Critical: ${staticResult.summary.bySeverity.critical || 0}`);
@@ -246,6 +241,24 @@ async function main() {
   console.log(`      Medium:   ${staticResult.summary.bySeverity.medium || 0}`);
   console.log(`      Low:      ${staticResult.summary.bySeverity.low || 0}`);
   console.log(`    解析時間: ${(staticResult.summary.executionTime / 1000).toFixed(1)}秒`);
+
+  // ツール実行サマリー（Phase 1: ツール実行信頼性確保）
+  if (staticResult.toolExecutionStatuses) {
+    console.log('\n  ■ ツール実行サマリー');
+    console.log('    ┌────────────────────────┬──────────────┬──────────┬──────────┐');
+    console.log('    │ ツール                 │ ステータス    │ 検出件数 │ 実行時間 │');
+    console.log('    ├────────────────────────┼──────────────┼──────────┼──────────┤');
+    for (const ts of staticResult.toolExecutionStatuses) {
+      const statusIcon = ts.status === 'success' ? '✅ 成功' :
+        ts.status === 'failed' ? '❌ 失敗' :
+        ts.status === 'not_installed' ? '⚠️ 未導入' :
+        ts.status === 'timeout' ? '⏰ タイムアウト' : '⏭️ スキップ';
+      const docker = ts.dockerFallback ? '（Docker）' : '';
+      const time = ts.executionTimeMs > 0 ? `${(ts.executionTimeMs / 1000).toFixed(1)}s` : '-';
+      console.log(`    │ ${(ts.tool + docker).padEnd(22)} │ ${statusIcon.padEnd(12)} │ ${String(ts.issueCount).padStart(6)}件 │ ${time.padStart(8)} │`);
+    }
+    console.log('    └────────────────────────┴──────────────┴──────────┴──────────┘');
+  }
   console.log('');
 
   // ================================================================
@@ -312,7 +325,7 @@ async function main() {
 
   const issueStats = issueManager.getStatistics(projectId);
 
-  console.log('  [Issue登録完了]');
+  console.log(`  [Issue登録完了]`);
   console.log(`    登録数: ${issueStats.total}件`);
   console.log(
     `    重要度別: Critical=${issueStats.bySeverity[IssueSeverity.Critical] || 0}, High=${issueStats.bySeverity[IssueSeverity.High] || 0}, Medium=${issueStats.bySeverity[IssueSeverity.Medium] || 0}, Low=${issueStats.bySeverity[IssueSeverity.Low] || 0}`,
@@ -408,16 +421,13 @@ async function main() {
   }
 
   // テストコード不在
-  const hasTestableLanguages = repoResult.fileStats.totalFiles > 0 &&
+  const hasTestableCode = repoResult.fileStats.totalFiles > 0 &&
     repoResult.techStack.languages.some((l) =>
-      ['c#', 'typescript', 'javascript', 'php', 'python'].includes(l.name.toLowerCase()),
+      ['c#', 'typescript', 'javascript', 'php', 'python'].includes(l.name.toLowerCase())
     );
-  if (hasTestableLanguages &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, 'Tests')) &&
+  if (hasTestableCode && !fs.existsSync(path.join(TARGET_REPO_PATH, 'Tests')) &&
       !fs.existsSync(path.join(TARGET_REPO_PATH, 'tests')) &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, '__tests__')) &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, 'src', '__tests__')) &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, 'test'))) {
+      !fs.existsSync(path.join(TARGET_REPO_PATH, '__tests__'))) {
     recommendations.push({
       priority: 'high',
       title: 'テストコードの追加',
@@ -427,101 +437,17 @@ async function main() {
     });
   }
 
-  // Reactバージョンのチェック（React 16 → 18 移行推奨）
-  const reactDep = repoResult.techStack.dependencies.find((d) =>
-    d.name.toLowerCase() === 'react',
+  // Laravelフレームワークのバージョンチェック
+  const laravelFw = repoResult.techStack.frameworks.find((f) =>
+    f.name.toLowerCase().includes('laravel')
   );
-  if (reactDep && reactDep.version && /^1[0-6]\./.test(reactDep.version)) {
+  if (laravelFw && laravelFw.version && /^[4-8]\./.test(laravelFw.version)) {
     recommendations.push({
-      priority: 'high',
-      title: 'React 16 → 18 へのバージョンアップ',
-      description: `React ${reactDep.version} が使用されています。最新のReact 18以降への移行を推奨します。Concurrent Features、自動バッチング、useDeferredValue/useTransition等の新APIにより、パフォーマンスとユーザー体験が大幅に改善されます。`,
-      effort: '1-2週間',
-      impact: 'パフォーマンス改善・最新機能の活用',
-    });
-  }
-
-  // Redux → Redux Toolkit / Zustand 移行推奨
-  const reduxDep = repoResult.techStack.dependencies.find((d) => d.name === 'redux');
-  if (reduxDep) {
-    recommendations.push({
-      priority: 'medium',
-      title: 'Redux から Redux Toolkit への移行',
-      description:
-        'レガシーなReduxが使用されています。Redux Toolkit(RTK)はボイラープレートコードを大幅に削減し、Immer統合による不変性管理の簡素化、RTK Queryによるデータフェッチの標準化など、開発体験を大きく改善します。',
-      effort: '1-2週間',
-      impact: '開発効率の向上・コード量の削減',
-    });
-  }
-
-  // react-router-dom v5 → v6 移行推奨
-  const routerDep = repoResult.techStack.dependencies.find((d) => d.name === 'react-router-dom');
-  if (routerDep && routerDep.version && /^5\./.test(routerDep.version)) {
-    recommendations.push({
-      priority: 'medium',
-      title: 'React Router v5 → v6 への移行',
-      description:
-        'React Router v5が使用されています。v6ではバンドルサイズの削減、Relative Routes、useNavigate等の改良されたAPI、データローダーパターンのサポートなどが提供されます。',
-      effort: '3-5日',
-      impact: 'バンドルサイズ削減・ルーティング管理の改善',
-    });
-  }
-
-  // 古い依存関係の脆弱性チェック
-  const vulnerableDeps = repoResult.techStack.dependencies.filter((d) => {
-    const name = d.name.toLowerCase();
-    const ver = d.version || '';
-    return (
-      (name === 'axios' && /^0\./.test(ver)) ||
-      (name === 'lodash' && /^4\.17\.(1[0-9]|[0-9])$/.test(ver)) ||
-      (name === 'moment' && ver.length > 0)
-    );
-  });
-  if (vulnerableDeps.length > 0) {
-    recommendations.push({
-      priority: 'high',
-      title: '脆弱性のある依存パッケージの更新',
-      description: `${vulnerableDeps.map((d) => `${d.name}@${d.version}`).join(', ')} など、既知の脆弱性を含む可能性のあるパッケージが検出されました。最新バージョンへの更新を推奨します。`,
-      effort: '1-3日',
-      impact: 'セキュリティリスクの低減',
-    });
-  }
-
-  // moment.js → Day.js 移行推奨
-  const momentDep = repoResult.techStack.dependencies.find((d) => d.name === 'moment');
-  if (momentDep) {
-    recommendations.push({
-      priority: 'medium',
-      title: 'moment.js から Day.js への移行',
-      description:
-        'moment.jsが使用されていますが、メンテナンスモードに移行しており新規開発は推奨されません。Day.jsはAPIがほぼ互換でバンドルサイズが約2KB（momentは約67KB）と大幅に軽量です。',
-      effort: '2-3日',
-      impact: 'バンドルサイズ削減・パフォーマンス向上',
-    });
-  }
-
-  // lodash のtree-shaking対応
-  const lodashDep = repoResult.techStack.dependencies.find((d) => d.name === 'lodash');
-  if (lodashDep) {
-    recommendations.push({
-      priority: 'low',
-      title: 'lodash のtree-shaking対応',
-      description:
-        'lodash全体がインポートされています。lodash-esへの移行、または個別関数インポート（lodash/get等）によりバンドルサイズを大幅に削減可能です。',
-      effort: '1日',
-      impact: 'バンドルサイズ削減',
-    });
-  }
-
-  // TypeScript 4.1 → 5.x 移行推奨
-  const tsDep = repoResult.techStack.dependencies.find((d) => d.name === 'typescript');
-  if (tsDep && tsDep.version && /^4\.[0-4]\./.test(tsDep.version)) {
-    recommendations.push({
-      priority: 'medium',
-      title: 'TypeScript のバージョンアップ',
-      description: `TypeScript ${tsDep.version} が使用されています。最新のTypeScript 5.x への移行により、型推論の改善、デコレーターの標準サポート、ビルドパフォーマンスの向上などの恩恵を受けられます。`,
-      effort: '1-3日',
-      impact: '開発体験の向上・型安全性の強化',
+      priority: 'critical',
+      title: 'Laravelフレームワークのバージョンアップ',
+      description: `${laravelFw.name} ${laravelFw.version} はサポート終了(EOL)済み、またはまもなく終了予定です。セキュリティパッチが提供されないため、最新のLTSバージョンへの移行を強く推奨します。`,
+      effort: '2-4週間',
+      impact: 'セキュリティリスクの根本的解決',
     });
   }
 
@@ -638,7 +564,7 @@ async function main() {
     logger.warn('PDF生成スキップ（Puppeteer未インストール）');
   }
 
-  console.log('  [レポート生成完了]');
+  console.log(`  [レポート生成完了]`);
   console.log(`    HTML: ${htmlPath}`);
   console.log(`    Markdown: ${mdPath}`);
   console.log('');

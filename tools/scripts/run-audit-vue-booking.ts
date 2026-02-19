@@ -21,10 +21,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // ── 入力パラメータ ──────────────────────────────────────
-const TARGET_REPO_PATH = path.resolve(__dirname, '../../demo/vue-booking-app');
-const PROJECT_NAME = '顧客Webアプリ';
+const TARGET_REPO_PATH = path.resolve('C:/workspace/new_business/it_supervisor/demo/vue-booking-app');
+const PROJECT_NAME = '顧客Webアプリ_vue-booking-app';
 const CUSTOMER_NAME = '株式会社サンプル';
-const OUTPUT_DIR = path.resolve(__dirname, '../../demo/vue-booking-app_output');
+const OUTPUT_DIR = path.resolve('C:/workspace/new_business/it_supervisor/demo/vue-booking-app_output');
 
 // ── メイン処理 ──────────────────────────────────────────
 async function main() {
@@ -33,10 +33,22 @@ async function main() {
   // ================================================================
   console.log('\n[Step 1] 初期化...');
 
+  // リポジトリパスの存在確認
+  if (!fs.existsSync(TARGET_REPO_PATH)) {
+    console.error(`エラー: リポジトリパスが存在しません: ${TARGET_REPO_PATH}`);
+    process.exit(1);
+  }
+
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   fs.mkdirSync(path.join(OUTPUT_DIR, 'reports'), { recursive: true });
 
   const dbPath = path.join(OUTPUT_DIR, 'audit.db');
+
+  // 既存のDBファイルを削除（再実行時のクリーンアップ）
+  if (fs.existsSync(dbPath)) {
+    fs.unlinkSync(dbPath);
+  }
+
   const logger = createLogger('audit-pipeline', { level: LogLevel.INFO });
   const metricsDb = new MetricsDatabase(dbPath);
   const issueManager = new IssueManager(dbPath);
@@ -113,7 +125,7 @@ async function main() {
     .map((l) => `${l.name} (${l.percentage.toFixed(0)}%)`)
     .join(', ');
   const fwSummary = repoResult.techStack.frameworks.map((f) => f.name).join(', ') || 'なし';
-  console.log(`  [リポジトリ解析完了]`);
+  console.log('  [リポジトリ解析完了]');
   console.log(`    検出言語: ${langSummary}`);
   console.log(`    フレームワーク: ${fwSummary}`);
   console.log(`    総ファイル数: ${repoResult.fileStats.totalFiles}`);
@@ -135,9 +147,12 @@ async function main() {
   const tools: AnalyzerTool[] = [];
   const languageNames = repoResult.techStack.languages.map((l) => l.name.toLowerCase());
 
-  if (languageNames.some((l) => ['javascript', 'typescript'].includes(l))) {
+  // JavaScript/TypeScript/Vue
+  if (languageNames.some((l) => ['javascript', 'typescript', 'vue'].includes(l))) {
     tools.push(AnalyzerTool.ESLint);
   }
+
+  // PHP
   if (languageNames.includes('php')) {
     tools.push(
       AnalyzerTool.PHPStan,
@@ -149,17 +164,10 @@ async function main() {
       AnalyzerTool.ComposerAudit,
     );
   }
+
+  // C#
   if (languageNames.includes('c#')) {
     tools.push(AnalyzerTool.RoslynAnalyzer);
-  }
-
-  // 共通セキュリティ・品質ツール
-  tools.push(AnalyzerTool.Gitleaks);
-  tools.push(AnalyzerTool.Semgrep);
-
-  // SonarQube（環境変数がある場合のみ）
-  if (process.env.SONARQUBE_URL) {
-    tools.push(AnalyzerTool.SonarQube);
   }
 
   // Python / Django 検出
@@ -171,6 +179,15 @@ async function main() {
     if (fs.existsSync(path.join(TARGET_REPO_PATH, 'manage.py'))) {
       tools.push(AnalyzerTool.DjangoCheckDeploy);
     }
+  }
+
+  // 共通セキュリティ・品質ツール
+  tools.push(AnalyzerTool.Gitleaks);
+  tools.push(AnalyzerTool.Semgrep);
+
+  // SonarQube（環境変数がある場合のみ）
+  if (process.env.SONARQUBE_URL) {
+    tools.push(AnalyzerTool.SonarQube);
   }
 
   let staticResult;
@@ -221,7 +238,7 @@ async function main() {
   }
 
   const toolNames = staticResult.toolResults.map((r) => r.tool).join(', ');
-  console.log(`  [静的解析完了]`);
+  console.log('  [静的解析完了]');
   console.log(`    実行ツール: ${toolNames}`);
   console.log(`    総問題数: ${staticResult.summary.totalIssues}`);
   console.log(`      Critical: ${staticResult.summary.bySeverity.critical || 0}`);
@@ -295,7 +312,7 @@ async function main() {
 
   const issueStats = issueManager.getStatistics(projectId);
 
-  console.log(`  [Issue登録完了]`);
+  console.log('  [Issue登録完了]');
   console.log(`    登録数: ${issueStats.total}件`);
   console.log(
     `    重要度別: Critical=${issueStats.bySeverity[IssueSeverity.Critical] || 0}, High=${issueStats.bySeverity[IssueSeverity.High] || 0}, Medium=${issueStats.bySeverity[IssueSeverity.Medium] || 0}, Low=${issueStats.bySeverity[IssueSeverity.Low] || 0}`,
@@ -393,9 +410,10 @@ async function main() {
   // テストコード不在
   const hasTestableLanguage = repoResult.fileStats.totalFiles > 0 &&
     repoResult.techStack.languages.some((l) =>
-      ['c#', 'typescript', 'javascript', 'php', 'python', 'vue'].includes(l.name.toLowerCase())
+      ['c#', 'typescript', 'javascript', 'php', 'python', 'vue'].includes(l.name.toLowerCase()),
     );
-  if (hasTestableLanguage && !fs.existsSync(path.join(TARGET_REPO_PATH, 'Tests')) &&
+  if (hasTestableLanguage &&
+      !fs.existsSync(path.join(TARGET_REPO_PATH, 'Tests')) &&
       !fs.existsSync(path.join(TARGET_REPO_PATH, 'tests')) &&
       !fs.existsSync(path.join(TARGET_REPO_PATH, '__tests__')) &&
       !fs.existsSync(path.join(TARGET_REPO_PATH, 'test'))) {
@@ -408,17 +426,57 @@ async function main() {
     });
   }
 
-  // Vue.js関連の推奨事項
-  const vueFramework = repoResult.techStack.frameworks.find((f) =>
-    f.name.toLowerCase().includes('vue')
+  // Vue.js 2 → 3 移行推奨
+  const vueDep = repoResult.techStack.dependencies.find(
+    (d) => d.name === 'vue' || d.name === 'vue.js',
   );
-  if (vueFramework && vueFramework.version && /^2\./.test(vueFramework.version)) {
+  if (vueDep && vueDep.version && /^[\^~]?2\./.test(vueDep.version)) {
     recommendations.push({
       priority: 'high',
-      title: 'Vue.js 3へのマイグレーション',
-      description: `Vue.js ${vueFramework.version} はメンテナンスモードに移行しています。Composition API・パフォーマンス向上・TypeScript対応強化のため、Vue 3への移行を推奨します。`,
+      title: 'Vue.js 2 → 3 への移行',
+      description:
+        'Vue.js 2.x が使用されています。Vue 2 は2023年12月31日にサポート終了(EOL)しました。セキュリティパッチの提供が停止しているため、Vue 3への移行を強く推奨します。Composition API、Teleport、Fragments等の新機能も活用可能になります。',
       effort: '2-4週間',
-      impact: 'パフォーマンス向上・長期的な保守性確保',
+      impact: 'セキュリティリスクの根本的解決・開発体験の向上',
+    });
+  }
+
+  // Vuex → Pinia 移行推奨
+  const vuexDep = repoResult.techStack.dependencies.find((d) => d.name === 'vuex');
+  if (vuexDep) {
+    recommendations.push({
+      priority: 'medium',
+      title: 'Vuex から Pinia への移行',
+      description:
+        'Vuexが状態管理に使用されています。Vue公式はPiniaを推奨しており、TypeScriptサポートの強化、Composition APIとの統合、よりシンプルなAPIが利点です。',
+      effort: '1-2週間',
+      impact: '開発体験の向上・型安全性の強化',
+    });
+  }
+
+  // moment.js → Day.js 移行推奨
+  const momentDep = repoResult.techStack.dependencies.find((d) => d.name === 'moment');
+  if (momentDep) {
+    recommendations.push({
+      priority: 'medium',
+      title: 'moment.js から Day.js への移行',
+      description:
+        'moment.jsが使用されていますが、メンテナンスモードに移行しており新規開発は推奨されません。Day.jsはAPIがほぼ互換でバンドルサイズが約2KB（momentは約67KB）と大幅に軽量です。',
+      effort: '2-3日',
+      impact: 'バンドルサイズ削減・パフォーマンス向上',
+    });
+  }
+
+  // lodash のtree-shaking対応
+  const lodashDep = repoResult.techStack.dependencies.find((d) => d.name === 'lodash');
+  if (lodashDep) {
+    recommendations.push({
+      priority: 'low',
+      title: 'lodash のtree-shaking対応',
+      description:
+        'lodash全体がインポートされています。lodash-esへの移行、または個別関数インポート（lodash/get等）によりバンドルサイズを大幅に削減可能です。',
+      effort: '1日',
+      impact: 'バンドルサイズ削減',
     });
   }
 
@@ -535,7 +593,7 @@ async function main() {
     logger.warn('PDF生成スキップ（Puppeteer未インストール）');
   }
 
-  console.log(`  [レポート生成完了]`);
+  console.log('  [レポート生成完了]');
   console.log(`    HTML: ${htmlPath}`);
   console.log(`    Markdown: ${mdPath}`);
   console.log('');
