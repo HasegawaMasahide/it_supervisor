@@ -3666,6 +3666,34 @@ export class StaticAnalyzer {
         category: IssueCategory.CodeQuality,
         message: 'AddMvc()は非推奨です。AddControllersWithViews()またはAddControllers()を使用してください'
       },
+      // === Phase 2: コード品質ルール ===
+      // --- int.Parse の安全でない使用 ---
+      {
+        id: 'CS-CQ-009',
+        pattern: /int\.Parse\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'int.Parse()は入力が不正な場合に例外をスローします。int.TryParse()の使用を推奨します',
+        filePattern: /\.cs$/,
+      },
+      // --- 空のcatchブロック ---
+      {
+        id: 'CS-CQ-010',
+        pattern: /catch\s*(?:\([^)]*\))?\s*\{\s*\}/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: '空のcatchブロックは例外を握りつぶします。少なくともログ出力を行ってください',
+        filePattern: /\.cs$/,
+      },
+      // --- マジックナンバー（カラムインデックス等） ---
+      {
+        id: 'CS-CQ-011',
+        pattern: /(?:GetInt32|GetString|GetDateTime|GetDecimal)\s*\(\s*\d+\s*\)/,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: 'DataReaderのカラムインデックスにマジックナンバーが使用されています。GetOrdinal()または定数を使用してください',
+        filePattern: /\.cs$/,
+      },
     ];
   }
 
@@ -4143,6 +4171,66 @@ export class StaticAnalyzer {
         message: 'ユーザー入力がファイルパスの構築に使用されています。パストラバーサル脆弱性のリスクがあります。パスの検証を行ってください',
         filePattern: /\.php$/,
       },
+      // === Phase 2: eval系検出ルール拡充 ===
+      // --- assert() の危険な使用 ---
+      {
+        id: 'PHP-SEC-019',
+        pattern: /\bassert\s*\(\s*\$/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'assert()にユーザー入力が渡されています。コードインジェクションのリスクがあります',
+        filePattern: /\.php$/,
+      },
+      // --- preg_replace の e 修飾子 ---
+      {
+        id: 'PHP-SEC-020',
+        pattern: /preg_replace\s*\(\s*['"].*\/e['"]/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'preg_replaceのe修飾子はコードインジェクションのリスクがあります。preg_replace_callbackを使用してください',
+        filePattern: /\.php$/,
+      },
+      // === Phase 2: コード品質ルール ===
+      // --- マジックナンバーの使用 ---
+      {
+        id: 'PHP-CQ-003',
+        pattern: /(?:if|case|return)\s*.*\b(?:[2-9]\d{2,}|86400|259200|3600|604800)\b/,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: 'マジックナンバーが使用されています。定数として定義することを推奨します',
+        filePattern: /\.php$/,
+      },
+      // --- 空のcatchブロック ---
+      {
+        id: 'PHP-CQ-004',
+        pattern: /catch\s*\([^)]*\)\s*\{\s*\}/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: '空のcatchブロックは例外を握りつぶします。少なくともログ出力を行ってください',
+        filePattern: /\.php$/,
+      },
+      // --- 深いネスト（PHP） ---
+      {
+        id: 'PHP-CQ-005',
+        pattern: /^\s{16,}(?:if|for|foreach|while|switch)\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'コードのネストが深すぎます（4段以上）。ガード節や関数分割を検討してください',
+        filePattern: /\.php$/,
+      },
+      // --- エラーハンドリングなしのDB操作 ---
+      {
+        id: 'PHP-CQ-006',
+        pattern: /DB::(?:select|insert|update|delete|statement)\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'DB操作にエラーハンドリング（try-catch）がありません。クエリエラーへの対処を追加してください',
+        filePattern: /\.php$/,
+        contextCheck: (lines, i) => {
+          const block = lines.slice(Math.max(0, i - 10), Math.min(i + 5, lines.length)).join('\n');
+          return !/try\s*\{/.test(block);
+        }
+      },
     ];
   }
 
@@ -4255,6 +4343,137 @@ export class StaticAnalyzer {
         message: 'Express.jsの状態変更エンドポイントにレート制限が設定されていません。express-rate-limitの使用を検討してください',
         filePattern: /\.(?:js|ts)$/,
         fileCondition: (content) => !content.includes('rateLimit') && !content.includes('rate-limit') && !content.includes('rate_limit')
+      },
+      // === Phase 2: XSS/eval 検出ルール拡充 ===
+      // --- document.write の使用 ---
+      {
+        id: 'JS-SEC-012',
+        pattern: /document\.write\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'document.write()の使用はXSS脆弱性のリスクがあります。DOM操作メソッドを使用してください',
+        filePattern: /\.(?:js|ts|jsx|tsx|vue)$/,
+      },
+      // --- outerHTML への代入 ---
+      {
+        id: 'JS-SEC-013',
+        pattern: /\.outerHTML\s*=/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'outerHTMLへの直接代入はXSS脆弱性のリスクがあります。安全なDOM操作を使用してください',
+        filePattern: /\.(?:js|ts|jsx|tsx|vue)$/,
+      },
+      // --- new Function() の使用 ---
+      {
+        id: 'JS-SEC-014',
+        pattern: /new\s+Function\s*\(/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'new Function()の使用はeval同等のリスクがあります。安全な代替手段を検討してください',
+        filePattern: /\.(?:js|ts|jsx|tsx|vue)$/,
+      },
+      // --- setTimeout/setInterval に文字列を渡す ---
+      {
+        id: 'JS-SEC-015',
+        pattern: /(?:setTimeout|setInterval)\s*\(\s*['"`]/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'setTimeout/setIntervalに文字列を渡すとeval同等のリスクがあります。関数を渡してください',
+        filePattern: /\.(?:js|ts|jsx|tsx|vue)$/,
+      },
+      // === Phase 2: コード品質ルール ===
+      // --- React クラスコンポーネント使用（古いパターン） ---
+      {
+        id: 'JS-CQ-001',
+        pattern: /class\s+\w+\s+extends\s+(?:React\.)?(?:Component|PureComponent)/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'クラスコンポーネントは古いパターンです。関数コンポーネント + Hooks への移行を推奨します',
+        filePattern: /\.(?:jsx|tsx)$/,
+      },
+      // --- グローバル名前空間汚染（window.xxx = ...） ---
+      {
+        id: 'JS-CQ-002',
+        pattern: /window\.\w+\s*=/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'windowオブジェクトへの代入はグローバル名前空間を汚染します。モジュールシステムまたはContextを使用してください',
+        filePattern: /\.(?:js|ts|jsx|tsx)$/,
+      },
+      // --- setInterval の clearInterval 未対応 ---
+      {
+        id: 'JS-CQ-003',
+        pattern: /setInterval\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'setInterval使用時はclearIntervalで適切にクリーンアップしてください。メモリリークの原因になります',
+        filePattern: /\.(?:js|ts|jsx|tsx|vue)$/,
+        fileCondition: (content) => !content.includes('clearInterval')
+      },
+      // --- tsconfig.json strict: false ---
+      {
+        id: 'JS-CQ-004',
+        pattern: /"strict"\s*:\s*false/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'TypeScriptの厳格モード(strict)が無効です。型安全性のためstrict: trueを推奨します',
+        filePattern: /tsconfig\.json$/,
+      },
+      // --- !important の多用（CSS品質） ---
+      {
+        id: 'JS-CQ-005',
+        pattern: /!important/,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: '!importantの多用はCSS詳細度の管理を困難にします。セレクタの見直しを検討してください',
+        filePattern: /\.css$/,
+        fileCondition: (content) => (content.match(/!important/g) || []).length >= 3
+      },
+      // --- moment.js の使用（非推奨ライブラリ） ---
+      {
+        id: 'JS-CQ-006',
+        pattern: /(?:import\s+.*from\s+['"]moment['"]|require\s*\(\s*['"]moment['"]\s*\))/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'moment.jsはメンテナンスモードです。Day.js（2KB）またはdate-fns（軽量）への移行を推奨します',
+        filePattern: /\.(?:js|ts|jsx|tsx)$/,
+      },
+      // --- ReactDOM.render without StrictMode ---
+      {
+        id: 'JS-CQ-007',
+        pattern: /ReactDOM\.render\s*\(/,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: 'ReactDOM.renderは非推奨です（React 18+）。createRootを使用し、React.StrictModeでラップしてください',
+        filePattern: /\.(?:jsx|tsx)$/,
+      },
+      // --- ハードコードされたリダイレクトURL ---
+      {
+        id: 'JS-CQ-008',
+        pattern: /window\.location(?:\.href)?\s*=\s*['"]\//,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: 'リダイレクト先URLがハードコードされています。定数またはルーティング設定を使用してください',
+        filePattern: /\.(?:js|ts|jsx|tsx)$/,
+      },
+      // --- 深いネスト（4段以上のif/for/whileネスト） ---
+      {
+        id: 'JS-CQ-009',
+        pattern: /^\s{12,}(?:if|for|while|switch)\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'コードのネストが深すぎます（4段以上）。ガード節や関数分割を検討してください',
+        filePattern: /\.(?:js|ts|jsx|tsx|vue)$/,
+      },
+      // --- ファイルレベルのグローバル変数宣言 ---
+      {
+        id: 'JS-CQ-010',
+        pattern: /^(?:let|var)\s+\w+\s*[:=]/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'ファイルスコープの変更可能な変数は状態管理の問題を引き起こします。モジュールシステムやContextを使用してください',
+        filePattern: /\.(?:ts|tsx)$/,
+        fileCondition: (content) => !content.includes('declare ') && !content.includes('.d.ts')
       },
     ];
   }
@@ -4597,6 +4816,81 @@ export class StaticAnalyzer {
         message: 'Cookie Secureフラグが無効です。HTTP経由でCookieが送信され盗聴のリスクがあります',
         filePattern: /settings\.py$/,
       },
+      // === Phase 2: eval系検出ルール拡充 ===
+      // --- exec() の使用 ---
+      {
+        id: 'PY-SEC-029',
+        pattern: /\bexec\s*\(/,
+        severity: Severity.Critical,
+        category: IssueCategory.Security,
+        message: 'exec()の使用はコードインジェクションのリスクがあります。安全な代替手段を使用してください',
+        filePattern: /\.py$/,
+      },
+      // === Phase 2: コード品質ルール ===
+      // --- 裸のexcept句 ---
+      {
+        id: 'PY-CQ-002',
+        pattern: /except\s*:/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: '裸のexcept句は全ての例外を捕捉します。具体的な例外型（ValueError, TypeError等）を指定してください',
+        filePattern: /\.py$/,
+      },
+      // --- except Exception（広すぎるキャッチ） ---
+      {
+        id: 'PY-CQ-003',
+        pattern: /except\s+Exception\s*(?:as\s+\w+\s*)?:/,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: 'Exceptionの広範なキャッチは予期しないエラーを握りつぶす可能性があります。具体的な例外型の指定を推奨します',
+        filePattern: /\.py$/,
+      },
+      // --- 型ヒントなし（関数定義に戻り値型がない） ---
+      {
+        id: 'PY-CQ-004',
+        pattern: /def\s+\w+\s*\([^)]*\)\s*:/,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: '関数に型ヒントがありません。戻り値の型アノテーション（-> type）を追加することを推奨します',
+        filePattern: /\.py$/,
+        contextCheck: (lines, i) => {
+          const line = lines[i];
+          // 型ヒント（->）がなく、かつクラスメソッドやテスト関数でない
+          return !line.includes('->') && !/def\s+(?:__\w+__|test_|setup|teardown)/i.test(line);
+        }
+      },
+      // --- IntegerField に制約なし（Django models） ---
+      {
+        id: 'PY-CQ-005',
+        pattern: /(?:Integer|PositiveInteger|SmallInteger)Field\s*\(\s*\)/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'IntegerFieldにバリデータ（validators=[MinValueValidator, MaxValueValidator]）が設定されていません。範囲制約の追加を検討してください',
+        filePattern: /models\.py$/,
+      },
+      // --- requests呼び出しにエラーハンドリングなし ---
+      {
+        id: 'PY-CQ-006',
+        pattern: /requests\.(?:get|post|put|delete|patch)\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'HTTPリクエストにエラーハンドリング（try-except/raise_for_status）がありません。ネットワークエラーへの対処を追加してください',
+        filePattern: /\.py$/,
+        contextCheck: (lines, i) => {
+          // 前後10行にtry/exceptがない場合のみ
+          const block = lines.slice(Math.max(0, i - 10), Math.min(i + 10, lines.length)).join('\n');
+          return !/try\s*:/.test(block) && !/raise_for_status/.test(block);
+        }
+      },
+      // --- 深いネスト（Python） ---
+      {
+        id: 'PY-CQ-007',
+        pattern: /^\s{16,}(?:if|for|while|elif)\s/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'コードのネストが深すぎます（4段以上）。ガード節や関数分割を検討してください',
+        filePattern: /\.py$/,
+      },
     ];
   }
 
@@ -4737,6 +5031,67 @@ export class StaticAnalyzer {
         message: 'Serviceクラスのpublicメソッドに@Transactionalが設定されていない可能性があります。トランザクション管理を確認してください',
         filePattern: /Service\.java$/,
         fileCondition: (content) => !/@Transactional/.test(content)
+      },
+      // === Phase 2: XSS/eval 検出ルール拡充 ===
+      // --- @ResponseBody でのHTML文字列直接返却 ---
+      {
+        id: 'JAVA-SEC-009',
+        pattern: /return\s*["']<[^>]+>/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'HTML文字列を直接返却しています。テンプレートエンジンの使用を検討してください',
+        filePattern: /\.java$/,
+      },
+      // === Phase 2: コード品質ルール ===
+      // --- 空のcatchブロック ---
+      {
+        id: 'JAVA-CQ-005',
+        pattern: /catch\s*\([^)]*\)\s*\{\s*\}/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: '空のcatchブロックは例外を握りつぶします。少なくともログ出力を行ってください',
+        filePattern: /\.java$/,
+      },
+      // --- catch内でException.printStackTraceのみ ---
+      {
+        id: 'JAVA-CQ-006',
+        pattern: /\.printStackTrace\s*\(\s*\)/,
+        severity: Severity.Medium,
+        category: IssueCategory.CodeQuality,
+        message: 'printStackTrace()ではなく、ロギングフレームワーク（SLF4J/Logback）を使用してください',
+        filePattern: /\.java$/,
+      },
+      // --- マジックストリング（ステータスコード等） ---
+      {
+        id: 'JAVA-CQ-007',
+        pattern: /\.equals\s*\(\s*"(?:active|inactive|pending|completed|approved|rejected|draft|published)"\s*\)/i,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: 'マジックストリングが使用されています。定数またはEnumとして定義することを推奨します',
+        filePattern: /\.java$/,
+      },
+      // --- マジックナンバー（Java コード内） ---
+      {
+        id: 'JAVA-CQ-008',
+        pattern: /(?:==|!=|>=|<=|>|<)\s*(?:[2-9]\d{2,}|86400|3600|604800)\b/,
+        severity: Severity.Low,
+        category: IssueCategory.CodeQuality,
+        message: 'マジックナンバーが使用されています。定数として定義することを推奨します',
+        filePattern: /\.java$/,
+      },
+      // --- God Class検出（Serviceクラスで多数のメソッド宣言） ---
+      {
+        id: 'JAVA-CQ-009',
+        pattern: /public\s+\w+\s+\w+\s*\([^)]*\)\s*(?:throws\s+\w+\s*)?\{/,
+        severity: Severity.High,
+        category: IssueCategory.CodeQuality,
+        message: 'God Class の可能性があります。Serviceクラスのメソッド数が多すぎます。責務の分割を検討してください',
+        filePattern: /Service\.java$/,
+        fileCondition: (content) => {
+          // publicメソッドが10個以上あるServiceクラス
+          const publicMethods = (content.match(/public\s+\w+\s+\w+\s*\([^)]*\)\s*(?:throws\s+\w+\s*)?\{/g) || []);
+          return publicMethods.length >= 10;
+        }
       },
       // --- 追加ルール: 依存関係（pom.xml） ---
       {

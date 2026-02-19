@@ -274,8 +274,8 @@ async function main() {
         `**ツール**: ${issue.tool}`,
         issue.snippet ? `\n\`\`\`\n${issue.snippet}\n\`\`\`` : '',
         issue.fix?.description ? `\n**修正案**: ${issue.fix.description}` : '',
-        issue.cwe?.length ? `\n**CWE**: ${issue.cwe.join(', ')}` : '',
-        issue.cve?.length ? `\n**CVE**: ${issue.cve.join(', ')}` : '',
+        issue.cwe?.length ? `\n**CWE**: ${Array.isArray(issue.cwe) ? issue.cwe.join(', ') : issue.cwe}` : '',
+        issue.cve?.length ? `\n**CVE**: ${Array.isArray(issue.cve) ? issue.cve.join(', ') : issue.cve}` : '',
       ]
         .filter(Boolean)
         .join('\n'),
