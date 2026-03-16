@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "ast-grep": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/ast-grep/ast-grep-mcp",
+        "ast-grep-server"
+      ]
+    },
+    "sqlite": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "mcp-server-sqlite",
+        "--db-path",
+        "${AUDIT_DB_PATH:-./audit.db}"
+      ]
+    }
+  }
+}
