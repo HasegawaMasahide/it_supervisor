@@ -109,31 +109,47 @@ interface ContinuousImprovement {
 
   // 継続レビュー: 監査結果をClaude Code Reviewに引き継ぎ
   ongoingReview: {
-    trigger: "Pull Requestごとに自動実行",
+    trigger: "Pull Requestごとに実行（自動 or 手動）",
     basis: "review-config.md（REVIEW.mdとしてリポジトリに配置）",
-    provider: "Anthropic Claude Code Review（GitHub連携）"
+    // 顧客のClaude契約プランに応じて2つの実行方法を提供
+    executionMethods: [
+      {
+        name: "マネージド版",
+        prerequisite: "Claude Teams/Enterprise",
+        execution: "PR作成時にAnthropicインフラで自動実行",
+        cost: "$15-80+/レビュー（PR規模に応じて変動）",
+        merit: "組織全体への強制適用、完全自動化"
+      },
+      {
+        name: "プラグイン版",
+        prerequisite: "Claude Max/Pro/Teams いずれも可",
+        execution: "Claude Codeで /code-review:code-review を手動実行",
+        cost: "追加$0（サブスクリプション内）",
+        merit: "低コスト、PR前のローカル事前チェックにも活用可能"
+      }
+    ]
   };
 
   customerValue: [
     "一度の監査で終わらない、継続的な品質維持の仕組み",
     "開発チームのレビュー工数を削減",
     "監査で発見したパターンの再発を防止",
-    "新規メンバーのコードも自動的に品質チェック"
+    "新規メンバーのコードも自動的に品質チェック",
+    "Teamsプラン不要でもプラグイン版で同等の効果を得られる"
   ];
 
   // 本サービスとClaude Code Reviewの役割分担
   roleDistribution: {
     本サービス: "既存コード全体の一括監査 + 改善実装 + 人間レビュー + 瑕疵担保",
-    claudeCodeReview: "PRの差分レビュー（継続的、自動、REVIEW.mdルール準拠）",
+    claudeCodeReview: "PRの差分レビュー（継続的、REVIEW.mdルール準拠）",
     補完関係: "初回監査で全体を把握 → 以降はPR単位で品質維持"
   };
-
-  prerequisite: "Claude Teams/Enterprise + GitHub連携";
-  reviewCost: "$15-25/レビュー（Anthropic社への直接課金、本サービス費用とは別）";
 }
 ```
 
-> **Claude Code Reviewとの関係**: Claude Code ReviewはPR差分レビューに特化したサービスであり、既存コードベース全体の一括監査には対応していない。本サービスの初回監査でコードベース全体を精査し、その知見をREVIEW.mdとして引き継ぐことで、「一度きりの監査」を「継続的な品質改善の仕組み」に昇華させる。
+> **Claude Code Reviewとの関係**: Claude Code ReviewはPR差分レビューに特化した機能であり、既存コードベース全体の一括監査には対応していない。本サービスの初回監査でコードベース全体を精査し、その知見をREVIEW.mdとして引き継ぐことで、「一度きりの監査」を「継続的な品質改善の仕組み」に昇華させる。
+>
+> **プラン非依存**: マネージド版（Teams/Enterprise）だけでなく、プラグイン版（`/code-review:code-review`）を使えばMax/Proプランでも同様のレビューを実行可能。顧客の契約状況に関わらずREVIEW.mdの価値を提供できる。
 
 ---
 

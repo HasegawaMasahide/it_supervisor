@@ -157,13 +157,35 @@ Discovery レポート（`01_discovery.md`）と Analysis レポート（`02_ana
 
 ### REVIEW.mdとは
 
-リポジトリルートに配置するだけで、Claude Code Review（Anthropic社のAI PRレビューサービス）が今回の監査で発見されたパターンの問題を、今後のPull Requestで自動的に指摘します。監査は「一度きり」ではなく、開発チームの日常的なコードレビューに組み込まれます。
+リポジトリルートに配置することで、Claude Code Reviewが今回の監査で発見されたパターンの問題を、今後のPull Requestで自動的に指摘します。監査は「一度きり」ではなく、開発チームの日常的なコードレビューに組み込まれます。
 
-### 導入手順
+### 導入方法（2つの選択肢）
+
+顧客の契約プランに応じて、いずれかの方法で導入できます:
+
+#### 方法A: マネージド版（Teams/Enterprise プラン向け）
+
+PR作成時にAnthropicインフラ上で自動実行されます。
 
 1. 同封の `review-config.md` をリポジトリルートに `REVIEW.md` としてコピー
-2. GitHub上でClaude Code Reviewを有効化（Claude Teams/Enterprise プラン）
+2. claude.ai 管理画面でClaude Code Reviewを有効化し、対象リポジトリを選択
 3. 以降のPull Requestで自動レビューが実施されます
+
+- 実行コスト: $15〜80+/レビュー（PR規模に応じて変動）
+- 組織全体での標準化・強制適用が可能
+
+#### 方法B: プラグイン版（Max/Pro/Teams いずれのプランでも利用可）
+
+Claude Codeのローカルセッションから手動実行します。追加コストはサブスクリプションに含まれます。
+
+1. 同封の `review-config.md` をリポジトリルートに `REVIEW.md` としてコピー
+2. Claude Code で `/plugin` → Marketplaces → `code-review` をインストール
+3. PRのブランチ上で以下のコマンドを実行:
+   - `/code-review:code-review` — ローカル出力（ターミナルに結果表示）
+   - `/code-review:code-review --comment` — GitHub PR上にコメントとして投稿
+
+- 実行コスト: 追加$0（既存サブスクリプション内）
+- PR作成前のローカル事前チェックにも活用可能
 
 ### 含まれるルール
 

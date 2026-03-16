@@ -124,6 +124,10 @@ disable-model-invocation: true
 > リポジトリルートに `REVIEW.md` として配置してください。
 > Claude Code Review がPRレビュー時にこのルールを参照します。
 >
+> **利用方法（いずれか）:**
+> - **マネージド版**（Teams/Enterprise）: REVIEW.mdを配置するだけでPR作成時に自動レビュー
+> - **プラグイン版**（Max/Pro/Teams）: Claude Codeで `/code-review:code-review` を実行（追加コスト$0）
+>
 > ルール総数: {N}件（Critical由来: {n1}件、High由来: {n2}件、Medium由来: {n3}件、スタック固有: {n4}件）
 
 ## セキュリティ
