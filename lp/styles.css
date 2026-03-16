@@ -1298,6 +1298,95 @@ section {
 }
 
 /* ========================================
+   継続的品質改善セクション
+   ======================================== */
+.continuous-improvement {
+    background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+    padding: 80px 0;
+}
+
+.improvement-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 48px 0 32px;
+    flex-wrap: wrap;
+}
+
+.improvement-step {
+    text-align: center;
+    padding: 28px 20px;
+    background: var(--bg-white);
+    border-radius: 16px;
+    box-shadow: var(--shadow-md);
+    width: 200px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.improvement-step:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.improvement-icon {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    color: white;
+}
+
+.improvement-step h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.improvement-step p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.improvement-arrow {
+    color: var(--primary-color);
+    flex-shrink: 0;
+}
+
+.improvement-note {
+    text-align: center;
+    margin-top: 24px;
+}
+
+.improvement-note p {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+    .improvement-flow {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .improvement-step {
+        width: 100%;
+        max-width: 280px;
+    }
+
+    .improvement-arrow {
+        transform: rotate(90deg);
+    }
+}
+
+/* ========================================
    お客様の声
    ======================================== */
 .testimonials {

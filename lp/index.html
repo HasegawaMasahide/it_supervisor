@@ -746,6 +746,7 @@
                                     <li>Before/After比較チャート</li>
                                     <li>今後の改善ロードマップ</li>
                                     <li>3ヶ月間の瑕疵担保書</li>
+                                    <li>REVIEW.md設定ファイル（継続的AIレビューの設定）</li>
                                 </ul>
                             </div>
                         </div>
@@ -798,6 +799,7 @@
                         <li>✓ ROI試算レポート</li>
                         <li>✓ 実装計画書</li>
                         <li>✓ シニアエンジニアのレビュー</li>
+                        <li>✓ REVIEW.md設定（継続的AIレビュー）</li>
                         <li class="disabled">実装・テスト・デプロイ</li>
                     </ul>
                     <p class="pricing-duration">期間：4-6週間</p>
@@ -819,6 +821,7 @@
                         <li>✓ デプロイ・動作確認</li>
                         <li>✓ 効果測定レポート</li>
                         <li>✓ 3ヶ月間の瑕疵担保</li>
+                        <li>✓ REVIEW.md設定（継続的AIレビュー）</li>
                     </ul>
                     <p class="pricing-duration">期間：3-5ヶ月</p>
                     <a href="#contact" class="btn btn-outline">お問い合わせ</a>
@@ -839,6 +842,10 @@
                     <div class="extra-item">
                         <strong>追加開発</strong>
                         <p>新機能追加や大規模改修（別途見積）</p>
+                    </div>
+                    <div class="extra-item">
+                        <strong>REVIEW.mdルール更新</strong>
+                        <p>四半期ごとにレビュールールを更新（保守契約に含む）</p>
                     </div>
                 </div>
             </div>
@@ -953,6 +960,60 @@
                         <li>技術的負債の解消</li>
                     </ul>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 継続的品質改善セクション -->
+    <section class="continuous-improvement">
+        <div class="container">
+            <h2 class="section-title">一度の監査で<span class="highlight">終わらない</span></h2>
+            <p class="section-description">
+                監査結果をClaude Code Reviewに引き継ぎ、<br>
+                日々の開発でAIが自動レビューを継続します
+            </p>
+            <div class="improvement-flow">
+                <div class="improvement-step">
+                    <div class="improvement-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    </div>
+                    <h3>初回監査</h3>
+                    <p>コードベース全体を<br>一括でチェック</p>
+                </div>
+                <div class="improvement-arrow">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </div>
+                <div class="improvement-step">
+                    <div class="improvement-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    </div>
+                    <h3>REVIEW.md生成</h3>
+                    <p>監査で発見したパターンを<br>レビュールール化</p>
+                </div>
+                <div class="improvement-arrow">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </div>
+                <div class="improvement-step">
+                    <div class="improvement-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/></svg>
+                    </div>
+                    <h3>継続的AIレビュー</h3>
+                    <p>PRごとにClaude Code Reviewが<br>自動でチェック</p>
+                </div>
+                <div class="improvement-arrow">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </div>
+                <div class="improvement-step">
+                    <div class="improvement-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </div>
+                    <h3>品質の維持・向上</h3>
+                    <p>同じ問題の再発を防ぎ<br>コード品質が向上し続ける</p>
+                </div>
+            </div>
+            <div class="improvement-note">
+                <p>※ Claude Code ReviewはAnthropic社のGitHub PRレビューサービスです（Teams/Enterprise限定）。<br>
+                REVIEW.md設定ファイルはスタンダードプラン以上に標準付帯します。</p>
             </div>
         </div>
     </section>

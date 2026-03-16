@@ -9,6 +9,7 @@
 - **AI+人間のハイブリッド体制**：AIで効率化、人間の経験で品質保証
 - **瑕疵担保責任**：提案内容に対する保証により「AIが怖い」という顧客不安を解消
 - **ワンストップ対応**：診断から実装・効果測定まで一気通貫
+- **継続的品質改善**：初回監査の知見をREVIEW.md化し、以降のPR開発でもAIレビューが継続
 
 ### 初年度目標
 - 受注件数：7件（月0.5〜1件ペース）
@@ -59,6 +60,7 @@ type ServicePhase =
   | "実装 (Implementation)"      // 4-8週間
   | "効果測定 (Measurement)"     // 1-2週間
   | "報告 (Reporting)";          // 3日
+  // ※報告フェーズでREVIEW.md（継続的AIレビュー設定）も納品
 ```
 
 詳細は前述のフレームワーク参照。
@@ -94,6 +96,45 @@ class WarrantyScope {
 }
 ```
 
+### 3.4 継続的品質改善（Claude Code Review連携）
+
+```typescript
+interface ContinuousImprovement {
+  // 初回監査: コードベース全体の一括監査（本サービス）
+  initialAudit: {
+    scope: "既存コードベース全体",
+    coverage: "95%+（6プロジェクトのベンチマークで実証）",
+    output: ["audit-report.md", "review-config.md"]
+  };
+
+  // 継続レビュー: 監査結果をClaude Code Reviewに引き継ぎ
+  ongoingReview: {
+    trigger: "Pull Requestごとに自動実行",
+    basis: "review-config.md（REVIEW.mdとしてリポジトリに配置）",
+    provider: "Anthropic Claude Code Review（GitHub連携）"
+  };
+
+  customerValue: [
+    "一度の監査で終わらない、継続的な品質維持の仕組み",
+    "開発チームのレビュー工数を削減",
+    "監査で発見したパターンの再発を防止",
+    "新規メンバーのコードも自動的に品質チェック"
+  ];
+
+  // 本サービスとClaude Code Reviewの役割分担
+  roleDistribution: {
+    本サービス: "既存コード全体の一括監査 + 改善実装 + 人間レビュー + 瑕疵担保",
+    claudeCodeReview: "PRの差分レビュー（継続的、自動、REVIEW.mdルール準拠）",
+    補完関係: "初回監査で全体を把握 → 以降はPR単位で品質維持"
+  };
+
+  prerequisite: "Claude Teams/Enterprise + GitHub連携";
+  reviewCost: "$15-25/レビュー（Anthropic社への直接課金、本サービス費用とは別）";
+}
+```
+
+> **Claude Code Reviewとの関係**: Claude Code ReviewはPR差分レビューに特化したサービスであり、既存コードベース全体の一括監査には対応していない。本サービスの初回監査でコードベース全体を精査し、その知見をREVIEW.mdとして引き継ぐことで、「一度きりの監査」を「継続的な品質改善の仕組み」に昇華させる。
+
 ---
 
 ## 4. 収益モデル
@@ -122,7 +163,8 @@ const year1Revenue = {
     月額: 100_000,
     件数: 4,  // 過去案件のうち契約継続（50%減）
     期間: 6,  // 平均継続月数
-    小計: 2_400_000
+    小計: 2_400_000,
+    内容: ["監視・サポート", "REVIEW.mdルールの四半期更新", "新規検出パターンの追加"]
   },
   追加開発: {
     小計: 700_000  // プレミアム案件からのスピンオフ（50%減）
@@ -367,13 +409,15 @@ interface RiskManagement {
   },
   
   競合リスク: {
-    risk: "大手SIerの低価格参入",
-    probability: "低",
+    risk: "大手SIerの低価格参入 / AIレビューツールの普及",
+    probability: "中",
     impact: "大",
     mitigation: [
       "中小企業特化のノウハウ蓄積",
       "迅速な対応力（大手にはできない）",
-      "顧客との密接な関係構築"
+      "顧客との密接な関係構築",
+      "Claude Code Reviewとの補完戦略（初回一括監査 + 継続レビュー設定のセット提供）",
+      "AIツール単体では提供できない瑕疵担保・人間レビュー・顧客コミュニケーションが差別化"
     ]
   },
   
