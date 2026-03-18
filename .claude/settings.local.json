@@ -66,7 +66,18 @@
       "WebFetch(domain:claude-plugins.dev)",
       "Bash(gh auth status:*)",
       "WebFetch(domain:zenn.dev)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(powershell.exe -Command \"Add-Type -AssemblyName ''DocumentFormat.OpenXml''; Write-Host ''need python''\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File /tmp/extract_pptx.ps1)",
+      "Bash(powershell.exe -Command \"pip install defusedxml 2>&1 | Select-Object -Last 1; python C:/Users/M.Hasegawa/.claude/plugins/cache/anthropic-agent-skills/example-skills/69c0b1a06741/skills/pptx/ooxml/scripts/unpack.py c:/workspace/new_business/it_supervisor/audit-architecture-journey.pptx c:/tmp/pptx-unpack\")",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -c \"print\\(''hello''\\)\")",
+      "Bash(powershell.exe -Command \"Get-Command python -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source; Get-Command py -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Users\\\\M.Hasegawa\\\\AppData\\\\Local\\\\Microsoft\\\\WindowsApps\\\\python.exe'' --version 2>&1\")",
+      "Bash(mkdir -p /tmp/pptx-analyze)",
+      "Read(//tmp/**)",
+      "Bash(unzip -o \"c:/workspace/new_business/it_supervisor/audit-architecture-journey.pptx\" \"ppt/theme/*\" \"ppt/slides/slide1.xml\" \"ppt/slides/slide9.xml\" \"ppt/slides/slide4.xml\" -d .)",
+      "Bash(powershell.exe -Command \"cd ''c:\\\\workspace\\\\new_business\\\\it_supervisor\\\\tmp''; npm install pptxgenjs playwright sharp 2>&1 | Select-Object -Last 3\")"
     ]
   }
 }
