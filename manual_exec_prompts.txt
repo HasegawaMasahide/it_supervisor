@@ -1,0 +1,32 @@
+claude -p --verbose "
+REPO_NAME を次の各ディレクトリで読み替えて、サブエージェントで以下を並列に実行して。
+demo\aspnet-legacy-system
+demo\django-ec-app
+demo\laravel-todo-app
+demo\react-cms-app
+demo\springboot-crm-app
+demo\vue-booking-app
+サブエージェントで実行するプロンプト:
+docs/AGENT_AUDIT_PROMPT.md を読んで監査を実行して。
+- TARGET_REPO_PATH: C:\workspace\new_business\it_supervisor\demo\{REPO_NAME}
+- PROJECT_NAME: 顧客Webアプリ_{REPO_NAME}
+- CUSTOMER_NAME: 株式会社サンプル
+- OUTPUT_DIR: C:\workspace\new_business\it_supervisor\demo\{REPO_NAME}_output
+TypeScriptスクリプトを作成し npx tsx で実行すること。
+ISSUES.mdは監査において参照しないこと。
+" --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
+
+
+claude -p --verbose "
+REPO_NAME を次の各ディレクトリで読み替えて、サブエージェントで以下を並列に実行して。
+demo\aspnet-legacy-system
+demo\django-ec-app
+demo\laravel-todo-app
+demo\react-cms-app
+demo\springboot-crm-app
+demo\vue-booking-app
+サブエージェントで実行するプロンプト:
+C:\workspace\new_business\it_supervisor\demo\{REPO_NAME}\ISSUE.md を読んで、意図的に埋め込まれた脆弱性や問題点を把握して。
+C:\workspace\new_business\it_supervisor\demo\{REPO_NAME}_output を読んで、監査ツールで分析した結果を把握して。
+意図して埋め込んでいる問題点をどれだけ検出できたか、見逃したものはどれくらいあるか、意図していないけど改善点として見つけたものはあるのか、を調べてください。
+" --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
