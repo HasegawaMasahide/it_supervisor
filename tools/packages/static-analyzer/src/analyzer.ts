@@ -3694,6 +3694,43 @@ export class StaticAnalyzer {
         message: 'DataReaderのカラムインデックスにマジックナンバーが使用されています。GetOrdinal()または定数を使用してください',
         filePattern: /\.cs$/,
       },
+      // ====================================================================
+      // Phase 3: C# パフォーマンスルール追加
+      // ====================================================================
+      {
+        id: 'CS-PERF-002',
+        pattern: /\.(?:Where|Select|OrderBy)\s*\(.*\)\.ToList\s*\(\)/,
+        severity: Severity.High,
+        category: IssueCategory.Performance,
+        message: 'クエリ結果を一括取得しています。.Include()によるEagerローディングが不足している可能性があります（N+1問題）',
+        filePattern: /\.cs$/,
+        contextCheck: (lines: string[], index: number) => {
+          const block = lines.slice(Math.max(0, index - 5), Math.min(index + 5, lines.length)).join('\n');
+          return !block.includes('.Include(');
+        }
+      },
+      {
+        id: 'CS-PERF-003',
+        pattern: /\.ToList\s*\(\)/,
+        severity: Severity.High,
+        category: IssueCategory.Performance,
+        message: '全データを一括取得しています。ページネーション（Take/Skip）の使用を検討してください',
+        filePattern: /\.cs$/,
+        contextCheck: (lines: string[], index: number) => {
+          const block = lines.slice(Math.max(0, index - 5), Math.min(index + 5, lines.length)).join('\n');
+          return !block.includes('.Take(') && !block.includes('.Skip(') &&
+            (/Export|Report|Download|Csv/i.test(block) || /\.ToList\(\)/.test(lines[index]));
+        },
+        fileCondition: (content) => !content.includes('.Take(') && !content.includes('.Skip(')
+      },
+      {
+        id: 'CS-PERF-004',
+        pattern: /static\s+(?:readonly\s+)?(?:List|Dictionary|ConcurrentDictionary)<[^>]+>\s+\w+\s*=/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: 'staticな変更可能コレクションはメモリリークとスレッドセーフの問題を引き起こします。IMemoryCacheの使用を検討してください',
+        filePattern: /\.cs$/,
+      },
     ];
   }
 
@@ -3957,6 +3994,52 @@ export class StaticAnalyzer {
         message: 'Guzzleの古いバージョンにはCVE-2022-31090等の脆弱性があります。7.0以上にアップグレードしてください',
         filePattern: /composer\.json$/,
       },
+      // ====================================================================
+      // Phase 3: JavaScript 依存関係の既知脆弱バージョン検出（fallback）
+      // ====================================================================
+      {
+        id: 'DEP-JS-001',
+        pattern: /"axios"\s*:\s*"[~^]?0\.(?:1[0-9]|2[0-1])\./,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'axiosの古いバージョンにはCVE-2021-3749（ReDoS）等の脆弱性があります。0.27.0以上にアップグレードしてください',
+        filePattern: /package\.json$/,
+      },
+      {
+        id: 'DEP-JS-002',
+        pattern: /"lodash"\s*:\s*"[~^]?4\.17\.(?:[0-9]|1[0-9]|20)\b/,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'lodashの古いバージョンにはCVE-2021-23337（コマンドインジェクション）等の脆弱性があります。4.17.21以上にアップグレードしてください',
+        filePattern: /package\.json$/,
+      },
+      // ====================================================================
+      // Phase 3: EOL / 非推奨パッケージの検出
+      // ====================================================================
+      {
+        id: 'DEP-EOL-001',
+        pattern: /"vue"\s*:\s*"[~^]?2\./,
+        severity: Severity.High,
+        category: IssueCategory.Security,
+        message: 'Vue 2.xは2023年12月31日にEOLです。セキュリティパッチが提供されません。Vue 3へのマイグレーションを推奨します',
+        filePattern: /package\.json$/,
+      },
+      {
+        id: 'DEP-EOL-002',
+        pattern: /"react"\s*:\s*"[~^]?16\./,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'React 16.xはメンテナンスモードです。React 18以上へのアップグレードを推奨します',
+        filePattern: /package\.json$/,
+      },
+      {
+        id: 'DEP-EOL-003',
+        pattern: /"moment"\s*:\s*"/,
+        severity: Severity.Medium,
+        category: IssueCategory.Security,
+        message: 'moment.jsはメンテナンスモードで非推奨です。Day.jsまたはdate-fnsへの移行を推奨します（バンドルサイズ: 67KB → 2KB削減可能）',
+        filePattern: /package\.json$/,
+      },
     ];
   }
 
@@ -4017,6 +4100,42 @@ export class StaticAnalyzer {
           const block = lines.slice(i, Math.min(i + 10, lines.length)).join('\n');
           return /(?:DB::(?:select|table)|->where\(|->find\(|->get\(\))/.test(block);
         }
+      },
+      // ====================================================================
+      // Phase 3: PHP パフォーマンスルール追加
+      // ====================================================================
+      {
+        id: 'PHP-PERF-002',
+        pattern: /(?:DB::select|DB::raw)\s*\(\s*["']SELECT\s+\*/i,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: 'SELECT * は不要なカラムも取得します。必要なカラムのみ指定してください',
+        filePattern: /\.php$/,
+      },
+      {
+        id: 'PHP-PERF-003',
+        pattern: /->get\s*\(\s*\)/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: '全レコードを一括取得しています。ページネーション（paginate()）や必要カラム指定（select()）の使用を検討してください',
+        filePattern: /\.php$/,
+        contextCheck: (lines: string[], index: number) => {
+          const block = lines.slice(Math.max(0, index - 3), Math.min(index + 1, lines.length)).join('\n');
+          return !block.includes('->paginate(') && !block.includes('->take(') && !block.includes('->limit(') &&
+            /(?:DB::|->where|->select|->from|::query|::all)/.test(block);
+        },
+      },
+      {
+        id: 'PHP-PERF-004',
+        pattern: /\$table->(?:unsignedBigInteger|bigInteger|integer|unsignedInteger)\s*\(\s*['"]\w+_id['"]/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: '外部キーカラムにインデックスが未定義の可能性があります。->index()の追加を検討してください',
+        filePattern: /migrations/,
+        contextCheck: (lines: string[], index: number) => {
+          const block = lines.slice(index, Math.min(index + 3, lines.length)).join('\n');
+          return !block.includes('->index()') && !block.includes('->foreign(');
+        },
       },
       // --- レート制限チェック ---
       {
@@ -4475,6 +4594,51 @@ export class StaticAnalyzer {
         filePattern: /\.(?:ts|tsx)$/,
         fileCondition: (content) => !content.includes('declare ') && !content.includes('.d.ts')
       },
+      // ====================================================================
+      // Phase 3: JavaScript パフォーマンスルール追加
+      // ====================================================================
+      {
+        id: 'JS-PERF-002',
+        pattern: /this\.setState\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: '同一メソッド内で複数のsetState呼び出しは不要な再レンダリングを引き起こします。1回のsetStateにまとめてください',
+        filePattern: /\.(?:jsx|tsx)$/,
+        contextCheck: (lines: string[], index: number) => {
+          // 前後5行以内に別のsetStateがある場合のみ
+          const block = lines.slice(Math.max(0, index - 5), Math.min(index + 5, lines.length)).join('\n');
+          const count = (block.match(/this\.setState\s*\(/g) || []).length;
+          return count >= 2;
+        }
+      },
+      {
+        id: 'JS-PERF-003',
+        pattern: /<img\s/,
+        severity: Severity.Low,
+        category: IssueCategory.Performance,
+        message: '<img>タグにloading="lazy"が設定されていません。画像の遅延読み込みを検討してください',
+        filePattern: /\.(?:jsx|tsx|vue|html)$/,
+        contextCheck: (lines: string[], index: number) => {
+          const line = lines[index];
+          return !line.includes('loading=') && !line.includes('loading =');
+        }
+      },
+      {
+        id: 'JS-PERF-004',
+        pattern: /(?:limit|pageSize|page_size|perPage|per_page)\s*[:=]\s*(?:[5-9]\d{2,}|\d{4,})/,
+        severity: Severity.High,
+        category: IssueCategory.Performance,
+        message: '一度に取得するデータ件数が過大です。ページネーションや仮想スクロールの使用を検討してください',
+        filePattern: /\.(?:js|ts|jsx|tsx|vue)$/,
+      },
+      {
+        id: 'JS-PERF-005',
+        pattern: /import\s+(?:_|\w+)\s+from\s+['"]lodash['"]/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: 'lodash全体のインポートはバンドルサイズを肥大化させます。lodash/xxxの個別インポートを使用してください',
+        filePattern: /\.(?:js|ts|jsx|tsx|vue)$/,
+      },
     ];
   }
 
@@ -4771,6 +4935,45 @@ export class StaticAnalyzer {
         message: 'SESSION_SAVE_EVERY_REQUEST=Trueは全リクエストでセッション保存が発生しDB負荷が増加します',
         filePattern: /settings\.py$/,
       },
+      // ====================================================================
+      // Phase 3: Python パフォーマンスルール追加
+      // ====================================================================
+      {
+        id: 'PY-PERF-004',
+        pattern: /(?:ForeignKey|OneToOneField)\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: 'ForeignKeyフィールドにdb_index=Trueが明示されていません。頻繁にクエリで使用する場合はインデックスの追加を検討してください',
+        filePattern: /models\.py$/,
+        contextCheck: (lines: string[], index: number) => {
+          const line = lines[index];
+          return !line.includes('db_index') && !line.includes('primary_key=True') && !line.includes('unique=True');
+        }
+      },
+      {
+        id: 'PY-PERF-005',
+        pattern: /ImageField\s*\(/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: 'ImageFieldにバリデーション（ファイルサイズ、解像度制限）が設定されていません。大容量画像のアップロードでパフォーマンス問題が発生する可能性があります',
+        filePattern: /models\.py$/,
+        contextCheck: (lines: string[], index: number) => {
+          const block = lines.slice(index, Math.min(index + 3, lines.length)).join('\n');
+          return !block.includes('validators');
+        }
+      },
+      {
+        id: 'PY-PERF-006',
+        pattern: /\.objects\.all\s*\(\)/,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: '全レコードを取得しています。ページネーションやフィルタリングの使用を検討してください',
+        filePattern: /views\.py$/,
+        contextCheck: (lines: string[], index: number) => {
+          const block = lines.slice(Math.max(0, index - 3), Math.min(index + 3, lines.length)).join('\n');
+          return !block.includes('[:') && !block.includes('paginate') && !block.includes('Paginator');
+        }
+      },
       // --- グローバル変数にAPIキー/シークレットをハードコード ---
       {
         id: 'PY-SEC-025',
@@ -4996,6 +5199,29 @@ export class StaticAnalyzer {
         severity: Severity.High,
         category: IssueCategory.Performance,
         message: 'コネクションプールサイズが小さすぎます。本番環境では10以上を推奨します',
+        filePattern: /\.(?:properties|yml|yaml)$/,
+      },
+      // ====================================================================
+      // Phase 3: Java パフォーマンスルール追加
+      // ====================================================================
+      {
+        id: 'JAVA-PERF-004',
+        pattern: /public\s+(?:List|Page|Optional|ResponseEntity)\s*<[^>]+>\s+(?:get|find|list|search|fetch)\w+\s*\(/i,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: '読み取り専用メソッドに@Transactional(readOnly = true)が設定されていません。読み取り専用トランザクションはパフォーマンスを改善します',
+        filePattern: /Service\.java$/,
+        contextCheck: (lines: string[], index: number) => {
+          const prevLines = lines.slice(Math.max(0, index - 3), index).join('\n');
+          return !prevLines.includes('@Transactional');
+        }
+      },
+      {
+        id: 'JAVA-PERF-005',
+        pattern: /spring\.jpa\.show-sql\s*[=:]\s*true/i,
+        severity: Severity.Medium,
+        category: IssueCategory.Performance,
+        message: 'spring.jpa.show-sql=trueは本番環境でパフォーマンスを低下させます。本番環境では無効化してください',
         filePattern: /\.(?:properties|yml|yaml)$/,
       },
       // --- 追加ルール: コード品質 ---

@@ -1,9 +1,8 @@
 /**
- * IT資産監査パイプライン - vue-booking-app
+ * IT資産監査スクリプト - ASP.NET Legacy System
  *
- * 使用方法:
- *   cd tools
- *   npx tsx scripts/run-audit-vue-booking.ts
+ * AGENT_AUDIT_PROMPT.md に基づく監査パイプライン
+ * 使用法: npx tsx tools/scripts/run-audit-aspnet.ts
  */
 
 import { createLogger, LogLevel } from '@it-supervisor/logger';
@@ -20,31 +19,60 @@ import { ReportGenerator, ReportType } from '@it-supervisor/report-generator';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// ── 入力パラメータ ──────────────────────────────────────
-const TARGET_REPO_PATH = path.resolve('C:/workspace/new_business/it_supervisor/demo/vue-booking-app');
-const PROJECT_NAME = '顧客Webアプリ_vue-booking-app';
+// ── 入力パラメータ ──
+const TARGET_REPO_PATH = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system`;
+const PROJECT_NAME = '顧客Webアプリ_aspnet-legacy-system';
 const CUSTOMER_NAME = '株式会社サンプル';
-const OUTPUT_DIR = path.resolve('C:/workspace/new_business/it_supervisor/demo/vue-booking-app_output');
+const OUTPUT_DIR = String.raw`C:\workspace\new_business\it_supervisor\demo\aspnet-legacy-system_output`;
 
-// ── メイン処理 ──────────────────────────────────────────
+// ── カテゴリ・重要度マッピング ──
+
+function mapToIssueCategory(category: string): IssueCategory {
+  const mapping: Record<string, IssueCategory> = {
+    security: IssueCategory.Security,
+    performance: IssueCategory.Performance,
+    code_quality: IssueCategory.CodeQuality,
+    best_practice: IssueCategory.CodeQuality,
+    maintainability: IssueCategory.TechnicalDebt,
+    complexity: IssueCategory.TechnicalDebt,
+    documentation: IssueCategory.Enhancement,
+  };
+  return mapping[category] || IssueCategory.CodeQuality;
+}
+
+function mapToIssueSeverity(severity: string): IssueSeverity {
+  const mapping: Record<string, IssueSeverity> = {
+    critical: IssueSeverity.Critical,
+    high: IssueSeverity.High,
+    medium: IssueSeverity.Medium,
+    low: IssueSeverity.Low,
+    info: IssueSeverity.Low,
+    error: IssueSeverity.High,
+    warning: IssueSeverity.Medium,
+  };
+  return mapping[severity] || IssueSeverity.Low;
+}
+
+interface Recommendation {
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  effort: string;
+  impact: string;
+}
+
 async function main() {
-  // ================================================================
+  // ══════════════════════════════════════════════════
   // Step 1: 初期化
-  // ================================================================
-  console.log('\n[Step 1] 初期化...');
+  // ══════════════════════════════════════════════════
 
-  // リポジトリパスの存在確認
-  if (!fs.existsSync(TARGET_REPO_PATH)) {
-    console.error(`エラー: リポジトリパスが存在しません: ${TARGET_REPO_PATH}`);
-    process.exit(1);
-  }
-
+  // 出力ディレクトリ作成
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   fs.mkdirSync(path.join(OUTPUT_DIR, 'reports'), { recursive: true });
 
   const dbPath = path.join(OUTPUT_DIR, 'audit.db');
 
-  // 既存のDBファイルを削除（再実行時のクリーンアップ）
+  // 既存DBがあれば削除（再実行対応）
   if (fs.existsSync(dbPath)) {
     fs.unlinkSync(dbPath);
   }
@@ -64,25 +92,28 @@ async function main() {
   const projectId = project.id;
   const timestamp = new Date();
 
-  console.log(`  プロジェクトID: ${projectId}`);
-  console.log('  [Step 1 完了] プロジェクト初期化成功\n');
+  logger.info(`Step 1 完了: プロジェクト作成 (id=${projectId})`);
 
-  // ================================================================
+  // ══════════════════════════════════════════════════
   // Step 2: リポジトリ解析
-  // ================================================================
-  console.log('[Step 2] リポジトリ解析...');
+  // ══════════════════════════════════════════════════
 
-  const repoAnalyzer = new RepositoryAnalyzer();
-  let repoResult;
+  let repoResult: Awaited<ReturnType<RepositoryAnalyzer['analyzeLocal']>>;
+
   try {
+    const repoAnalyzer = new RepositoryAnalyzer();
     repoResult = await repoAnalyzer.analyzeLocal(TARGET_REPO_PATH, {
       includeGitHistory: true,
       includeDependencies: true,
       excludePatterns: ['node_modules', '.git', 'dist', 'vendor', 'coverage'],
     });
   } catch (error) {
-    // Gitリポジトリではない場合のフォールバック
-    logger.warn('Git履歴付き解析に失敗、Git無しで再試行します');
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(`Step 2 リポジトリ解析エラー: ${message}`);
+
+    // Gitリポジトリでない場合、Git履歴なしで再試行
+    logger.info('Git履歴なしで再試行...');
+    const repoAnalyzer = new RepositoryAnalyzer();
     repoResult = await repoAnalyzer.analyzeLocal(TARGET_REPO_PATH, {
       includeGitHistory: false,
       includeDependencies: true,
@@ -90,8 +121,8 @@ async function main() {
     });
   }
 
-  // メトリクスDB保存
-  const repoMetrics = [
+  // 結果の記録
+  const repoMetrics: Array<{ name: string; value: number }> = [
     { name: 'total_files', value: repoResult.fileStats.totalFiles },
     { name: 'total_lines', value: repoResult.fileStats.totalLines },
     { name: 'total_code_lines', value: repoResult.fileStats.totalCodeLines },
@@ -122,24 +153,31 @@ async function main() {
 
   // ログ出力
   const langSummary = repoResult.techStack.languages
-    .map((l) => `${l.name} (${l.percentage.toFixed(0)}%)`)
+    .map((l) => `${l.name} (${l.percentage.toFixed(1)}%)`)
     .join(', ');
   const fwSummary = repoResult.techStack.frameworks.map((f) => f.name).join(', ') || 'なし';
-  console.log('  [リポジトリ解析完了]');
-  console.log(`    検出言語: ${langSummary}`);
-  console.log(`    フレームワーク: ${fwSummary}`);
-  console.log(`    総ファイル数: ${repoResult.fileStats.totalFiles}`);
-  console.log(`    総行数: ${repoResult.fileStats.totalLines.toLocaleString()}`);
-  if (repoResult.gitHistory) {
-    console.log(`    コミット数: ${repoResult.gitHistory.totalCommits}`);
-    console.log(`    コントリビューター: ${repoResult.gitHistory.contributors.length}名`);
-  }
-  console.log('');
 
-  // ================================================================
+  logger.info('[リポジトリ解析完了]');
+  logger.info(`  検出言語: ${langSummary}`);
+  logger.info(`  フレームワーク: ${fwSummary}`);
+  logger.info(`  総ファイル数: ${repoResult.fileStats.totalFiles}`);
+  logger.info(`  総行数: ${repoResult.fileStats.totalLines.toLocaleString()}`);
+  if (repoResult.gitHistory) {
+    logger.info(`  コミット数: ${repoResult.gitHistory.totalCommits}`);
+    logger.info(`  コントリビューター: ${repoResult.gitHistory.contributors.length}名`);
+  }
+
+  // 完了条件チェック
+  if (repoResult.techStack.languages.length === 0) {
+    logger.error('Step 2 失敗: 言語が検出されませんでした');
+    process.exit(1);
+  }
+
+  logger.info('Step 2 完了');
+
+  // ══════════════════════════════════════════════════
   // Step 3: 静的解析
-  // ================================================================
-  console.log('[Step 3] 静的解析...');
+  // ══════════════════════════════════════════════════
 
   const staticAnalyzer = new StaticAnalyzer();
 
@@ -147,8 +185,8 @@ async function main() {
   const tools: AnalyzerTool[] = [];
   const languageNames = repoResult.techStack.languages.map((l) => l.name.toLowerCase());
 
-  // JavaScript/TypeScript/Vue
-  if (languageNames.some((l) => ['javascript', 'typescript', 'vue'].includes(l))) {
+  // JavaScript/TypeScript
+  if (languageNames.some((l) => ['javascript', 'typescript'].includes(l))) {
     tools.push(AnalyzerTool.ESLint);
   }
 
@@ -170,13 +208,17 @@ async function main() {
     tools.push(AnalyzerTool.RoslynAnalyzer);
   }
 
-  // Python / Django 検出
+  // Python
   if (languageNames.includes('python')) {
-    tools.push(AnalyzerTool.Bandit, AnalyzerTool.Pylint, AnalyzerTool.Radon, AnalyzerTool.Opengrep);
-    if (fs.existsSync(path.join(TARGET_REPO_PATH, 'requirements.txt'))) {
-      tools.push(AnalyzerTool.PipAudit);
-    }
-    if (fs.existsSync(path.join(TARGET_REPO_PATH, 'manage.py'))) {
+    tools.push(
+      AnalyzerTool.Bandit,
+      AnalyzerTool.PipAudit,
+      AnalyzerTool.Opengrep,
+      AnalyzerTool.Pylint,
+      AnalyzerTool.Radon,
+    );
+    const frameworks = repoResult.techStack.frameworks.map((f) => f.name.toLowerCase());
+    if (frameworks.includes('django')) {
       tools.push(AnalyzerTool.DjangoCheckDeploy);
     }
   }
@@ -185,15 +227,16 @@ async function main() {
   tools.push(AnalyzerTool.Gitleaks);
   tools.push(AnalyzerTool.Semgrep);
   tools.push(AnalyzerTool.Jscpd);          // Phase 3: コードクローン検出
-  tools.push(AnalyzerTool.NpmAudit);       // Phase 3: npm脆弱性スキャン
-  tools.push(AnalyzerTool.NpmCheckUpdates); // Phase 3: パッケージ更新チェック
 
   // SonarQube（環境変数がある場合のみ）
   if (process.env.SONARQUBE_URL) {
     tools.push(AnalyzerTool.SonarQube);
   }
 
-  let staticResult;
+  logger.info(`静的解析ツール選択: ${tools.join(', ')}`);
+
+  let staticResult: Awaited<ReturnType<StaticAnalyzer['analyzeWithProgress']>>;
+
   try {
     staticResult = await staticAnalyzer.analyzeWithProgress(
       TARGET_REPO_PATH,
@@ -209,19 +252,21 @@ async function main() {
       },
     );
   } catch (error) {
-    // タイムアウト時の再試行
-    logger.warn('静的解析タイムアウト、延長して再試行します');
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(`静的解析で一部エラー発生: ${message}`);
+    // タイムアウト延長で再試行
+    logger.info('タイムアウト延長で再試行...');
     staticResult = await staticAnalyzer.analyzeWithProgress(
       TARGET_REPO_PATH,
       {
         tools,
-        parallel: true,
+        parallel: false,
         timeout: 600000,
         removeDuplicates: true,
         excludePatterns: ['node_modules', 'dist', 'vendor', 'coverage', '__tests__'],
       },
       (progress) => {
-        logger.info(`解析中: ${progress.tool} (${progress.current}/${progress.total})`);
+        logger.info(`解析中(再試行): ${progress.tool} (${progress.current}/${progress.total})`);
       },
     );
   }
@@ -240,47 +285,22 @@ async function main() {
     });
   }
 
-  const toolNames = staticResult.toolResults.map((r) => r.tool).join(', ');
-  console.log('  [静的解析完了]');
-  console.log(`    実行ツール: ${toolNames}`);
-  console.log(`    総問題数: ${staticResult.summary.totalIssues}`);
-  console.log(`      Critical: ${staticResult.summary.bySeverity.critical || 0}`);
-  console.log(`      High:     ${staticResult.summary.bySeverity.high || 0}`);
-  console.log(`      Medium:   ${staticResult.summary.bySeverity.medium || 0}`);
-  console.log(`      Low:      ${staticResult.summary.bySeverity.low || 0}`);
-  console.log(`    解析時間: ${(staticResult.summary.executionTime / 1000).toFixed(1)}秒`);
-  console.log('');
+  // ログ出力
+  const executedTools = staticResult.toolResults.map((t) => t.tool).join(', ');
+  logger.info('[静的解析完了]');
+  logger.info(`  実行ツール: ${executedTools}`);
+  logger.info(`  総問題数: ${staticResult.summary.totalIssues}`);
+  logger.info(`    Critical: ${staticResult.summary.bySeverity.critical || 0}`);
+  logger.info(`    High: ${staticResult.summary.bySeverity.high || 0}`);
+  logger.info(`    Medium: ${staticResult.summary.bySeverity.medium || 0}`);
+  logger.info(`    Low: ${staticResult.summary.bySeverity.low || 0}`);
+  logger.info(`  解析時間: ${(staticResult.summary.executionTime / 1000).toFixed(1)}秒`);
 
-  // ================================================================
+  logger.info('Step 3 完了');
+
+  // ══════════════════════════════════════════════════
   // Step 4: Issue登録
-  // ================================================================
-  console.log('[Step 4] Issue登録...');
-
-  function mapToIssueCategory(category: string): IssueCategory {
-    const mapping: Record<string, IssueCategory> = {
-      security: IssueCategory.Security,
-      performance: IssueCategory.Performance,
-      code_quality: IssueCategory.CodeQuality,
-      best_practice: IssueCategory.CodeQuality,
-      maintainability: IssueCategory.TechnicalDebt,
-      complexity: IssueCategory.TechnicalDebt,
-      documentation: IssueCategory.Enhancement,
-    };
-    return mapping[category] || IssueCategory.CodeQuality;
-  }
-
-  function mapToIssueSeverity(severity: string): IssueSeverity {
-    const mapping: Record<string, IssueSeverity> = {
-      critical: IssueSeverity.Critical,
-      high: IssueSeverity.High,
-      medium: IssueSeverity.Medium,
-      low: IssueSeverity.Low,
-      info: IssueSeverity.Low,
-      error: IssueSeverity.High,
-      warning: IssueSeverity.Medium,
-    };
-    return mapping[severity] || IssueSeverity.Low;
-  }
+  // ══════════════════════════════════════════════════
 
   const createdIssueIds: string[] = [];
 
@@ -315,28 +335,20 @@ async function main() {
 
   const issueStats = issueManager.getStatistics(projectId);
 
-  console.log('  [Issue登録完了]');
-  console.log(`    登録数: ${issueStats.total}件`);
-  console.log(
-    `    重要度別: Critical=${issueStats.bySeverity[IssueSeverity.Critical] || 0}, High=${issueStats.bySeverity[IssueSeverity.High] || 0}, Medium=${issueStats.bySeverity[IssueSeverity.Medium] || 0}, Low=${issueStats.bySeverity[IssueSeverity.Low] || 0}`,
+  logger.info('[Issue登録完了]');
+  logger.info(`  登録数: ${issueStats.total}件`);
+  logger.info(
+    `  重要度別: Critical=${issueStats.bySeverity[IssueSeverity.Critical] || 0}, High=${issueStats.bySeverity[IssueSeverity.High] || 0}, Medium=${issueStats.bySeverity[IssueSeverity.Medium] || 0}, Low=${issueStats.bySeverity[IssueSeverity.Low] || 0}`,
   );
-  console.log(
-    `    カテゴリ別: Security=${issueStats.byCategory[IssueCategory.Security] || 0}, CodeQuality=${issueStats.byCategory[IssueCategory.CodeQuality] || 0}, TechnicalDebt=${issueStats.byCategory[IssueCategory.TechnicalDebt] || 0}, Performance=${issueStats.byCategory[IssueCategory.Performance] || 0}`,
+  logger.info(
+    `  カテゴリ別: Security=${issueStats.byCategory[IssueCategory.Security] || 0}, CodeQuality=${issueStats.byCategory[IssueCategory.CodeQuality] || 0}, TechnicalDebt=${issueStats.byCategory[IssueCategory.TechnicalDebt] || 0}, Performance=${issueStats.byCategory[IssueCategory.Performance] || 0}`,
   );
-  console.log('');
 
-  // ================================================================
+  logger.info('Step 4 完了');
+
+  // ══════════════════════════════════════════════════
   // Step 5: 改善提案の生成
-  // ================================================================
-  console.log('[Step 5] 改善提案の生成...');
-
-  interface Recommendation {
-    priority: 'critical' | 'high' | 'medium' | 'low';
-    title: string;
-    description: string;
-    effort: string;
-    impact: string;
-  }
+  // ══════════════════════════════════════════════════
 
   const recommendations: Recommendation[] = [];
 
@@ -375,7 +387,7 @@ async function main() {
 
   // コメント率が低い場合
   const commentRatio =
-    repoResult.fileStats.totalCommentLines / repoResult.fileStats.totalLines || 0;
+    repoResult.fileStats.totalCommentLines / (repoResult.fileStats.totalLines || 1);
   if (commentRatio < 0.1) {
     recommendations.push({
       priority: 'low',
@@ -386,15 +398,30 @@ async function main() {
     });
   }
 
+  // EOL済みフレームワークの検出
+  const hasEOLFramework = repoResult.techStack.frameworks.some(
+    (f) => f.version && /^2\.1/.test(f.version),
+  );
+  if (hasEOLFramework) {
+    recommendations.push({
+      priority: 'critical',
+      title: 'EOL済みフレームワークのアップグレード',
+      description:
+        'ASP.NET Core 2.1はサポート終了済みです。セキュリティパッチが提供されないため、.NET 8以降へのアップグレードを強く推奨します。',
+      effort: '2-4週間',
+      impact: 'セキュリティリスクの排除・最新機能の活用',
+    });
+  }
+
   // CI/CD未設定
   if (!repoResult.metadata.hasCI) {
     recommendations.push({
       priority: 'medium',
       title: 'CI/CDパイプラインの導入',
       description:
-        'CI/CD設定が検出されませんでした。自動テスト・ビルド・デプロイの導入を推奨します。',
-      effort: '2-3日',
-      impact: '開発生産性・品質の安定化',
+        'CI/CD設定が検出されませんでした。GitHub Actions等による自動テスト・デプロイの導入を推奨します。',
+      effort: '1-2日',
+      impact: '品質の継続的な確保・デプロイの安全性向上',
     });
   }
 
@@ -402,97 +429,20 @@ async function main() {
   if (!repoResult.metadata.hasDockerfile) {
     recommendations.push({
       priority: 'low',
-      title: 'コンテナ化の検討',
+      title: 'コンテナ化（Docker対応）の検討',
       description:
-        'Dockerfileが検出されませんでした。環境の標準化・デプロイの自動化のため、コンテナ化を推奨します。',
+        'Dockerfileが検出されませんでした。環境の再現性確保のため、コンテナ化を検討してください。',
       effort: '1-2日',
-      impact: 'デプロイ効率化・環境差異の排除',
+      impact: '環境依存リスクの低減・デプロイの簡素化',
     });
   }
 
-  // テストコード不在
-  const hasTestableLanguage = repoResult.fileStats.totalFiles > 0 &&
-    repoResult.techStack.languages.some((l) =>
-      ['c#', 'typescript', 'javascript', 'php', 'python', 'vue'].includes(l.name.toLowerCase()),
-    );
-  if (hasTestableLanguage &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, 'Tests')) &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, 'tests')) &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, '__tests__')) &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, 'test'))) {
-    recommendations.push({
-      priority: 'high',
-      title: 'テストコードの追加',
-      description: 'テストコードが検出されませんでした。ユニットテスト・統合テストの導入により、リグレッションの防止と品質保証を強化することを推奨します。',
-      effort: '1-2週間',
-      impact: '品質保証・リグレッション防止',
-    });
-  }
+  logger.info(`[改善提案] ${recommendations.length}件の提案を生成`);
+  logger.info('Step 5 完了');
 
-  // Vue.js 2 → 3 移行推奨
-  const vueDep = repoResult.techStack.dependencies.find(
-    (d) => d.name === 'vue' || d.name === 'vue.js',
-  );
-  if (vueDep && vueDep.version && /^[\^~]?2\./.test(vueDep.version)) {
-    recommendations.push({
-      priority: 'high',
-      title: 'Vue.js 2 → 3 への移行',
-      description:
-        'Vue.js 2.x が使用されています。Vue 2 は2023年12月31日にサポート終了(EOL)しました。セキュリティパッチの提供が停止しているため、Vue 3への移行を強く推奨します。Composition API、Teleport、Fragments等の新機能も活用可能になります。',
-      effort: '2-4週間',
-      impact: 'セキュリティリスクの根本的解決・開発体験の向上',
-    });
-  }
-
-  // Vuex → Pinia 移行推奨
-  const vuexDep = repoResult.techStack.dependencies.find((d) => d.name === 'vuex');
-  if (vuexDep) {
-    recommendations.push({
-      priority: 'medium',
-      title: 'Vuex から Pinia への移行',
-      description:
-        'Vuexが状態管理に使用されています。Vue公式はPiniaを推奨しており、TypeScriptサポートの強化、Composition APIとの統合、よりシンプルなAPIが利点です。',
-      effort: '1-2週間',
-      impact: '開発体験の向上・型安全性の強化',
-    });
-  }
-
-  // moment.js → Day.js 移行推奨
-  const momentDep = repoResult.techStack.dependencies.find((d) => d.name === 'moment');
-  if (momentDep) {
-    recommendations.push({
-      priority: 'medium',
-      title: 'moment.js から Day.js への移行',
-      description:
-        'moment.jsが使用されていますが、メンテナンスモードに移行しており新規開発は推奨されません。Day.jsはAPIがほぼ互換でバンドルサイズが約2KB（momentは約67KB）と大幅に軽量です。',
-      effort: '2-3日',
-      impact: 'バンドルサイズ削減・パフォーマンス向上',
-    });
-  }
-
-  // lodash のtree-shaking対応
-  const lodashDep = repoResult.techStack.dependencies.find((d) => d.name === 'lodash');
-  if (lodashDep) {
-    recommendations.push({
-      priority: 'low',
-      title: 'lodash のtree-shaking対応',
-      description:
-        'lodash全体がインポートされています。lodash-esへの移行、または個別関数インポート（lodash/get等）によりバンドルサイズを大幅に削減可能です。',
-      effort: '1日',
-      impact: 'バンドルサイズ削減',
-    });
-  }
-
-  console.log(`  改善提案数: ${recommendations.length}件`);
-  for (const rec of recommendations) {
-    console.log(`    [${rec.priority.toUpperCase()}] ${rec.title}`);
-  }
-  console.log('');
-
-  // ================================================================
+  // ══════════════════════════════════════════════════
   // Step 6: レポート生成
-  // ================================================================
-  console.log('[Step 6] レポート生成...');
+  // ══════════════════════════════════════════════════
 
   const reportGenerator = new ReportGenerator();
 
@@ -503,6 +453,7 @@ async function main() {
     author: 'IT Supervisor 監査エージェント',
     version: '1.0',
     data: {
+      // リポジトリ情報
       repository: {
         name: PROJECT_NAME,
         path: TARGET_REPO_PATH,
@@ -510,6 +461,7 @@ async function main() {
         hasCI: repoResult.metadata.hasCI,
         hasDockerfile: repoResult.metadata.hasDockerfile,
       },
+      // サマリ
       summary: {
         totalFiles: repoResult.fileStats.totalFiles,
         totalLines: repoResult.fileStats.totalLines,
@@ -520,16 +472,19 @@ async function main() {
         mediumIssues: issueStats.bySeverity[IssueSeverity.Medium] || 0,
         lowIssues: issueStats.bySeverity[IssueSeverity.Low] || 0,
       },
+      // 言語情報
       languages: repoResult.techStack.languages.map((l) => ({
         name: l.name,
         percentage: l.percentage,
         lines: l.lines,
       })),
+      // フレームワーク情報
       frameworks: repoResult.techStack.frameworks.map((f) => ({
         name: f.name,
         version: f.version || '不明',
         confidence: f.confidence,
       })),
+      // 問題の詳細（重要度順: Critical/High）
       securityIssues: staticResult.allIssues
         .filter((i) => i.severity === 'critical' || i.severity === 'high')
         .map((i) => ({
@@ -540,6 +495,7 @@ async function main() {
           file: `${i.file}${i.line ? `:${i.line}` : ''}`,
           recommendation: i.fix?.description || '手動確認が必要',
         })),
+      // 品質メトリクス
       qualityMetrics: [
         {
           name: '総ファイル数',
@@ -557,8 +513,7 @@ async function main() {
           name: 'Critical問題数',
           value: issueStats.bySeverity[IssueSeverity.Critical] || 0,
           unit: 'issues',
-          status:
-            (issueStats.bySeverity[IssueSeverity.Critical] || 0) > 0 ? 'danger' : 'good',
+          status: (issueStats.bySeverity[IssueSeverity.Critical] || 0) > 0 ? 'danger' : 'good',
         },
         {
           name: '依存パッケージ数',
@@ -567,7 +522,9 @@ async function main() {
           status: repoResult.techStack.dependencies.length > 100 ? 'warning' : 'good',
         },
       ],
+      // 改善提案
       recommendations,
+      // Issue一覧（上位50件）
       issues: issueManager.searchIssues({
         projectId,
         orderBy: 'severity',
@@ -577,6 +534,7 @@ async function main() {
     },
   };
 
+  // レポート出力
   const htmlPath = path.join(OUTPUT_DIR, 'reports', 'audit-report.html');
   const mdPath = path.join(OUTPUT_DIR, 'reports', 'audit-report.md');
 
@@ -587,35 +545,31 @@ async function main() {
 
   logger.info('レポート生成完了', { html: htmlPath, markdown: mdPath });
 
-  // PDF生成（オプション）
+  // オプション: PDF出力
   try {
     const pdfPath = path.join(OUTPUT_DIR, 'reports', 'audit-report.pdf');
     await reportGenerator.exportToPDF(report, pdfPath);
     logger.info('PDF生成完了', { pdf: pdfPath });
-  } catch {
+  } catch (e) {
     logger.warn('PDF生成スキップ（Puppeteer未インストール）');
   }
 
-  console.log('  [レポート生成完了]');
-  console.log(`    HTML: ${htmlPath}`);
-  console.log(`    Markdown: ${mdPath}`);
-  console.log('');
+  logger.info('Step 6 完了');
 
-  // ================================================================
+  // ══════════════════════════════════════════════════
   // Step 7: 完了処理
-  // ================================================================
-  console.log('[Step 7] 完了処理...');
+  // ══════════════════════════════════════════════════
 
+  // メトリクスのエクスポート（バックアップ）
   metricsDb.exportToJSONFile(path.join(OUTPUT_DIR, 'metrics-export.json'));
   const issuesCsv = issueManager.exportToCSV(projectId);
   fs.writeFileSync(path.join(OUTPUT_DIR, 'issues-export.csv'), issuesCsv);
 
+  // クリーンアップ
   metricsDb.close();
   issueManager.close();
 
-  logger.info('監査パイプライン完了');
-
-  // 最終サマリ
+  // 最終サマリのログ出力
   const now = new Date();
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -650,10 +604,11 @@ async function main() {
     ${OUTPUT_DIR}/reports/audit-report.md
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `);
+
+  logger.info('監査パイプライン完了');
 }
 
-// エントリーポイント
-main().catch((error) => {
-  console.error('監査パイプラインでエラーが発生しました:', error);
+main().catch((err) => {
+  console.error('監査パイプライン致命的エラー:', err);
   process.exit(1);
 });

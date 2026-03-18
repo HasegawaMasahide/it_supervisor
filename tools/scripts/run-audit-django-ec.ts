@@ -156,6 +156,7 @@ async function main() {
   // 共通セキュリティ・品質ツール
   tools.push(AnalyzerTool.Gitleaks);
   tools.push(AnalyzerTool.Semgrep);
+  tools.push(AnalyzerTool.Jscpd);          // Phase 3: コードクローン検出
 
   // SonarQube（環境変数がある場合のみ）
   if (process.env.SONARQUBE_URL) {

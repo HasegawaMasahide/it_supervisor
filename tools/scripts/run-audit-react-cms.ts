@@ -184,6 +184,9 @@ async function main() {
   // 共通セキュリティ・品質ツール
   tools.push(AnalyzerTool.Gitleaks);
   tools.push(AnalyzerTool.Semgrep);
+  tools.push(AnalyzerTool.Jscpd);          // Phase 3: コードクローン検出
+  tools.push(AnalyzerTool.NpmAudit);       // Phase 3: npm脆弱性スキャン
+  tools.push(AnalyzerTool.NpmCheckUpdates); // Phase 3: パッケージ更新チェック
 
   // SonarQube（環境変数がある場合のみ）
   if (process.env.SONARQUBE_URL) {

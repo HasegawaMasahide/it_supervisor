@@ -1,9 +1,11 @@
 /**
- * IT資産監査パイプライン - vue-booking-app
+ * IT資産監査パイプライン（Laravel Todo App）
+ *
+ * AGENT_AUDIT_PROMPT.md に基づくStep 1〜7の完全実装。
  *
  * 使用方法:
  *   cd tools
- *   npx tsx scripts/run-audit-vue-booking.ts
+ *   npx tsx scripts/run-audit-laravel-todo-v2.ts
  */
 
 import { createLogger, LogLevel } from '@it-supervisor/logger';
@@ -21,10 +23,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // ── 入力パラメータ ──────────────────────────────────────
-const TARGET_REPO_PATH = path.resolve('C:/workspace/new_business/it_supervisor/demo/vue-booking-app');
-const PROJECT_NAME = '顧客Webアプリ_vue-booking-app';
+const TARGET_REPO_PATH = path.resolve('C:/workspace/new_business/it_supervisor/demo/laravel-todo-app');
+const PROJECT_NAME = '顧客Webアプリ';
 const CUSTOMER_NAME = '株式会社サンプル';
-const OUTPUT_DIR = path.resolve('C:/workspace/new_business/it_supervisor/demo/vue-booking-app_output');
+const OUTPUT_DIR = path.resolve('C:/workspace/new_business/it_supervisor/demo/laravel-todo-app_output');
 
 // ── メイン処理 ──────────────────────────────────────────
 async function main() {
@@ -39,15 +41,14 @@ async function main() {
     process.exit(1);
   }
 
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  fs.mkdirSync(path.join(OUTPUT_DIR, 'reports'), { recursive: true });
-
+  // 既存の出力ディレクトリがある場合、DBファイルを削除して再作成
   const dbPath = path.join(OUTPUT_DIR, 'audit.db');
-
-  // 既存のDBファイルを削除（再実行時のクリーンアップ）
   if (fs.existsSync(dbPath)) {
     fs.unlinkSync(dbPath);
   }
+
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  fs.mkdirSync(path.join(OUTPUT_DIR, 'reports'), { recursive: true });
 
   const logger = createLogger('audit-pipeline', { level: LogLevel.INFO });
   const metricsDb = new MetricsDatabase(dbPath);
@@ -90,8 +91,13 @@ async function main() {
     });
   }
 
+  // 完了条件チェック
+  if (repoResult.techStack.languages.length === 0) {
+    throw new Error('リポジトリ解析で言語が1つも検出されませんでした');
+  }
+
   // メトリクスDB保存
-  const repoMetrics = [
+  const repoMetrics: { name: string; value: number }[] = [
     { name: 'total_files', value: repoResult.fileStats.totalFiles },
     { name: 'total_lines', value: repoResult.fileStats.totalLines },
     { name: 'total_code_lines', value: repoResult.fileStats.totalCodeLines },
@@ -147,8 +153,8 @@ async function main() {
   const tools: AnalyzerTool[] = [];
   const languageNames = repoResult.techStack.languages.map((l) => l.name.toLowerCase());
 
-  // JavaScript/TypeScript/Vue
-  if (languageNames.some((l) => ['javascript', 'typescript', 'vue'].includes(l))) {
+  // JavaScript/TypeScript
+  if (languageNames.some((l) => ['javascript', 'typescript'].includes(l))) {
     tools.push(AnalyzerTool.ESLint);
   }
 
@@ -170,9 +176,14 @@ async function main() {
     tools.push(AnalyzerTool.RoslynAnalyzer);
   }
 
-  // Python / Django 検出
+  // Python / Django
   if (languageNames.includes('python')) {
-    tools.push(AnalyzerTool.Bandit, AnalyzerTool.Pylint, AnalyzerTool.Radon, AnalyzerTool.Opengrep);
+    tools.push(
+      AnalyzerTool.Bandit,
+      AnalyzerTool.Pylint,
+      AnalyzerTool.Radon,
+      AnalyzerTool.Opengrep,
+    );
     if (fs.existsSync(path.join(TARGET_REPO_PATH, 'requirements.txt'))) {
       tools.push(AnalyzerTool.PipAudit);
     }
@@ -181,12 +192,10 @@ async function main() {
     }
   }
 
-  // 共通セキュリティ・品質ツール
+  // 共通セキュリティ・品質ツール（常に実行）
   tools.push(AnalyzerTool.Gitleaks);
   tools.push(AnalyzerTool.Semgrep);
   tools.push(AnalyzerTool.Jscpd);          // Phase 3: コードクローン検出
-  tools.push(AnalyzerTool.NpmAudit);       // Phase 3: npm脆弱性スキャン
-  tools.push(AnalyzerTool.NpmCheckUpdates); // Phase 3: パッケージ更新チェック
 
   // SonarQube（環境変数がある場合のみ）
   if (process.env.SONARQUBE_URL) {
@@ -313,7 +322,15 @@ async function main() {
     createdIssueIds.push(created.id);
   }
 
+  // 統計確認
   const issueStats = issueManager.getStatistics(projectId);
+
+  // 完了条件チェック
+  if (issueStats.total !== staticResult.summary.totalIssues) {
+    logger.warn(
+      `Issue登録数の不一致: DB=${issueStats.total}, 解析結果=${staticResult.summary.totalIssues}`,
+    );
+  }
 
   console.log('  [Issue登録完了]');
   console.log(`    登録数: ${issueStats.total}件`);
@@ -411,75 +428,61 @@ async function main() {
   }
 
   // テストコード不在
-  const hasTestableLanguage = repoResult.fileStats.totalFiles > 0 &&
+  const hasTestableCode =
+    repoResult.fileStats.totalFiles > 0 &&
     repoResult.techStack.languages.some((l) =>
-      ['c#', 'typescript', 'javascript', 'php', 'python', 'vue'].includes(l.name.toLowerCase()),
+      ['c#', 'typescript', 'javascript', 'php', 'python'].includes(l.name.toLowerCase()),
     );
-  if (hasTestableLanguage &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, 'Tests')) &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, 'tests')) &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, '__tests__')) &&
-      !fs.existsSync(path.join(TARGET_REPO_PATH, 'test'))) {
+  if (
+    hasTestableCode &&
+    !fs.existsSync(path.join(TARGET_REPO_PATH, 'Tests')) &&
+    !fs.existsSync(path.join(TARGET_REPO_PATH, 'tests')) &&
+    !fs.existsSync(path.join(TARGET_REPO_PATH, '__tests__'))
+  ) {
     recommendations.push({
       priority: 'high',
       title: 'テストコードの追加',
-      description: 'テストコードが検出されませんでした。ユニットテスト・統合テストの導入により、リグレッションの防止と品質保証を強化することを推奨します。',
+      description:
+        'テストコードが検出されませんでした。ユニットテスト・統合テストの導入により、リグレッションの防止と品質保証を強化することを推奨します。',
       effort: '1-2週間',
       impact: '品質保証・リグレッション防止',
     });
   }
 
-  // Vue.js 2 → 3 移行推奨
-  const vueDep = repoResult.techStack.dependencies.find(
-    (d) => d.name === 'vue' || d.name === 'vue.js',
+  // Laravelフレームワークのバージョンチェック
+  const laravelFw = repoResult.techStack.frameworks.find((f) =>
+    f.name.toLowerCase().includes('laravel'),
   );
-  if (vueDep && vueDep.version && /^[\^~]?2\./.test(vueDep.version)) {
+  if (laravelFw && laravelFw.version && /^[4-8]\./.test(laravelFw.version)) {
     recommendations.push({
-      priority: 'high',
-      title: 'Vue.js 2 → 3 への移行',
-      description:
-        'Vue.js 2.x が使用されています。Vue 2 は2023年12月31日にサポート終了(EOL)しました。セキュリティパッチの提供が停止しているため、Vue 3への移行を強く推奨します。Composition API、Teleport、Fragments等の新機能も活用可能になります。',
+      priority: 'critical',
+      title: 'Laravelフレームワークのバージョンアップ',
+      description: `${laravelFw.name} ${laravelFw.version} はサポート終了(EOL)済み、またはまもなく終了予定です。セキュリティパッチが提供されないため、最新のLTSバージョンへの移行を強く推奨します。`,
       effort: '2-4週間',
-      impact: 'セキュリティリスクの根本的解決・開発体験の向上',
+      impact: 'セキュリティリスクの根本的解決',
     });
   }
 
-  // Vuex → Pinia 移行推奨
-  const vuexDep = repoResult.techStack.dependencies.find((d) => d.name === 'vuex');
-  if (vuexDep) {
-    recommendations.push({
-      priority: 'medium',
-      title: 'Vuex から Pinia への移行',
-      description:
-        'Vuexが状態管理に使用されています。Vue公式はPiniaを推奨しており、TypeScriptサポートの強化、Composition APIとの統合、よりシンプルなAPIが利点です。',
-      effort: '1-2週間',
-      impact: '開発体験の向上・型安全性の強化',
-    });
-  }
-
-  // moment.js → Day.js 移行推奨
-  const momentDep = repoResult.techStack.dependencies.find((d) => d.name === 'moment');
-  if (momentDep) {
-    recommendations.push({
-      priority: 'medium',
-      title: 'moment.js から Day.js への移行',
-      description:
-        'moment.jsが使用されていますが、メンテナンスモードに移行しており新規開発は推奨されません。Day.jsはAPIがほぼ互換でバンドルサイズが約2KB（momentは約67KB）と大幅に軽量です。',
-      effort: '2-3日',
-      impact: 'バンドルサイズ削減・パフォーマンス向上',
-    });
-  }
-
-  // lodash のtree-shaking対応
-  const lodashDep = repoResult.techStack.dependencies.find((d) => d.name === 'lodash');
-  if (lodashDep) {
+  // ライセンス未設定
+  if (!repoResult.metadata.hasLicense) {
     recommendations.push({
       priority: 'low',
-      title: 'lodash のtree-shaking対応',
+      title: 'ライセンスファイルの追加',
       description:
-        'lodash全体がインポートされています。lodash-esへの移行、または個別関数インポート（lodash/get等）によりバンドルサイズを大幅に削減可能です。',
-      effort: '1日',
-      impact: 'バンドルサイズ削減',
+        'LICENSEファイルが検出されませんでした。OSSライセンスの明確化を推奨します。',
+      effort: '1時間',
+      impact: '法的リスクの回避',
+    });
+  }
+
+  // 完了条件チェック
+  if (recommendations.length === 0) {
+    recommendations.push({
+      priority: 'low',
+      title: '定期的な監査の継続',
+      description: '現時点で大きな問題は検出されませんでした。定期的な監査を継続して品質を維持してください。',
+      effort: '-',
+      impact: '継続的な品質維持',
     });
   }
 
@@ -557,8 +560,7 @@ async function main() {
           name: 'Critical問題数',
           value: issueStats.bySeverity[IssueSeverity.Critical] || 0,
           unit: 'issues',
-          status:
-            (issueStats.bySeverity[IssueSeverity.Critical] || 0) > 0 ? 'danger' : 'good',
+          status: (issueStats.bySeverity[IssueSeverity.Critical] || 0) > 0 ? 'danger' : 'good',
         },
         {
           name: '依存パッケージ数',
@@ -596,6 +598,11 @@ async function main() {
     logger.warn('PDF生成スキップ（Puppeteer未インストール）');
   }
 
+  // 完了条件チェック
+  if (!fs.existsSync(htmlPath) || !fs.existsSync(mdPath)) {
+    throw new Error('レポートファイルが正常に出力されませんでした');
+  }
+
   console.log('  [レポート生成完了]');
   console.log(`    HTML: ${htmlPath}`);
   console.log(`    Markdown: ${mdPath}`);
@@ -606,10 +613,12 @@ async function main() {
   // ================================================================
   console.log('[Step 7] 完了処理...');
 
+  // メトリクスのエクスポート（バックアップ）
   metricsDb.exportToJSONFile(path.join(OUTPUT_DIR, 'metrics-export.json'));
   const issuesCsv = issueManager.exportToCSV(projectId);
   fs.writeFileSync(path.join(OUTPUT_DIR, 'issues-export.csv'), issuesCsv);
 
+  // クリーンアップ
   metricsDb.close();
   issueManager.close();
 
