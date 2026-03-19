@@ -78,7 +78,7 @@ Issue管理 ← 人間の診断 ← 分析結果の可視化
 - **フロントエンド**: TypeScript, React, Chart.js
 - **バックエンド**: TypeScript (Node.js) / PHP (Laravel)
 - **AI/ML**: Claude API, Claude Code
-- **静的解析**: ESLint, PHP_CodeSniffer, PHPStan, Roslyn Analyzers, Bandit, pylint, radon, pip-audit, Opengrep, Checkstyle, SpotBugs, SonarQube, Gitleaks, OWASP Dependency-Check
+- **静的解析**: ESLint, PHP_CodeSniffer, PHPStan, Roslyn Analyzers, Bandit, pylint, radon, pip-audit, Semgrep, Checkstyle, SpotBugs, Trivy, Gitleaks, OWASP Dependency-Check, PMD, jscpd
 - **インフラ**: Docker, PostgreSQL, Git
 
 ## ドキュメント更新時の注意事項
@@ -130,9 +130,9 @@ npx http-server lp -p 8000
 - **ヒーローセクション**: 3つの統計数値（AI活用率60%、瑕疵担保期間3ヶ月、平均コスト削減200万円）
 - **課題セクション**: 顧客ペインポイント4項目（工数不足、説明責任、属人化リスク、AI活用不安）
 - **特徴セクション**: 3つの強み（ハイブリッド体制、瑕疵担保、ワンストップ）
-- **ツールセクション**: 12種の専用ツールと活用技術、4層品質ゲート
+- **ツールセクション**: 3層ハイブリッド分析（決定論的ツール20種+ / AIセマンティック分析 / 人間レビュー）、4層品質ゲート
 - **プロセスセクション**: 6段階のサービスフロー（クリックで詳細展開）
-- **改善事例セクション**: 4つのデモアプリ事例（Laravel/React/Django/ASP.NET）- クリックで詳細モーダル表示
+- **改善事例セクション**: 6つのデモアプリ事例（Laravel/React/Django/ASP.NET/Vue.js/Spring Boot）- クリックで詳細モーダル表示
 - **料金プランセクション**: 3プラン比較表
 - **お客様の声セクション**: 3つの導入事例（クリックで詳細モーダル表示）
 - **FAQアコーディオン**: よくある質問6項目

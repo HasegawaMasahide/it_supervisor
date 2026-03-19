@@ -107,14 +107,14 @@
                             <div class="preview-icon">🔍</div>
                             <div class="preview-content">
                                 <h4>セキュリティスキャン</h4>
-                                <p>Snyk、Gitleaksによる自動脆弱性スキャン。Critical/High問題の有無を確認</p>
+                                <p>Trivy、Gitleaksによる自動脆弱性スキャン。Critical/High問題の有無を確認</p>
                             </div>
                         </div>
                         <div class="preview-item">
                             <div class="preview-icon">📊</div>
                             <div class="preview-content">
                                 <h4>コード品質スコア</h4>
-                                <p>SonarQube、ESLintによる自動解析。複雑度・重複率のサマリーを提供</p>
+                                <p>Semgrep、ESLintによる自動解析。複雑度・重複率のサマリーを提供</p>
                             </div>
                         </div>
                         <div class="preview-item">
@@ -343,25 +343,25 @@
     <!-- ツール・技術セクション -->
     <section id="tools" class="tools">
         <div class="container">
-            <h2 class="section-title">高品質を支える<span class="highlight">専用ツール群</span></h2>
+            <h2 class="section-title">高品質を支える<span class="highlight">3層ハイブリッド分析</span></h2>
             <p class="section-description">
-                独自開発した12種類の専用ツールとAI技術を組み合わせることで、<br>
-                従来の1/3の時間で高品質な監査・改善を実現します
+                決定論的ツール・AIセマンティック分析・人間レビューの3層構造で、<br>
+                見落としを最小化しながら従来の1/3の時間で高品質な監査を実現します
             </p>
 
             <div class="tools-overview">
                 <div class="tools-stats">
                     <div class="tool-stat-card">
                         <div class="tool-stat-icon">⚡</div>
-                        <div class="tool-stat-number">3倍</div>
-                        <div class="tool-stat-label">高速化</div>
-                        <p>AIと自動化ツールによる効率化</p>
+                        <div class="tool-stat-number">3層</div>
+                        <div class="tool-stat-label">ハイブリッド分析</div>
+                        <p>ツール・AI・人間の三位一体</p>
                     </div>
                     <div class="tool-stat-card">
                         <div class="tool-stat-icon">🔍</div>
-                        <div class="tool-stat-number">12種</div>
-                        <div class="tool-stat-label">専用ツール</div>
-                        <p>フェーズごとに最適化されたツール</p>
+                        <div class="tool-stat-number">20種+</div>
+                        <div class="tool-stat-label">OSSツール統合</div>
+                        <p>業界標準ツールを一括実行</p>
                     </div>
                     <div class="tool-stat-card">
                         <div class="tool-stat-icon">🛡️</div>
@@ -375,75 +375,78 @@
             <div class="tools-grid">
                 <div class="tool-category">
                     <h3 class="tool-category-title">
-                        <span class="tool-category-icon">📊</span>
-                        調査・分析フェーズ
-                    </h3>
-                    <div class="tool-list">
-                        <div class="tool-item">
-                            <strong>リポジトリ解析ツール</strong>
-                            <p>コード構造、使用技術、依存関係を自動解析</p>
-                        </div>
-                        <div class="tool-item">
-                            <strong>静的解析オーケストレーター</strong>
-                            <p>ESLint、SonarQube、Snykなど複数ツールを一括実行</p>
-                        </div>
-                        <div class="tool-item">
-                            <strong>メトリクスデータモデル</strong>
-                            <p>品質指標を統一フォーマットで一元管理</p>
-                        </div>
-                        <div class="tool-item">
-                            <strong>サンドボックス環境構築</strong>
-                            <p>本番に影響なく安全に動作確認できる環境を自動構築</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tool-category">
-                    <h3 class="tool-category-title">
-                        <span class="tool-category-icon">🎯</span>
-                        診断・提案フェーズ
-                    </h3>
-                    <div class="tool-list">
-                        <div class="tool-item">
-                            <strong>Issue管理システム</strong>
-                            <p>発見した課題を優先順位付けして一元管理</p>
-                        </div>
-                        <div class="tool-item">
-                            <strong>改善提案ジェネレーター</strong>
-                            <p>AIが改善案を生成、人間が検証して最適化</p>
-                        </div>
-                        <div class="tool-item">
-                            <strong>見積もり計算機</strong>
-                            <p>過去実績から工数を自動算出、精度を継続的に改善</p>
-                        </div>
-                        <div class="tool-item">
-                            <strong>チャート生成ライブラリ</strong>
-                            <p>メトリクスを視覚化、経営層への説明を支援</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tool-category">
-                    <h3 class="tool-category-title">
                         <span class="tool-category-icon">🔧</span>
-                        実装・効果測定フェーズ
+                        Layer 1：決定論的ツール層
                     </h3>
+                    <p class="tool-category-description">業界標準のOSSツール20種以上を一括実行。CVE検出、構文エラー、依存関係脆弱性など確実に検出できる問題を網羅します。</p>
                     <div class="tool-list">
                         <div class="tool-item">
-                            <strong>変更管理システム</strong>
-                            <p>変更履歴を記録、ワンクリックでロールバック可能</p>
+                            <strong>Semgrep / ESLint / PHPStan</strong>
+                            <p>多言語対応の静的解析。コードパターンの問題を検出</p>
                         </div>
                         <div class="tool-item">
-                            <strong>メトリクス収集CLI</strong>
-                            <p>Before/After比較を自動化、改善効果を定量評価</p>
+                            <strong>Trivy / OWASP Dependency-Check</strong>
+                            <p>コンテナ・ライブラリの既知の脆弱性（CVE）を検出</p>
                         </div>
                         <div class="tool-item">
-                            <strong>レポートジェネレーター</strong>
-                            <p>診断から実装まで全フェーズのレポートを自動生成</p>
+                            <strong>Gitleaks / Bandit / PMD</strong>
+                            <p>機密情報漏洩・言語固有のセキュリティリスクを検出</p>
                         </div>
                         <div class="tool-item">
-                            <strong>ダッシュボード</strong>
-                            <p>プロジェクト進捗をリアルタイムで可視化</p>
+                            <strong>npm audit / pip-audit / jscpd</strong>
+                            <p>依存関係の脆弱性チェックとコードクローン検出</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-category">
+                    <h3 class="tool-category-title">
+                        <span class="tool-category-icon">🤖</span>
+                        Layer 2：AIセマンティック分析層
+                    </h3>
+                    <p class="tool-category-description">Claude Codeがコードベース全体を精読し、ツールでは検出できない文脈依存の問題を発見します。</p>
+                    <div class="tool-list">
+                        <div class="tool-item">
+                            <strong>設計上の脆弱性検出</strong>
+                            <p>認証フローの欠陥、権限チェック漏れなどロジック上の問題</p>
+                        </div>
+                        <div class="tool-item">
+                            <strong>ビジネスロジックの問題</strong>
+                            <p>実装されていない機能、矛盾する処理フローを検出</p>
+                        </div>
+                        <div class="tool-item">
+                            <strong>技術的負債の評価</strong>
+                            <p>EOLフレームワーク、放置されたTODO、複雑すぎる設計</p>
+                        </div>
+                        <div class="tool-item">
+                            <strong>改善提案の生成</strong>
+                            <p>問題ごとに具体的な修正方針とROI試算を提示</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-category">
+                    <h3 class="tool-category-title">
+                        <span class="tool-category-icon">👨‍💻</span>
+                        Layer 3：人間レビュー層
+                    </h3>
+                    <p class="tool-category-description">シニアエンジニアがAI出力をリアルタイムで監督・修正。経験に基づく判断で誤検知を排除し、優先度を決定します。</p>
+                    <div class="tool-list">
+                        <div class="tool-item">
+                            <strong>課題の優先順位付け</strong>
+                            <p>ビジネスインパクトを考慮したCritical/High/Medium/Low評価</p>
+                        </div>
+                        <div class="tool-item">
+                            <strong>誤検知・過検知の排除</strong>
+                            <p>AI出力の妥当性を確認、ノイズを除去</p>
+                        </div>
+                        <div class="tool-item">
+                            <strong>リスク評価と影響分析</strong>
+                            <p>改善による波及効果と実装リスクを評価</p>
+                        </div>
+                        <div class="tool-item">
+                            <strong>経営層向けレポート作成</strong>
+                            <p>技術的な分析結果をビジネス言語に翻訳</p>
                         </div>
                     </div>
                 </div>
@@ -514,15 +517,15 @@
                     <div class="tech-card">
                         <div class="tech-card-header">
                             <div class="tech-card-icon">🔍</div>
-                            <h4>SonarQube × Snyk × OWASP</h4>
+                            <h4>Semgrep × Trivy × OWASP DC</h4>
                         </div>
                         <p class="tech-card-description">
-                            複数の静的解析ツールを組み合わせることで、<strong>コード品質・セキュリティ・ライセンス</strong>を多角的に評価。見落としリスクを最小化します。
+                            複数の静的解析・脆弱性スキャンツールを組み合わせ、<strong>コード品質・セキュリティ・依存関係</strong>を多角的に評価。見落としリスクを最小化します。
                         </p>
                         <ul class="tech-card-benefits">
-                            <li>SonarQube: コード品質・技術的負債</li>
-                            <li>Snyk: 脆弱性・依存関係リスク</li>
-                            <li>OWASP: Webアプリセキュリティ</li>
+                            <li>Semgrep: 多言語対応の構造的コード検索</li>
+                            <li>Trivy: コンテナ・依存関係の脆弱性検出</li>
+                            <li>OWASP DC: 既知CVEの自動照合</li>
                         </ul>
                     </div>
 
@@ -559,30 +562,30 @@
                     <div class="tech-card">
                         <div class="tech-card-header">
                             <div class="tech-card-icon">📊</div>
-                            <h4>ESLint × Prettier</h4>
+                            <h4>ESLint / PHPStan / Bandit / PMD</h4>
                         </div>
                         <p class="tech-card-description">
-                            コーディング規約の自動チェックとフォーマット統一により、<strong>可読性・保守性</strong>を大幅に向上。属人化を防ぎます。
+                            言語ごとに最適な静的解析ツールを自動選択し、<strong>コード品質・セキュリティ・保守性</strong>を多角的にチェック。5言語6フレームワークに対応。
                         </p>
                         <ul class="tech-card-benefits">
-                            <li>未使用変数・関数の検出</li>
-                            <li>コードスタイルの統一</li>
-                            <li>潜在的バグの早期発見</li>
+                            <li>JS/TS: ESLint（React/Vue対応）</li>
+                            <li>PHP: PHPStan + PHPCS</li>
+                            <li>Python: Bandit / Java: PMD + SpotBugs</li>
                         </ul>
                     </div>
 
                     <div class="tech-card">
                         <div class="tech-card-header">
                             <div class="tech-card-icon">🔐</div>
-                            <h4>Gitleaks × TruffleHog</h4>
+                            <h4>Gitleaks × npm/pip audit</h4>
                         </div>
                         <p class="tech-card-description">
-                            リポジトリ内の<strong>機密情報漏洩リスク</strong>（APIキー、パスワード等）を自動検出。コンプライアンス違反を未然に防ぎます。
+                            リポジトリ内の<strong>機密情報漏洩リスク</strong>（APIキー、パスワード等）と依存パッケージの脆弱性を自動検出。コンプライアンス違反を未然に防ぎます。
                         </p>
                         <ul class="tech-card-benefits">
                             <li>過去のコミット履歴もスキャン</li>
-                            <li>誤検知を最小化するパターンマッチ</li>
-                            <li>CI/CDパイプラインへの組み込み</li>
+                            <li>npm audit / pip-audit で依存関係を検査</li>
+                            <li>jscpdでコードクローンを検出</li>
                         </ul>
                     </div>
                 </div>
@@ -634,8 +637,8 @@
                             <div class="process-details-inner">
                                 <h4>実施内容</h4>
                                 <ul>
-                                    <li>静的解析ツール（SonarQube、ESLint等）の実行とメトリクス収集</li>
-                                    <li>セキュリティ診断（Snyk、OWASP、Gitleaksによる脆弱性スキャン）</li>
+                                    <li>静的解析ツール（Semgrep、ESLint、PHPStan等）の実行とメトリクス収集</li>
+                                    <li>セキュリティ診断（Trivy、OWASP DC、Gitleaksによる脆弱性スキャン）</li>
                                     <li>依存関係の調査（ライブラリのバージョン、非推奨パッケージの検出）</li>
                                     <li>パフォーマンス測定（処理速度、メモリ使用量、ボトルネックの特定）</li>
                                 </ul>

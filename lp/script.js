@@ -340,7 +340,7 @@ const caseStudies = {
             title: "実施内容",
             content: "静的解析により127件の課題を抽出し、優先度をCritical/High/Medium/Lowの4段階で分類。Critical問題（セキュリティ脆弱性、データ整合性の問題）から順番に改善し、リファクタリングと自動テストを並行実施しました。",
             points: [
-                "SonarQubeとSnykによる静的解析で全課題を可視化",
+                "SemgrepとTrivyによる静的解析で全課題を可視化",
                 "Critical問題12件をシニアエンジニアが優先対応",
                 "AIを活用したリファクタリングで処理速度を3.2倍に改善",
                 "ドキュメント自動生成により属人化を解消"
@@ -411,7 +411,7 @@ const caseStudies = {
             content: "プレミアムプランで診断から実装まで対応。AI活用により診断コストを大幅削減しつつ、Critical問題は必ず2名以上のシニアエンジニアがレビューする体制で品質を担保しました。",
             points: [
                 "OWASP Top 10に準拠したセキュリティ診断",
-                "Snyk、Gitleaksによる自動脆弱性検出",
+                "Trivy、Gitleaksによる自動脆弱性検出",
                 "Critical問題8件を優先対応（SQL Injection、XSS等）",
                 "3ヶ月間の瑕疵担保で安心を提供"
             ]
